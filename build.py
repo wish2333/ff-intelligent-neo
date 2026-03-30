@@ -115,11 +115,28 @@ def _clean() -> None:
 
 # ========== desktop: onedir ==========
 
+def _pre_download_ffmpeg() -> None:
+    """Run pre_build.py to download FFmpeg binaries for packaging."""
+    pre_build = PROJECT_ROOT / "scripts" / "pre_build.py"
+    if not pre_build.exists():
+        _error(f"Pre-build script not found: {pre_build}")
+
+    _info("Pre-downloading FFmpeg binaries...")
+    result = subprocess.run(
+        [sys.executable, str(pre_build)],
+        cwd=str(PROJECT_ROOT),
+    )
+    if result.returncode != 0:
+        _error("FFmpeg pre-download failed. Check network and try again.")
+
+
 def _build_onedir() -> None:
     """Build desktop app as a directory (uses app.spec directly)."""
     uv = _find_cmd("uv")
     if uv is None:
         _error("uv not found.")
+
+    _pre_download_ffmpeg()
 
     spec = PROJECT_ROOT / "app.spec"
     if not spec.exists():
@@ -149,6 +166,8 @@ def _build_onefile() -> None:
     uv = _find_cmd("uv")
     if uv is None:
         _error("uv not found.")
+
+    _pre_download_ffmpeg()
 
     spec_content = _generate_onefile_spec()
     tmp_spec = PROJECT_ROOT / "_build_onefile.spec"
@@ -200,6 +219,15 @@ def _generate_onefile_spec() -> str:
     if presets_dir.is_dir():
         datas_lines += f'        (r"{presets_dir}", "presets"),\n'
 
+    # FFmpeg binaries
+    ffmpeg_bin_dir = project_root / "ffmpeg_binaries"
+    ffmpeg_suffix = ".exe" if sys.platform == "win32" else ""
+    binaries_lines = ""
+    for bin_name in ("ffmpeg", "ffprobe"):
+        bin_path = ffmpeg_bin_dir / f"{bin_name}{ffmpeg_suffix}"
+        if bin_path.exists():
+            binaries_lines += f'        (r"{bin_path}", "."),\n'
+
     icon_line = f'    icon=r"{icon}",' if icon else "    icon=None,"
 
     return f"""\
@@ -221,7 +249,9 @@ APP_NAME = "{app_name}"
 a = Analysis(
     [ENTRY_SCRIPT],
     pathex=[str(project_root)],
-    binaries=[],
+    binaries=[
+{binaries_lines}
+    ],
     datas=[
 {datas_lines}
     ],

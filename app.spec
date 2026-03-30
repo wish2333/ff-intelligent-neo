@@ -26,6 +26,16 @@ _presets_dir = project_root / "presets"
 datas.append((str(_presets_dir), "presets"))
 
 
+# ========== FFmpeg binaries ==========
+_ffmpeg_bin_dir = project_root / "ffmpeg_binaries"
+_ffmpeg_suffix = ".exe" if sys.platform == "win32" else ""
+binaries = []
+for _bin_name in ("ffmpeg", "ffprobe"):
+    _bin_path = _ffmpeg_bin_dir / f"{_bin_name}{_ffmpeg_suffix}"
+    if _bin_path.exists():
+        binaries.append((str(_bin_path), "."))
+
+
 # ========== [MODIFY] Icon ==========
 ICON = None
 
@@ -59,7 +69,7 @@ EXCLUDES_DARWIN = ["PyQt5", "PyQt6", "PySide2", "PySide6", "tkinter"]
 a = Analysis(
     [ENTRY_SCRIPT],
     pathex=[str(project_root)],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
