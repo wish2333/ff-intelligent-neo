@@ -181,3 +181,4 @@ runCC-DS.*
 
 # Build
 frontend_dist/
+ffmpeg_binaries/
