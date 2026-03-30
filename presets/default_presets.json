@@ -1,0 +1,34 @@
+[
+  {
+    "id": "audio-mp3",
+    "name": "Audio to MP3",
+    "description": "Extract/convert audio to MP3 320kbps",
+    "output_extension": ".mp3",
+    "command_template": "-i {input} -vn -c:a libmp3lame -b:a 320k {output}",
+    "is_default": true
+  },
+  {
+    "id": "audio-aac",
+    "name": "Audio to AAC",
+    "description": "Extract/convert audio to AAC 256kbps",
+    "output_extension": ".m4a",
+    "command_template": "-i {input} -vn -c:a aac -b:a 256k {output}",
+    "is_default": true
+  },
+  {
+    "id": "remux-mp4",
+    "name": "Remux to MP4",
+    "description": "Copy streams to MP4 container (no re-encode, very fast)",
+    "output_extension": ".mp4",
+    "command_template": "-i {input} -c copy {output}",
+    "is_default": true
+  },
+  {
+    "id": "extract-audio",
+    "name": "Extract Audio (WAV)",
+    "description": "Extract audio to uncompressed WAV",
+    "output_extension": ".wav",
+    "command_template": "-i {input} -vn -c:a pcm_s16le {output}",
+    "is_default": true
+  }
+]
