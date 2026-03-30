@@ -172,6 +172,7 @@ bun.lock
 # Claude Code
 runCC-GLM.bat
 runCC-OR.bat
+runCC-DS.bat
 
 # Build
 frontend_dist/
