@@ -174,3 +174,187 @@ docs\PRD-2.0.0.md
   6. Verify the / route redirects to #/task-queue
 ```
 
+#### 📝 Commit Message
+
+```
+feat(arch): 多页面应用基础架构搭建完成
+
+- 升级为Vue Router多页面架构，实现TaskQueue、CommandConfig、Settings三大模块路由
+- 完成核心数据模型和TypeScript类型定义体系
+- 实现应用配置系统，支持持久化设置
+- 开发导航栏组件，支持页面切换和FFmpeg状态显示
+- 建立前后端桥接机制，实现事件监听生命周期管理
+- 重构应用为组件化架构，移除冗余的1.x代码
+- 创建基础页面占位符，为后续功能开发奠定架构基础
+```
+
+#### 🚀 Release Notes
+
+```
+## 2026-04-22 - 多页面应用基础架构发布
+
+### ✨ 新增
+- 完整的多页面应用框架，支持文件管理任务队列、FFmpeg命令配置和软件配置三个主要模块
+- 统一的导航系统，可在功能页面间快速切换，并显示FFmpeg运行状态
+- 基础页面框架已就绪，各页面已预留接口便于后续功能扩展
+- 应用设置可持久化保存，确保用户配置不丢失
+- 前后端数据交互机制已建立，为实时通信做好准备
+
+### ⚡ 优化
+- 应用启动速度显著提升：重构了组件结构，移除了冗余代码
+- 代码质量提升：统一了数据模型定义，提高了类型安全性
+```
+
+### Phase 2a
+
+```
+  Phase 2a Summary
+
+  What was built
+
+  ┌─────────────────────────┬───────────┬───────┬────────────────────────────────────────────────────────────────────┐
+  │          File           │  Action   │ Lines │                            Description                             │
+  ├─────────────────────────┼───────────┼───────┼────────────────────────────────────────────────────────────────────┤
+  │ core/models.py          │ Modified  │ ~350  │ Added to_dict/from_dict to all data classes, fixed transition()    │
+  │                         │           │       │ return type                                                        │
+  ├─────────────────────────┼───────────┼───────┼────────────────────────────────────────────────────────────────────┤
+  │ core/file_info.py       │ Modified  │ ~95   │ Removed FileItem dependency, returns dict                          │
+  ├─────────────────────────┼───────────┼───────┼────────────────────────────────────────────────────────────────────┤
+  │ core/command_builder.py │ Created   │ ~100  │ build_command() + build_output_path() from TaskConfig              │
+  ├─────────────────────────┼───────────┼───────┼────────────────────────────────────────────────────────────────────┤
+  │ core/task_queue.py      │ Created   │ ~200  │ Thread-safe task CRUD, state machine, ordering, debounced JSON     │
+  │                         │           │       │ persistence                                                        │
+  ├─────────────────────────┼───────────┼───────┼────────────────────────────────────────────────────────────────────┤
+  │ core/ffmpeg_runner.py   │ Rewritten │ ~180  │ Works with Task model, per-task cancel_event, log appending        │
+  ├─────────────────────────┼───────────┼───────┼────────────────────────────────────────────────────────────────────┤
+  │ core/task_runner.py     │ Created   │ ~200  │ ThreadPool, task dispatch, stop_all, race-condition-safe           │
+  │                         │           │       │ completion                                                         │
+  ├─────────────────────────┼───────────┼───────┼────────────────────────────────────────────────────────────────────┤
+  │ core/config.py          │ Modified  │ ~55   │ Removed unused Callable import                                     │
+  ├─────────────────────────┼───────────┼───────┼────────────────────────────────────────────────────────────────────┤
+  │ main.py                 │ Rewritten │ ~290  │ 16 @expose methods: task CRUD, control, settings, dialogs          │
+  └─────────────────────────┴───────────┴───────┴────────────────────────────────────────────────────────────────────┘
+
+  New @expose methods in main.py
+
+  - Task Queue: add_tasks, remove_tasks, reorder_tasks, get_tasks, get_queue_summary, clear_completed, clear_all
+  - Task Control: start_task, stop_task, stop_all, pause_all (stub), resume_all (stub)
+  - Settings: get_settings, save_settings
+  - Existing: setup_ffmpeg, get_app_info, select_files, select_output_dir
+
+  Review fixes applied
+
+  - CRITICAL: Task.transition() return type None -> str
+  - CRITICAL: Race condition guard in TaskRunner._run_task (try/except ValueError)
+  - CRITICAL: Logging in TaskQueue.save_state/load_state error handlers
+  - HIGH: Atomic add_tasks (probe all, then batch add)
+  - HIGH: remove_tasks emits only for existing tasks
+  - HIGH: Removed unused imports, added proper import json
+  - MEDIUM: Eliminated serialization duplication via TaskConfig.to_dict/from_dict delegation
+
+  Manual Test Items
+
+  Run uv run main.py and verify in the browser console:
+
+  1. call('get_tasks') returns {success: true, data: []}
+  2. call('get_queue_summary') returns {success: true, data: {pending: 0, running: 0, ...}}
+  3. call('get_settings') returns {success: true, data: {max_workers: 2, ...}}
+  4. call('select_files') opens file dialog
+  5. call('add_tasks', [{paths: ['...'], config: {}}]) returns tasks with probed metadata
+  6. call('get_tasks') now returns the added tasks
+  7. call('get_queue_summary') shows pending: 1
+  8. call('remove_tasks', [{task_ids: ['...']}]) removes the task
+```
+
+### ClaudeMem-Phase1,2
+
+```
+     Legend: session-request | 🔴 bugfix | 🟣 feature | 🔄 refactor | ✅ change | 🔵 discovery | ⚖️ decision
+    Apr 22, 2026
+
+     docs/PRD-2.0.0.md
+       #822  7:35 PM  🔵  Phase 2a focuses on task queue backend implementation
+       #823           🔵  Phase 1 frontend architecture gaps reviewed prior to Phase 2 development
+       #824           🔵  Phase 1 requirements reviewed showing 12 implementation tasks for foundation layer
+       #825           🔵  Phase 2a defines 5 backend implementation tasks for complete task management system
+     core/__init__.py
+       #826  7:36 PM  🔵  Phase 1 completion analysis reveals 5 critical Phase 2a gaps requiring implementation
+     docs/PRD-2.0.0.md
+       #827           🔵  Phase 2a development planning completed with comprehensive codebase analysis
+     core/batch_runner.py
+       #828           🔵  Phase 2a planning initiated with file structure review
+     main.py
+       #829           🔵  Code structure analysis tools encountered parsing limitations on Python files
+       #830  7:37 PM  🔵  Phase 2a planning completed comprehensive codebase analysis of existing 1.x architecture
+     core/models.py
+       #831  7:38 PM  🟣  Phase 2a implementation started with core/task_queue.py task creation
+       #832           🟣  Phase 2a implementation plan created with 6 interconnected tasks and dependency graph
+     core/file_info.py
+       #833           🟣  Phase 2a implementation commenced with three parallel tasks
+     core/config.py
+       #834  7:39 PM  🔵  JSON persistence reference pattern identified in config.py for task_queue implementation
+     core/file_info.py
+       #835  7:40 PM  🔄  file_info.py refactored to return dict instead of FileItem for Phase 2a compatibility
+       #836           🟣  Phase 2a foundational modules completed: command_builder.py, task_queue.py, and file_info.py
+     refactor
+     core/ffmpeg_runner.py
+       #837           🔄  ffmpeg_runner.py rewritten to integrate with Task model and TaskProgress frozen dataclass
+     General
+       #838           🟣  Phase 2a implementation progressing: task_runner.py started, ffmpeg_runner.py rewrite
+     completed
+     core/task_runner.py
+       #839  7:41 PM  🟣  task_runner.py implemented with ThreadPool management, per-task cancellation, and event
+     emission
+     General
+       #840           🟣  Phase 2a final task commenced: main.py rewrite to integrate task queue backend
+     main.py
+       #841           🟣  Phase 2a backend implementation completed: main.py rewritten with 12 task API methods
+     core/models.py
+       #842  7:43 PM  🔵  Phase 2a implementation verified: all Python module imports successful
+     core/file_info.py
+       #843  7:50 PM  🟣  Phase 2a task queue backend implementation completed and verified
+     core/task_queue.py
+       #844           🔵  Phase 2a task_queue functionality validated through comprehensive smoke test
+     core/command_builder.py
+       #845  7:54 PM  🔵  Windows path handling validated
+       #846  7:56 PM  🔵  build_output_path function validated with cross-platform tests
+     core/models.py
+       #847           🟣  Phase 1 architecture refactor completed - migrated from MVP to 2.0 task-based model
+     pywebvue/bridge.py
+       #848  7:57 PM  🟣  Bridge infrastructure refactored for thread-safe event queuing and main-thread task execution
+
+     main.py
+       #849  7:58 PM  🟣  Phase 1 bridge API implementation completed with task queue management and control operations
+
+     core/task_queue.py
+       #850           🟣  Phase 1 core implementation modules completed with full task lifecycle management
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\models.py
+       #851  8:05 PM  🔵  Code review identified critical bugs and race conditions in Phase 2a backend
+       #852           🔴  Fixed Task.transition return type and added TaskConfig serialization methods
+       #853  8:06 PM  🔄  Added serialization methods to TranscodeConfig class
+       #854           🔄  Added serialization methods to FilterConfig class
+       #855           🔄  Refactored Task serialization to delegate to nested objects
+       #856  8:07 PM  🔄  Added to_dict method to TaskProgress class
+       #857           🔄  Refactored Preset serialization to delegate to TaskConfig
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_runner.py
+       #858           🔴  Fixed race condition in TaskRunner._run_task state transition
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_queue.py
+       #859           🔴  Added error logging to TaskQueue persistence methods
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\ffmpeg_runner.py
+       #860  8:08 PM  🔴  Replaced inline json import with top-level import in ffmpeg_runner.py
+       #861           🔴  Added exception logging to stderr reader thread in ffmpeg_runner.py
+     ..\..\Git\GithubManager\ff-intelligent-neo\main.py
+       #862  8:09 PM  🔴  Refactored add_tasks to use atomic batch operations
+       #863           🔴  Fixed remove_tasks to only emit events for actually removed tasks
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\models.py
+       #864  8:11 PM  🔵  All code review fixes verified and passing
+     General
+       #865  8:13 PM  🔵  Bridge base class lacks setup_ffmpeg method
+       #866           🔵  App class passes bridge instance to pywebview unchanged
+       #867  8:14 PM  🔵  Error source identified in frontend bridge.ts call wrapper
+       #868           🔵  AppNavbar.vue component calls missing setup_ffmpeg method
+       #869           🔵  Application entry point confirmed - no bridge methods defined
+       #870  8:15 PM  ✅  waitForPyWebView modified to verify setup_ffmpeg method availability
+       #871           ✅  call function modified to verify methods are callable
+```
+

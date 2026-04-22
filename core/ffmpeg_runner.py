@@ -1,13 +1,19 @@
-"""Single-file FFmpeg execution with progress parsing."""
+"""Single-file FFmpeg execution with progress parsing.
+
+Refactored for 2.0: works with the new :class:`Task` model and reports
+progress as frozen :class:`TaskProgress` snapshots.
+"""
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import threading
 import time
 
 from core.logging import get_logger
+from core.models import Task, TaskProgress
 
 logger = get_logger()
 
@@ -43,7 +49,7 @@ def _get_duration_seconds(ffprobe: str, file_path: str) -> float:
         )
         if result.returncode != 0:
             return 0.0
-        info = __import__("json").loads(result.stdout)
+        info = json.loads(result.stdout)
         return float(info.get("format", {}).get("duration", 0))
     except Exception as exc:
         logger.warning("Failed to get duration for {}: {}", file_path, exc)
@@ -51,38 +57,33 @@ def _get_duration_seconds(ffprobe: str, file_path: str) -> float:
 
 
 def run_single(
+    task: Task,
     ffmpeg_path: str,
     ffprobe_path: str,
     args: list[str],
     cancel_event: threading.Event,
-    on_progress=None,
-    on_log=None,
-    on_proc_start=None,
+    on_progress: "Callable[[TaskProgress], None] | None" = None,
+    on_log: "Callable[[str], None] | None" = None,
+    on_proc_start: "Callable[[subprocess.Popen], None] | None" = None,
 ) -> tuple[bool, str]:
-    """Execute a single FFmpeg command with progress tracking.
+    """Execute a single FFmpeg command for *task*.
 
     Args:
+        task: The Task entity (mutable -- progress/log updated in-place).
         ffmpeg_path: Path to ffmpeg binary.
         ffprobe_path: Path to ffprobe binary.
         args: FFmpeg arguments (without the binary name).
         cancel_event: Threading event to signal cancellation.
-        on_progress: Callback(percent: float, time_str: str, speed: str, fps: str, current_seconds: float, total_duration_seconds: float).
-        on_log: Callback(line: str).
-        on_proc_start: Callback(proc: subprocess.Popen) called when process starts.
+        on_progress: Callback receiving a frozen TaskProgress snapshot.
+        on_log: Callback receiving each stderr line (stripped).
+        on_proc_start: Callback receiving the Popen object after launch.
 
     Returns:
         Tuple of (success: bool, error_message: str).
     """
-    # Find input file in args to get duration
-    input_path = ""
-    for i, arg in enumerate(args):
-        if arg == "-i" and i + 1 < len(args):
-            input_path = args[i + 1]
-            break
-
     duration = 0.0
-    if input_path and ffprobe_path:
-        duration = _get_duration_seconds(ffprobe_path, input_path)
+    if task.file_path and ffprobe_path:
+        duration = _get_duration_seconds(ffprobe_path, task.file_path)
 
     cmd = [ffmpeg_path, "-hide_banner", "-y", *args]
     logger.debug("Running: {}", " ".join(cmd))
@@ -107,17 +108,23 @@ def run_single(
     current_speed = ""
     current_fps = ""
 
-    def _read_stderr():
+    def _read_stderr() -> None:
         nonlocal last_progress_time, current_speed, current_fps
         try:
             for line in proc.stderr:  # type: ignore[union-attr]
                 if cancel_event.is_set():
                     break
 
+                stripped = line.rstrip()
                 if on_log:
-                    on_log(line.rstrip())
+                    on_log(stripped)
 
-                # Parse speed and fps from every line (they appear periodically)
+                # Append to task log (keep last 500 lines)
+                task.log_lines.append(stripped)
+                if len(task.log_lines) > 500:
+                    task.log_lines = task.log_lines[-500:]
+
+                # Parse speed and fps from every line
                 speed_match = _SPEED_RE.search(line)
                 if speed_match:
                     current_speed = speed_match.group(1)
@@ -134,21 +141,28 @@ def run_single(
                         now = time.monotonic()
                         if now - last_progress_time >= 0.5:
                             last_progress_time = now
-                            on_progress(percent, match.group(0), current_speed, current_fps, current, duration)
+                            progress = TaskProgress(
+                                percent=percent,
+                                current_seconds=current,
+                                total_seconds=duration,
+                                speed=current_speed,
+                                fps=current_fps,
+                            )
+                            task.update_progress(progress)
+                            on_progress(progress)
         except Exception:
-            pass
+            logger.exception("Error reading stderr (task {})", task.id)
 
     reader_thread = threading.Thread(target=_read_stderr, daemon=True)
     reader_thread.start()
 
     # Wait for process to finish OR cancellation
+    returncode = 0
     try:
         while True:
-            # 检查取消请求
             if cancel_event.is_set():
                 proc.kill()
-                logger.info("FFmpeg process killed due to cancel request")
-                # 等待进程真正结束
+                logger.info("FFmpeg process killed (task {})", task.id)
                 try:
                     proc.wait(timeout=5)
                 except Exception:
@@ -156,28 +170,31 @@ def run_single(
                 reader_thread.join(timeout=2)
                 return False, "Cancelled"
 
-            # 检查进程是否自然结束
             returncode = proc.poll()
             if returncode is not None:
-                # 进程结束
                 break
 
-            # 短暂休眠避免忙等待
             time.sleep(0.1)
-
     except Exception as e:
-        logger.error("Exception during proc wait: {}", e)
+        logger.error("Exception during proc wait (task {}): {}", task.id, e)
         proc.kill()
         returncode = -1
 
-    # 等待读取线程结束
     reader_thread.join(timeout=2)
 
     if returncode == 0:
         if on_progress:
-            on_progress(100, "", current_speed, current_fps, duration, duration)
-        logger.info("FFmpeg completed successfully")
+            progress = TaskProgress(
+                percent=100.0,
+                current_seconds=duration,
+                total_seconds=duration,
+                speed=current_speed,
+                fps=current_fps,
+            )
+            task.update_progress(progress)
+            on_progress(progress)
+        logger.info("FFmpeg completed (task {})", task.id)
         return True, ""
-    else:
-        logger.error("FFmpeg exited with code {}", returncode)
-        return False, f"FFmpeg exited with code {returncode}"
+
+    logger.error("FFmpeg exited with code {} (task {})", returncode, task.id)
+    return False, f"FFmpeg exited with code {returncode}"

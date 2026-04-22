@@ -38,6 +38,29 @@ class TranscodeConfig:
     framerate: str = ""
     output_extension: str = ".mp4"
 
+    def to_dict(self) -> dict:
+        return {
+            "video_codec": self.video_codec,
+            "audio_codec": self.audio_codec,
+            "video_bitrate": self.video_bitrate,
+            "audio_bitrate": self.audio_bitrate,
+            "resolution": self.resolution,
+            "framerate": self.framerate,
+            "output_extension": self.output_extension,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TranscodeConfig:
+        return cls(
+            video_codec=data.get("video_codec", "libx264"),
+            audio_codec=data.get("audio_codec", "aac"),
+            video_bitrate=data.get("video_bitrate", ""),
+            audio_bitrate=data.get("audio_bitrate", ""),
+            resolution=data.get("resolution", ""),
+            framerate=data.get("framerate", ""),
+            output_extension=data.get("output_extension", ".mp4"),
+        )
+
 
 # ---------------------------------------------------------------------------
 # Filter parameters
@@ -56,6 +79,29 @@ class FilterConfig:
     volume: str = ""
     speed: str = ""
 
+    def to_dict(self) -> dict:
+        return {
+            "rotate": self.rotate,
+            "crop": self.crop,
+            "watermark_path": self.watermark_path,
+            "watermark_position": self.watermark_position,
+            "watermark_margin": self.watermark_margin,
+            "volume": self.volume,
+            "speed": self.speed,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> FilterConfig:
+        return cls(
+            rotate=data.get("rotate", ""),
+            crop=data.get("crop", ""),
+            watermark_path=data.get("watermark_path", ""),
+            watermark_position=data.get("watermark_position", "bottom-right"),
+            watermark_margin=data.get("watermark_margin", 10),
+            volume=data.get("volume", ""),
+            speed=data.get("speed", ""),
+        )
+
 
 # ---------------------------------------------------------------------------
 # Task-level configuration
@@ -69,6 +115,23 @@ class TaskConfig:
     transcode: TranscodeConfig = field(default_factory=TranscodeConfig)
     filters: FilterConfig = field(default_factory=FilterConfig)
     output_dir: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "transcode": self.transcode.to_dict(),
+            "filters": self.filters.to_dict(),
+            "output_dir": self.output_dir,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TaskConfig:
+        tc = data.get("transcode", {})
+        fc = data.get("filters", {})
+        return cls(
+            transcode=TranscodeConfig.from_dict(tc),
+            filters=FilterConfig.from_dict(fc),
+            output_dir=data.get("output_dir", ""),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -87,6 +150,17 @@ class TaskProgress:
     fps: str = ""
     frame: int = 0
     estimated_remaining: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "percent": self.percent,
+            "current_seconds": self.current_seconds,
+            "total_seconds": self.total_seconds,
+            "speed": self.speed,
+            "fps": self.fps,
+            "frame": self.frame,
+            "estimated_remaining": self.estimated_remaining,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +192,12 @@ class Task:
     def can_transition(self, new_state: TaskState) -> bool:
         return new_state in VALID_TRANSITIONS.get(self.state, set())
 
-    def transition(self, new_state: TaskState) -> None:
+    def transition(self, new_state: TaskState) -> str:
+        """Transition to *new_state* and return the previous state.
+
+        Raises ``ValueError`` if the transition is invalid per
+        ``VALID_TRANSITIONS``.
+        """
         if not self.can_transition(new_state):
             raise ValueError(
                 f"Invalid transition: {self.state} -> {new_state}"
@@ -132,7 +211,7 @@ class Task:
         if new_state in ("completed", "failed", "cancelled"):
             self.completed_at = datetime.now().isoformat()
 
-        return old_state  # type: ignore[return-value]
+        return old_state
 
     def update_progress(self, progress: TaskProgress) -> None:
         self.progress = progress
@@ -145,37 +224,9 @@ class Task:
             "file_name": self.file_name,
             "file_size_bytes": self.file_size_bytes,
             "duration_seconds": self.duration_seconds,
-            "config": {
-                "transcode": {
-                    "video_codec": self.config.transcode.video_codec,
-                    "audio_codec": self.config.transcode.audio_codec,
-                    "video_bitrate": self.config.transcode.video_bitrate,
-                    "audio_bitrate": self.config.transcode.audio_bitrate,
-                    "resolution": self.config.transcode.resolution,
-                    "framerate": self.config.transcode.framerate,
-                    "output_extension": self.config.transcode.output_extension,
-                },
-                "filters": {
-                    "rotate": self.config.filters.rotate,
-                    "crop": self.config.filters.crop,
-                    "watermark_path": self.config.filters.watermark_path,
-                    "watermark_position": self.config.filters.watermark_position,
-                    "watermark_margin": self.config.filters.watermark_margin,
-                    "volume": self.config.filters.volume,
-                    "speed": self.config.filters.speed,
-                },
-                "output_dir": self.config.output_dir,
-            },
+            "config": self.config.to_dict(),
             "state": self.state,
-            "progress": {
-                "percent": self.progress.percent,
-                "current_seconds": self.progress.current_seconds,
-                "total_seconds": self.progress.total_seconds,
-                "speed": self.progress.speed,
-                "fps": self.progress.fps,
-                "frame": self.progress.frame,
-                "estimated_remaining": self.progress.estimated_remaining,
-            },
+            "progress": self.progress.to_dict(),
             "output_path": self.output_path,
             "error": self.error,
             "log_lines": self.log_lines[-100:],
@@ -187,8 +238,6 @@ class Task:
     @classmethod
     def from_dict(cls, data: dict) -> Task:
         """Deserialize from dict (JSON persistence / bridge transfer)."""
-        tc = data.get("config", {}).get("transcode", {})
-        fc = data.get("config", {}).get("filters", {})
         pr = data.get("progress", {})
 
         return cls(
@@ -197,27 +246,7 @@ class Task:
             file_name=data.get("file_name", ""),
             file_size_bytes=data.get("file_size_bytes", 0),
             duration_seconds=data.get("duration_seconds", 0.0),
-            config=TaskConfig(
-                transcode=TranscodeConfig(
-                    video_codec=tc.get("video_codec", "libx264"),
-                    audio_codec=tc.get("audio_codec", "aac"),
-                    video_bitrate=tc.get("video_bitrate", ""),
-                    audio_bitrate=tc.get("audio_bitrate", ""),
-                    resolution=tc.get("resolution", ""),
-                    framerate=tc.get("framerate", ""),
-                    output_extension=tc.get("output_extension", ".mp4"),
-                ),
-                filters=FilterConfig(
-                    rotate=fc.get("rotate", ""),
-                    crop=fc.get("crop", ""),
-                    watermark_path=fc.get("watermark_path", ""),
-                    watermark_position=fc.get("watermark_position", "bottom-right"),
-                    watermark_margin=fc.get("watermark_margin", 10),
-                    volume=fc.get("volume", ""),
-                    speed=fc.get("speed", ""),
-                ),
-                output_dir=data.get("config", {}).get("output_dir", ""),
-            ),
+            config=TaskConfig.from_dict(data.get("config", {})),
             state=data.get("state", "pending"),
             progress=TaskProgress(
                 percent=pr.get("percent", 0.0),
@@ -258,61 +287,18 @@ class Preset:
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "config": {
-                "transcode": {
-                    "video_codec": self.config.transcode.video_codec,
-                    "audio_codec": self.config.transcode.audio_codec,
-                    "video_bitrate": self.config.transcode.video_bitrate,
-                    "audio_bitrate": self.config.transcode.audio_bitrate,
-                    "resolution": self.config.transcode.resolution,
-                    "framerate": self.config.transcode.framerate,
-                    "output_extension": self.config.transcode.output_extension,
-                },
-                "filters": {
-                    "rotate": self.config.filters.rotate,
-                    "crop": self.config.filters.crop,
-                    "watermark_path": self.config.filters.watermark_path,
-                    "watermark_position": self.config.filters.watermark_position,
-                    "watermark_margin": self.config.filters.watermark_margin,
-                    "volume": self.config.filters.volume,
-                    "speed": self.config.filters.speed,
-                },
-                "output_dir": self.config.output_dir,
-            },
+            "config": self.config.to_dict(),
             "is_default": self.is_default,
         }
 
     @classmethod
     def from_dict(cls, data: dict) -> Preset:
         """Deserialize from dict."""
-        tc = data.get("config", {}).get("transcode", {})
-        fc = data.get("config", {}).get("filters", {})
-
         return cls(
             id=data.get("id", ""),
             name=data.get("name", ""),
             description=data.get("description", ""),
-            config=TaskConfig(
-                transcode=TranscodeConfig(
-                    video_codec=tc.get("video_codec", "libx264"),
-                    audio_codec=tc.get("audio_codec", "aac"),
-                    video_bitrate=tc.get("video_bitrate", ""),
-                    audio_bitrate=tc.get("audio_bitrate", ""),
-                    resolution=tc.get("resolution", ""),
-                    framerate=tc.get("framerate", ""),
-                    output_extension=tc.get("output_extension", ".mp4"),
-                ),
-                filters=FilterConfig(
-                    rotate=fc.get("rotate", ""),
-                    crop=fc.get("crop", ""),
-                    watermark_path=fc.get("watermark_path", ""),
-                    watermark_position=fc.get("watermark_position", "bottom-right"),
-                    watermark_margin=fc.get("watermark_margin", 10),
-                    volume=fc.get("volume", ""),
-                    speed=fc.get("speed", ""),
-                ),
-                output_dir=data.get("config", {}).get("output_dir", ""),
-            ),
+            config=TaskConfig.from_dict(data.get("config", {})),
             is_default=data.get("is_default", False),
         )
 

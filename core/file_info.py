@@ -4,27 +4,28 @@ from __future__ import annotations
 
 import json
 import subprocess
+from pathlib import Path
 
-from core.models import FileItem
 
-
-def probe_file(file_path: str) -> FileItem:
-    """Probe a media file with ffprobe and return a FileItem.
+def probe_file(file_path: str) -> dict:
+    """Probe a media file with ffprobe and return a metadata dict.
 
     Falls back gracefully if ffprobe is unavailable -- returns a
-    FileItem with empty metadata fields.
+    dict with only basic file system fields.
     """
-    from pathlib import Path
-
     p = Path(file_path)
     name = p.name
     size_bytes = p.stat().st_size if p.exists() else 0
 
-    ffprobe = __import__("core.ffmpeg_setup", fromlist=["get_ffprobe_path"]).get_ffprobe_path()
+    ffprobe = __import__(
+        "core.ffmpeg_setup", fromlist=["get_ffprobe_path"]
+    ).get_ffprobe_path()
     if ffprobe is None:
-        return FileItem(
-            path=file_path, name=name, size_bytes=size_bytes,
-        )
+        return {
+            "file_path": file_path,
+            "file_name": name,
+            "file_size_bytes": size_bytes,
+        }
 
     try:
         result = subprocess.run(
@@ -43,16 +44,20 @@ def probe_file(file_path: str) -> FileItem:
             errors="replace",
         )
         if result.returncode != 0:
-            return FileItem(
-                path=file_path, name=name, size_bytes=size_bytes,
-            )
+            return {
+                "file_path": file_path,
+                "file_name": name,
+                "file_size_bytes": size_bytes,
+            }
 
         info = json.loads(result.stdout)
         return _parse_probe(file_path, name, size_bytes, info)
     except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
-        return FileItem(
-            path=file_path, name=name, size_bytes=size_bytes,
-        )
+        return {
+            "file_path": file_path,
+            "file_name": name,
+            "file_size_bytes": size_bytes,
+        }
 
 
 def _parse_probe(
@@ -60,7 +65,7 @@ def _parse_probe(
     name: str,
     size_bytes: int,
     info: dict,
-) -> FileItem:
+) -> dict:
     """Extract relevant fields from ffprobe JSON output."""
     fmt = info.get("format", {})
     duration = float(fmt.get("duration", 0))
@@ -82,14 +87,14 @@ def _parse_probe(
         elif codec_type == "audio" and not audio_codec:
             audio_codec = codec_name
 
-    return FileItem(
-        path=file_path,
-        name=name,
-        size_bytes=size_bytes,
-        duration_seconds=duration,
-        video_codec=video_codec,
-        audio_codec=audio_codec,
-        width=width,
-        height=height,
-        format_name=format_name,
-    )
+    return {
+        "file_path": file_path,
+        "file_name": name,
+        "file_size_bytes": size_bytes,
+        "duration_seconds": duration,
+        "video_codec": video_codec,
+        "audio_codec": audio_codec,
+        "width": width,
+        "height": height,
+        "format_name": format_name,
+    }
