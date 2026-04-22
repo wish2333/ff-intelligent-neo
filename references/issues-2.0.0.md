@@ -358,3 +358,58 @@ feat(arch): 多页面应用基础架构搭建完成
        #871           ✅  call function modified to verify methods are callable
 ```
 
+### Phase2b
+
+```
+  Phase 2b Complete
+
+  Files Created (13 new files)
+
+  Utilities:
+  - frontend/src/utils/format.ts - formatDuration, formatFileSize, formatPercent, formatResolution
+
+  Composables (4):
+  - frontend/src/composables/useTaskQueue.ts - tasks[], selectedIds[], summary, add/remove/clear/reorder
+  - frontend/src/composables/useTaskControl.ts - startTask, stopTask, stopAll, pauseAll, resumeAll
+  - frontend/src/composables/useTaskProgress.ts - progressMap{}, logsMap{} with event listeners
+  - frontend/src/composables/useFileDrop.ts - drag state + pywebvue get_dropped_files integration
+
+  Components (7):
+  - frontend/src/components/task-queue/QueueSummary.vue - badge summary bar
+  - frontend/src/components/task-queue/TaskProgressBar.vue - progress bar + time/speed/fps
+  - frontend/src/components/task-queue/TaskRow.vue - file info + state badge + action buttons
+  - frontend/src/components/task-queue/TaskList.vue - table container with empty state
+  - frontend/src/components/task-queue/TaskToolbar.vue - add/remove/clear + select all
+  - frontend/src/components/task-queue/BatchControlBar.vue - batch start/pause/resume/stop
+  - frontend/src/components/task-queue/TaskLogPanel.vue - collapsible log viewer
+
+  Page:
+  - frontend/src/pages/TaskQueuePage.vue - full implementation composing all components
+
+  Verification
+
+  - TypeScript: zero errors
+  - Vite build: succeeds (1.41s)
+
+  Manual Test Checklist
+
+  Run uv run main.py and verify in the app:
+
+  1. Task Queue page loads without errors
+  2. "Add Files" button opens file dialog, selected files appear in the list as "Pending"
+  3. Drag-and-drop files onto the queue area - files are added
+  4. Click checkbox on a task row to select it, checkbox in toolbar shows selection
+  5. "Select All" checkbox selects/deselects all tasks
+  6. "Remove" button removes selected tasks
+  7. Click "Start" on a pending task - state changes to "Running" with progress bar
+  8. Click "Stop" on a running task - state changes to "Cancelled"
+  9. Click "Start All" - all pending tasks start sequentially
+  10. Click "Stop All" - all active tasks stop
+  11. Click "Log" button on a task - log panel opens showing FFmpeg stderr
+  12. Close log panel via X button
+  13. "Clear Done" removes completed tasks
+  14. "Clear All" empties the queue
+  15. Queue summary badges update in real-time
+  16. Empty state shows "No tasks yet" placeholde
+```
+

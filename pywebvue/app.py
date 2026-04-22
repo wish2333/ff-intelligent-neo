@@ -132,7 +132,7 @@ class App:
             interval_ms = self._tick_interval
             window.evaluate_js(
                 f"setInterval(function(){{"
-                f"  window.pywebview.api._tick();"
+                f"  window.pywebview.api.tick();"
                 f"}}, {interval_ms});"
             )
 

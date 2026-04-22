@@ -29,7 +29,7 @@ class TaskQueue:
 
     def __init__(self) -> None:
         self._tasks: list[Task] = []
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._save_timer: threading.Timer | None = None
         self._on_change: Callable[[dict], None] | None = None
 

@@ -67,7 +67,16 @@ class Bridge:
         """
         self._event_queue.put((event, data))
 
-    def _tick(self) -> None:
+    @expose
+    def tick(self) -> None:
+        """Flush queued events and run main-thread tasks.
+
+        Called periodically by a JS timer set up in :class:`~pywebvue.app.App`.
+        Exposed so the JS timer can reach it.
+        """
+        self._tick_internal()
+
+    def _tick_internal(self) -> None:
         """Flush queued events.  Called on the main thread by a JS timer."""
         import json
 

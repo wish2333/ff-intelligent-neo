@@ -75,23 +75,38 @@ def build_output_path(
     input_path: str,
     config: TaskConfig,
     output_dir: str = "",
+    timestamp: str = "",
 ) -> str:
     """Compute the output file path for a given input.
 
     If *output_dir* is empty the output goes next to the source file.
-    The file stem is preserved; only the extension changes.
+    When outputting to the source directory, a *timestamp* suffix is
+    appended to the stem to avoid overwriting the original file
+    (e.g. ``video-20260422_210000.mp4``).
 
     Args:
         input_path: Source file path.
         config: Task configuration (reads output_extension).
         output_dir: Override directory (empty = same as source).
+        timestamp: Timestamp string in ``YYYYMMDD_HHMMSS`` format.
 
     Returns:
         Full output path string.
     """
+    from datetime import datetime
+
     src = Path(input_path)
     ext = config.transcode.output_extension or src.suffix
-    filename = f"{src.stem}{ext}"
+
+    same_dir = not output_dir
+    if same_dir and not timestamp:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    stem = src.stem
+    if same_dir:
+        filename = f"{stem}-{timestamp}{ext}"
+    else:
+        filename = f"{stem}{ext}"
 
     if output_dir:
         return str(Path(output_dir) / filename)
