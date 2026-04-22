@@ -298,6 +298,76 @@ class FFmpegApi(Bridge):
             return {"success": False, "error": str(exc)}
 
     # ------------------------------------------------------------------
+    # Config & Presets
+    # ------------------------------------------------------------------
+
+    @property
+    def _preset_mgr(self):
+        from core.preset_manager import PresetManager
+        if not hasattr(self, "_preset_mgr_inst"):
+            self._preset_mgr_inst = PresetManager()
+        return self._preset_mgr_inst
+
+    @expose
+    def build_command(self, config: dict) -> dict:
+        """Build an FFmpeg command string from a config dict (for preview)."""
+        try:
+            from core.models import TaskConfig
+            from core.command_builder import build_command_preview
+            tc = TaskConfig.from_dict(config)
+            cmd = build_command_preview(tc)
+            return {"success": True, "data": cmd}
+        except Exception as exc:
+            logger.exception("build_command failed: {}", exc)
+            return {"success": False, "error": str(exc)}
+
+    @expose
+    def validate_config(self, config: dict) -> dict:
+        """Validate a config dict. Returns {errors, warnings} lists."""
+        try:
+            from core.models import TaskConfig
+            from core.command_builder import validate_config, ValidationContext
+            tc = TaskConfig.from_dict(config)
+            ctx = ValidationContext()
+            result = validate_config(tc, ctx)
+            return {"success": True, "data": result}
+        except Exception as exc:
+            logger.exception("validate_config failed: {}", exc)
+            return {"success": False, "error": str(exc)}
+
+    @expose
+    def get_presets(self) -> dict:
+        """Return all presets (defaults + user)."""
+        try:
+            presets = self._preset_mgr.list_presets()
+            return {"success": True, "data": presets}
+        except Exception as exc:
+            logger.exception("get_presets failed: {}", exc)
+            return {"success": False, "error": str(exc)}
+
+    @expose
+    def save_preset(self, preset: dict) -> dict:
+        """Create or update a user preset."""
+        try:
+            saved = self._preset_mgr.save_preset(preset)
+            return {"success": True, "data": saved}
+        except Exception as exc:
+            logger.exception("save_preset failed: {}", exc)
+            return {"success": False, "error": str(exc)}
+
+    @expose
+    def delete_preset(self, preset_id: str) -> dict:
+        """Delete a user preset."""
+        try:
+            self._preset_mgr.delete_preset(preset_id)
+            return {"success": True, "data": None}
+        except ValueError as exc:
+            return {"success": False, "error": str(exc)}
+        except Exception as exc:
+            logger.exception("delete_preset failed: {}", exc)
+            return {"success": False, "error": str(exc)}
+
+    # ------------------------------------------------------------------
     # Settings (Phase 1 stubs)
     # ------------------------------------------------------------------
 
@@ -328,8 +398,8 @@ if __name__ == "__main__":
     app = App(
         api,
         title="FF Intelligent Neo",
-        width=960,
-        height=720,
+        width=1200,
+        height=900,
         min_size=(800, 600),
         frontend_dir="frontend_dist",
     )

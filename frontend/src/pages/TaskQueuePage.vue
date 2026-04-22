@@ -11,6 +11,7 @@ import { useTaskQueue } from "../composables/useTaskQueue"
 import { useTaskControl } from "../composables/useTaskControl"
 import { useTaskProgress } from "../composables/useTaskProgress"
 import { useFileDrop } from "../composables/useFileDrop"
+import { useGlobalConfig } from "../composables/useGlobalConfig"
 
 import TaskToolbar from "../components/task-queue/TaskToolbar.vue"
 import QueueSummary from "../components/task-queue/QueueSummary.vue"
@@ -22,6 +23,7 @@ const queue = useTaskQueue()
 const control = useTaskControl()
 const progress = useTaskProgress()
 const fileDrop = useFileDrop()
+const globalConfig = useGlobalConfig()
 
 const activeLogTaskId = ref<string | null>(null)
 
@@ -50,7 +52,7 @@ async function handleAddFiles(): Promise<void> {
     }
     if (!res.data || res.data.length === 0) return
     console.log("[TaskQueuePage] selected files:", res.data)
-    const added = await queue.addTasks(res.data)
+    const added = await queue.addTasks(res.data, globalConfig.toTaskConfig())
     console.log("[TaskQueuePage] added tasks:", added.length)
   } catch (err) {
     console.error("[TaskQueuePage] handleAddFiles error:", err)
@@ -62,7 +64,7 @@ async function handleDrop(): Promise<void> {
     const paths = await fileDrop.onDrop()
     console.log("[TaskQueuePage] dropped files:", paths)
     if (paths.length > 0) {
-      const added = await queue.addTasks(paths)
+      const added = await queue.addTasks(paths, globalConfig.toTaskConfig())
       console.log("[TaskQueuePage] added tasks:", added.length)
     }
   } catch (err) {

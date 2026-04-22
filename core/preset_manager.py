@@ -1,10 +1,14 @@
-"""Preset management: load defaults, CRUD user presets, resolve commands."""
+"""Preset management: load defaults, CRUD user presets.
+
+Presets use the structured TaskConfig format (transcode + filters),
+not the old command_template format.
+"""
 
 from __future__ import annotations
 
 import json
 import os
-import shutil
+import uuid
 from pathlib import Path
 
 from core.models import Preset
@@ -23,20 +27,24 @@ def _get_default_presets_dir() -> Path:
 def _get_user_presets_dir() -> Path:
     """User-writable directory for custom presets.
 
-    On Windows: %APPDATA%/ff-intelligent-mvp/presets/
-    On macOS/Linux: ~/.config/ff-intelligent-mvp/presets/
+    On Windows: %APPDATA%/ff-intelligent-neo/presets/
+    On macOS/Linux: ~/.config/ff-intelligent-neo/presets/
     """
     if os.name == "nt":
         base = os.environ.get("APPDATA", os.path.expanduser("~"))
     else:
         base = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
-    d = Path(base) / "ff-intelligent-mvp" / "presets"
+    d = Path(base) / "ff-intelligent-neo" / "presets"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 
 class PresetManager:
-    """Manages built-in and user-created FFmpeg presets."""
+    """Manages built-in and user-created FFmpeg presets.
+
+    Built-in presets are loaded from ``presets/default_presets.json`` (read-only).
+    User presets are stored as individual JSON files in APPDATA.
+    """
 
     def __init__(self) -> None:
         self._default_presets: list[Preset] = []
@@ -47,12 +55,17 @@ class PresetManager:
     def _load_defaults(self) -> None:
         presets_dir = _get_default_presets_dir()
         json_file = presets_dir / "default_presets.json"
-        if json_file.exists():
+        if not json_file.exists():
+            return
+        try:
             with open(json_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            self._default_presets = [
-                Preset(**item) for item in data
-            ]
+            if isinstance(data, list):
+                self._default_presets = [
+                    Preset.from_dict(item) for item in data
+                ]
+        except (json.JSONDecodeError, TypeError, KeyError):
+            self._default_presets = []
 
     def _load_user_presets(self) -> None:
         user_dir = _get_user_presets_dir()
@@ -62,50 +75,81 @@ class PresetManager:
             try:
                 with open(fp, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                self._user_presets.append(Preset(**data))
-            except (json.JSONDecodeError, TypeError):
+                self._user_presets.append(Preset.from_dict(data))
+            except (json.JSONDecodeError, TypeError, KeyError):
                 pass
 
-    def list_presets(self) -> list[Preset]:
-        """Return all presets (defaults first, then user presets)."""
-        return list(self._default_presets) + list(self._user_presets)
+    def list_presets(self) -> list[dict]:
+        """Return all presets as dicts (defaults first, then user presets)."""
+        defaults = [p.to_dict() for p in self._default_presets]
+        users = [p.to_dict() for p in self._user_presets]
+        return defaults + users
 
-    def get_preset(self, preset_id: str) -> Preset | None:
-        """Find a preset by ID (checks user presets first, then defaults)."""
+    def get_preset(self, preset_id: str) -> dict | None:
+        """Find a preset by ID. Returns dict or None."""
         for p in self._user_presets:
             if p.id == preset_id:
-                return p
+                return p.to_dict()
         for p in self._default_presets:
             if p.id == preset_id:
-                return p
+                return p.to_dict()
         return None
 
-    def save_preset(self, preset: Preset) -> Preset:
-        """Create or update a user preset. Returns the saved preset."""
-        idx = next(
-            (i for i, p in enumerate(self._user_presets) if p.id == preset.id),
-            None,
-        )
-        if idx is not None:
-            self._user_presets[idx] = preset
+    def save_preset(self, preset_data: dict) -> dict:
+        """Create or update a user preset.
+
+        Args:
+            preset_data: Dict with at least 'name'. If 'id' is provided
+                         and matches an existing user preset, it will be updated.
+
+        Returns:
+            The saved preset as dict.
+        """
+        preset_id = preset_data.get("id", "")
+        is_update = bool(preset_id)
+
+        if not is_update:
+            preset_id = uuid.uuid4().hex[:8]
+
+        preset = Preset.from_dict({
+            "id": preset_id,
+            "name": preset_data.get("name", "Unnamed Preset"),
+            "description": preset_data.get("description", ""),
+            "config": preset_data.get("config", {}),
+            "is_default": False,
+        })
+
+        # Update or append
+        if is_update:
+            idx = next(
+                (i for i, p in enumerate(self._user_presets) if p.id == preset_id),
+                None,
+            )
+            if idx is not None:
+                self._user_presets[idx] = preset
+            else:
+                self._user_presets.append(preset)
         else:
             self._user_presets.append(preset)
 
+        # Persist to disk
         user_dir = _get_user_presets_dir()
-        fp = user_dir / f"{preset.id}.json"
+        fp = user_dir / f"{preset_id}.json"
         with open(fp, "w", encoding="utf-8") as f:
-            json.dump(preset.__dict__, f, ensure_ascii=False, indent=2)
+            json.dump(preset.to_dict(), f, ensure_ascii=False, indent=2)
 
-        return preset
+        return preset.to_dict()
 
     def delete_preset(self, preset_id: str) -> None:
-        """Delete a user preset. Raises ValueError if it's a default preset."""
-        idx = next(
-            (i for i, p in enumerate(self._default_presets) if p.id == preset_id),
-            None,
-        )
-        if idx is not None:
-            raise ValueError("Cannot delete built-in presets")
+        """Delete a user preset.
+
+        Raises:
+            ValueError: If the preset is a built-in default or not found.
+        """
+        # Check if it's a default
+        for p in self._default_presets:
+            if p.id == preset_id:
+                raise ValueError("Cannot delete built-in presets")
 
         idx = next(
             (i for i, p in enumerate(self._user_presets) if p.id == preset_id),
@@ -120,26 +164,3 @@ class PresetManager:
         fp = user_dir / f"{preset_id}.json"
         if fp.exists():
             fp.unlink()
-
-    def resolve_command(
-        self,
-        preset: Preset,
-        input_path: str,
-        output_path: str,
-    ) -> list[str]:
-        """Resolve a preset template into an ffmpeg argument list.
-
-        Splits the template on whitespace first, then replaces ``{input}``
-        and ``{output}`` placeholders with the actual paths. This ensures
-        paths containing spaces remain as single list elements, which
-        subprocess.Popen handles correctly.
-        """
-        args = []
-        for token in preset.command_template.split():
-            if token == "{input}":
-                args.append(input_path)
-            elif token == "{output}":
-                args.append(output_path)
-            else:
-                args.append(token)
-        return args
