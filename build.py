@@ -1,7 +1,3 @@
-# /// script
-# requires-python = ">=3.10"
-# dependencies = ["pyinstaller>=6.19.0"]
-# ///
 """
 PyWebVue build script - auto-detect platform and build accordingly.
 
@@ -122,8 +118,11 @@ def _pre_download_ffmpeg() -> None:
         _error(f"Pre-build script not found: {pre_build}")
 
     _info("Pre-downloading FFmpeg binaries...")
+    uv = _find_cmd("uv")
+    if uv is None:
+        _error("uv not found.")
     result = subprocess.run(
-        [sys.executable, str(pre_build)],
+        [uv, "run", str(pre_build)],
         cwd=str(PROJECT_ROOT),
     )
     if result.returncode != 0:

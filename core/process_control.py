@@ -1,7 +1,7 @@
-"""OS-level process suspend and resume.
+"""OS-level process suspend, resume, and tree termination.
 
-Windows: NtSuspendProcess / NtResumeProcess via ntdll.
-Linux/macOS: SIGSTOP / SIGCONT.
+Windows: NtSuspendProcess / NtResumeProcess via ntdll, taskkill for tree kill.
+Linux/macOS: SIGSTOP / SIGCONT, SIGKILL via process group.
 
 Phase 3.5 verified that NtSuspendProcess works correctly and stderr
 reader threads do NOT need to be paused (readline naturally blocks).
@@ -11,11 +11,38 @@ from __future__ import annotations
 
 import os
 import signal
+import subprocess
 import sys
 
 from core.logging import get_logger
 
 logger = get_logger()
+
+
+# ---------------------------------------------------------------------------
+# Process tree termination (shared helper)
+# ---------------------------------------------------------------------------
+
+def kill_process_tree(pid: int) -> None:
+    """Kill a process and all its children.
+
+    On Windows: uses ``taskkill /F /T /PID`` for reliable tree termination.
+    On Unix: sends SIGKILL to the process group (falls back to direct kill).
+    """
+    try:
+        if sys.platform == "win32":
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(pid)],
+                capture_output=True,
+                timeout=10,
+            )
+        else:
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError, OSError):
+                os.kill(pid, signal.SIGKILL)
+    except Exception as exc:
+        logger.debug("kill_process_tree pid={}: {}", pid, exc)
 
 # ---------------------------------------------------------------------------
 # Windows implementation (ntdll)

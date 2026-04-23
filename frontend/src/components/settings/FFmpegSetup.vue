@@ -5,6 +5,7 @@
  * Shows current FFmpeg status, version list for switching,
  * auto-detect and manual select buttons.
  */
+import { computed } from "vue"
 import type { FfmpegVersionDTO } from "../../composables/useSettings"
 
 const props = defineProps<{
@@ -17,9 +18,10 @@ const emit = defineEmits<{
   detect: []
   selectBinary: []
   switch: [path: string]
+  download: []
 }>()
 
-function getStatusBadge(): { class: string; text: string } {
+const statusBadge = computed(() => {
   switch (props.status) {
     case "ready":
       return { class: "badge-success", text: "Ready" }
@@ -28,13 +30,7 @@ function getStatusBadge(): { class: string; text: string } {
     case "detecting":
       return { class: "badge-warning", text: "Detecting..." }
   }
-}
-
-const statusBadge = getStatusBadge()
-
-async function handleSwitch(path: string): Promise<void> {
-  await emit("switch", path)
-}
+})
 </script>
 
 <template>
@@ -66,6 +62,13 @@ async function handleSwitch(path: string): Promise<void> {
       >
         Select...
       </button>
+      <button
+        v-if="versions.length === 0 && status !== 'detecting'"
+        class="btn btn-xs btn-accent btn-outline"
+        @click="emit('download')"
+      >
+        Download FFmpeg
+      </button>
     </div>
 
     <!-- Version list -->
@@ -76,7 +79,7 @@ async function handleSwitch(path: string): Promise<void> {
         :key="ver.path"
         class="flex items-center gap-3 rounded-lg px-3 py-2 cursor-pointer transition-colors"
         :class="ver.active ? 'bg-primary/10 border border-primary/30' : 'hover:bg-base-200'"
-        @click="handleSwitch(ver.path)"
+        @click="emit('switch', ver.path)"
       >
         <!-- Radio indicator -->
         <div
