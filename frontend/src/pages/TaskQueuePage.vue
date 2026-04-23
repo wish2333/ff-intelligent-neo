@@ -86,6 +86,27 @@ async function handleStartAllPending(): Promise<void> {
 function handleToggleLog(taskId: string): void {
   activeLogTaskId.value = activeLogTaskId.value === taskId ? null : taskId
 }
+
+async function handleMoveUp(taskId: string): Promise<void> {
+  const tasks = queue.tasks.value
+  const index = tasks.findIndex((t) => t.id === taskId)
+  if (index <= 0) return
+  const newOrder = [...tasks]
+  ;[newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]]
+  await call("reorder_tasks", newOrder.map((t) => t.id))
+  // Refresh tasks from backend to get the new order
+  await queue.fetchTasks()
+}
+
+async function handleMoveDown(taskId: string): Promise<void> {
+  const tasks = queue.tasks.value
+  const index = tasks.findIndex((t) => t.id === taskId)
+  if (index < 0 || index >= tasks.length - 1) return
+  const newOrder = [...tasks]
+  ;[newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]]
+  await call("reorder_tasks", newOrder.map((t) => t.id))
+  await queue.fetchTasks()
+}
 </script>
 
 <template>
@@ -146,7 +167,11 @@ function handleToggleLog(taskId: string): void {
       @toggle-select="queue.toggleSelect"
       @start="control.startTask"
       @stop="control.stopTask"
-      @retry="(id) => control.startTask(id)"
+      @pause="control.pauseTask"
+      @resume="control.resumeTask"
+      @retry="control.retryTask"
+      @move-up="handleMoveUp"
+      @move-down="handleMoveDown"
       @show-log="handleToggleLog"
     />
 

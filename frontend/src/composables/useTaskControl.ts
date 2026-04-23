@@ -17,6 +17,21 @@ export function useTaskControl() {
     return res.success
   }
 
+  async function pauseTask(taskId: string): Promise<boolean> {
+    const res = await call<null>("pause_task", taskId)
+    return res.success
+  }
+
+  async function resumeTask(taskId: string): Promise<boolean> {
+    const res = await call<null>("resume_task", taskId)
+    return res.success
+  }
+
+  async function retryTask(taskId: string): Promise<boolean> {
+    const res = await call<null>("retry_task", taskId)
+    return res.success
+  }
+
   async function stopAll(): Promise<boolean> {
     const res = await call<{ stopped: number }>("stop_all")
     return res.success
@@ -35,6 +50,9 @@ export function useTaskControl() {
   return {
     startTask,
     stopTask,
+    pauseTask,
+    resumeTask,
+    retryTask,
     stopAll,
     pauseAll,
     resumeAll,

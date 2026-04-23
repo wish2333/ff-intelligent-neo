@@ -660,10 +660,10 @@ Backend Changes (4 files)
 - 设置输出容器，预览中未出现对应改变
 
   1. Resolution not in preview -- _build_filter_args only read from FilterConfig which has no resolution field.
-    Resolution was only injected in the watermark code path. Fix: unified the active filter collection to include
-    tc.resolution before branching, so both simple and complex paths see it.
+      Resolution was only injected in the watermark code path. Fix: unified the active filter collection to include
+      tc.resolution before branching, so both simple and complex paths see it.
   2. Output extension not changing -- build_command_preview used hardcoded "output.mp4". Fix: now uses
-    output{config.transcode.output_extension} (e.g. output.mkv, output.mp3).
+      output{config.transcode.output_extension} (e.g. output.mkv, output.mp3).
 
 #### 重大问题
 
@@ -832,4 +832,523 @@ Backend Changes (4 files)
      Next Steps: Component enhancements appear complete with successful build verification. The new behavior correctly
      distinguishes between typing-based filtering and manual dropdown expansion, providing better user experience
 ```
+
+#### 📝 Commit Message
+
+```
+feat(config): 实现完整的命令配置系统与过滤链支持
+
+- 新增视频过滤链功能：裁剪、缩放、旋转、速度、水印、音量调整
+- 重构预设管理系统为结构化TaskConfig格式，支持CRUD操作
+- 实现全局配置状态管理，解决页面切换状态丢失问题
+- 统一命令构建逻辑，确保预览与实际执行参数完全一致
+- 添加ComboInput组件支持自定义编解码器和输出格式输入
+- 修复多处UI问题：预设选择无效、表单验证状态保持等
+```
+
+#### 🚀 Release Notes
+
+```
+## 2026-04-23 - 全新命令配置系统发布
+
+### ✨ 新增
+- 强大的视频过滤链功能：支持裁剪、缩放、旋转、速度调整、水印和音量控制
+- 预设管理系统：创建、保存、删除和选择自定义预设
+- 实时命令预览：即时显示FFmpeg命令构建结果，便于调试和确认
+- 全局配置状态：在命令配置和任务队列页面间保持配置不丢失
+
+### 🐛 修复
+- 修复预设选择后表单和预览不更新的问题
+- 修复页面切换时配置完全丢失的状态管理问题
+- 解决音频转码参数与命令预览不一致的严重bug
+- 修复表单验证警告在切换编解码器后未正确清除的问题
+- 修复自定义预设删除按钮失灵的交互问题
+
+### ⚡ 优化
+- 统一命令构建逻辑，确保参数预览与实际执行完全一致
+- 添加编解码器和输出格式的自定义输入支持，提供更专业的用户选项
+- 优化表单验证逻辑，只在必要时显示相关警告和错误
+- 改进命令预览，正确显示分辨率设置和输出容器格式变化
+
+### 💥 Breaking Changes
+- 预设配置格式已升级为结构化TaskConfig，旧格式预设需要重新创建
+- 移除了"添加到队列"按钮，现在配置页面设置将直接应用于任务队列
+```
+
+### Phase3.5
+
+#### 验证结论
+
+```
+  全部 4 项测试通过，Suspend/Resume 方案可行。 关键发现:
+
+  ┌───────────────┬──────────────────────────────────────────────────────────────────────────┐
+  │     测试      │                                   结论                                   │
+  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ 基本挂起/恢复 │ NtSuspendProcess/NtResumeProcess 正常工作，进程完成后 returncode=0       │
+  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ Stderr 线程   │ 不需要暂停 reader 线程。进程挂起时 readl 阻塞自然等待，恢复后自动继续    │
+  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ 进程已退出    │ 正确返回 NTSTATUS=0xC000010A (STATUS_PROCESS_IS_TERMINATING)，可捕获处理 │
+  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ 权限错误      │ OpenProcess 对无权限进程正确失败，可降级为 kill+重试                     │
+  └───────────────┴──────────────────────────────────────────────────────────────────────────┘
+
+  与 PRD 6.6 的差异:
+
+  - PRD 使用 kernel32.SuspendProcess - 实际上不存在，应改为 ntdll.NtSuspendProcess
+  - PRD 提议暂停 stderr 读取线程 - 不需要，readline 自然阻塞即可
+  - 降级策略确认可行: 捕获异常后 kill 进程 + 记录进度
+
+  可以安全进入 Phase 4 开发。准备好了就告诉我开始。
+```
+
+#### CC-Mem
+
+```
+     Legend: session-request | 🔴 bugfix | 🟣 feature | 🔄 refactor | ✅ change | 🔵 discovery | ⚖️ decision
+#1042  12:59 AM  🔵  Task control system architecture explored before Phase 4 development
+     General
+       #1043            🔵  FFmpeg dependency confirmed installed at /c/Program Files/FFmpeg/ffmpeg
+       #1044            🔵  Python threading and ctypes modules confirmed available
+     scripts/verify_suspend_resume.py
+       #1045  1:00 AM  🟣  Phase 3.5 FFmpeg subprocess suspend/resume verification script created
+       #1046  1:02 AM  🔴  Fixed Windows process suspension API implementation in verification script
+       #1047  1:08 AM  🔄  Improved test_2_stderr_thread_behavior reliability and added generate_test_video helper
+       #1048           🔄  Optimized test_4_permission_fallback with early termination and resume verification
+       #1049           🔄  Consolidated test video generation in test_1_basic_suspend_resume to use shared helper
+       #1050  1:11 AM  🔵  Reader thread does not require pausing during process suspend/resume operations
+       #1051  1:14 AM  🔴  Fixed reader thread liveness check timing in test_2_stderr_thread_behavior
+       #1052  1:15 AM  🔄  Improved test_2 process termination logic with natural completion detection
+     General
+       #1053  1:17 AM  🔵  Phase 3.5 suspend/resume verification completed successfully with all tests passing
+```
+
+### Phase4
+
+#### PLAN
+
+```
+ Phase 4: Pause/Resume + Settings Page Implementation Plan
+
+ Context
+
+ Phase 1-3 of ff-intelligent-neo 2.0 are complete. Phase 3.5 verified that OS-level process suspend/resume is viable
+ via ntdll.NtSuspendProcess/NtResumeProcess on Windows. The PRD's approach needs corrections based on those findings.
+ This phase implements:
+
+ 1. Single-task pause/resume (backend + frontend)
+ 2. Task retry
+ 3. Task reordering UI (up/down arrows)
+ 4. Complete Settings page (FFmpeg setup with version list, thread count, output folder, about)
+
+ Phase 3.5 Key Findings (deviations from PRD)
+
+ - PRD uses kernel32.SuspendProcess - does NOT exist. Must use ntdll.NtSuspendProcess + NtResumeProcess
+ - PRD says pause stderr reader thread - NOT needed. readline() naturally blocks when process is suspended
+ - PRD says OpenProcess(PROCESS_SUSPEND_RESUME) - actual constant is 0x0800
+ - Permission error fallback: catch exception, kill process + record progress
+
+ FFmpeg Setup Design (from user clarification)
+
+ FFmpeg detection follows a priority chain:
+ 1. User-specified path (from settings config, highest priority)
+ 2. Platform-specific known paths (Homebrew on macOS, etc.)
+ 3. System PATH (shutil.which)
+ 4. static_ffmpeg (may download on first call)
+
+ Settings page shows:
+ - All discovered FFmpeg versions in a radio list
+ - Current active version highlighted
+ - "Auto Detect" button to re-scan
+ - "Browse..." button to manually select ffmpeg.exe
+ - When user selects a version, save to settings and apply immediately
+
+ ---
+ Task Breakdown
+
+ 1. Backend: Process Suspend/Resume Module
+
+ File: core/process_control.py (NEW, ~80 lines)
+
+ Cross-platform process suspend/resume:
+
+ # Windows
+ NTSTATUS_SUCCESS = 0x00000000
+ PROCESS_SUSPEND_RESUME = 0x0800
+
+ def suspend_process(pid: int) -> None:
+     # OpenProcess -> NtSuspendProcess(handle) via ntdll -> CloseHandle
+
+ def resume_process(pid: int) -> None:
+     # OpenProcess -> NtResumeProcess(handle) via ntdll -> CloseHandle
+
+ # Linux/macOS
+ def suspend_process(pid): os.kill(pid, signal.SIGSTOP)
+ def resume_process(pid): os.kill(pid, signal.SIGCONT)
+
+ Error handling: if NtSuspendProcess returns non-zero NTSTATUS (e.g. permission denied or process already terminated),
+ raise OSError with NTSTATUS code so caller can fallback.
+
+ 2. Backend: Refactor ffmpeg_setup.py for Version Discovery
+
+ File: core/ffmpeg_setup.py (MODIFY)
+
+ Add priority-based ensure_ffmpeg(ffmpeg_path_override="") function as shown by user. The module should:
+ - Accept optional ffmpeg_path_override parameter
+ - Scan all 4 sources in priority order
+ - Add discover_ffmpeg_versions() -> returns list[dict] with each version's path, version string, source label ("User",
+  "System PATH", "Homebrew", "Static FFmpeg")
+ - Add switch_ffmpeg(path: str) -> validates path, updates cached path, returns version info
+ - Keep existing get_ffmpeg_path() / get_ffprobe_path() working (they call ensure_ffmpeg with override from settings)
+ - Clear version caches when switching
+
+ 3. Backend: main.py Bridge API
+
+ File: main.py (MODIFY)
+
+ Add new @expose methods:
+
+ Task control:
+ - pause_task(task_id) -> self._runner.pause_task(task_id)
+ - resume_task(task_id) -> self._runner.resume_task(task_id)
+ - retry_task(task_id) -> self._runner.retry_task(task_id)
+
+ FFmpeg settings:
+ - get_ffmpeg_versions() -> discover_ffmpeg_versions(), returns list of {path, version, source, active}
+ - switch_ffmpeg(path) -> switch_ffmpeg(path), returns version info
+ - select_ffmpeg_binary() -> file dialog for ffmpeg.exe
+
+ pause_all/resume_all already exist as stubs, will work once TaskRunner implements them.
+
+ 4. Backend: TaskRunner pause/resume/retry
+
+ File: core/task_runner.py (MODIFY)
+
+ Add methods:
+ - pause_task(task_id): Get proc from _running_procs, call suspend_process(pid), transition running -> paused, emit
+ task_state_changed
+ - resume_task(task_id): Get proc from _running_procs, call resume_process(pid), transition paused -> running, emit
+ task_state_changed
+ - retry_task(task_id): Validate failed -> pending transition, call start_task(task_id)
+ - Fix stop_all(): Include paused state (currently only pending/running)
+ - Implement pause_all(): Iterate running tasks, call pause_task()
+ - Implement resume_all(): Iterate paused tasks, call resume_task()
+
+ Edge cases:
+ - Process already exited when trying to suspend -> poll() returns non-None, mark completed/failed instead of paused
+ - NtSuspendProcess fails (permission) -> fallback to kill + record progress as warning
+
+ 5. Frontend: useTaskControl.ts
+
+ File: frontend/src/composables/useTaskControl.ts (MODIFY)
+
+ Add 3 methods:
+ - pauseTask(taskId) -> call("pause_task", taskId)
+ - resumeTask(taskId) -> call("resume_task", taskId)
+ - retryTask(taskId) -> call("retry_task", taskId)
+
+ 6. Frontend: TaskRow.vue
+
+ File: frontend/src/components/task-queue/TaskRow.vue (MODIFY)
+
+ Add buttons:
+ - running state: show "Pause" button (emits pause)
+ - paused state: show "Resume" button (emits resume)
+ - pending state: show up/down arrow buttons (emits moveUp/moveDown)
+
+ Update emits: toggleSelect, start, stop, pause, resume, retry, moveUp, moveDown, showLog
+
+ 7. Frontend: TaskList.vue + TaskQueuePage.vue
+
+ File: frontend/src/components/task-queue/TaskList.vue (MODIFY)
+ - Wire up new events from TaskRow: @pause, @resume, @moveUp, @moveDown
+
+ File: frontend/src/pages/TaskQueuePage.vue (MODIFY)
+ - Wire up: @pause="control.pauseTask", @resume="control.resumeTask"
+ - @moveUp/@moveDown: swap task positions in the list, then call("reorder_tasks", newOrder)
+
+ 8. Frontend: useSettings composable
+
+ File: frontend/src/composables/useSettings.ts (NEW, ~60 lines)
+
+ - settings: Ref<AppSettingsDTO> - reactive state
+ - appInfo: Ref<AppInfoDTO> - FFmpeg/app versions
+ - ffmpegVersions: Ref<FfmpegVersionDTO[]> - discovered versions list
+ - fetchSettings() -> call("get_settings")
+ - saveSetting(key, value) -> merge + call("save_settings")
+ - fetchFfmpegVersions() -> call("get_ffmpeg_versions")
+ - switchFfmpeg(path) -> call("switch_ffmpeg", path)
+ - detectFfmpeg() -> call("setup_ffmpeg")
+ - selectFfmpegBinary() -> call("select_ffmpeg_binary")
+
+ 9. Frontend: Settings Components
+
+ File: frontend/src/components/settings/FFmpegSetup.vue (NEW, ~150 lines)
+
+ Layout per PRD 5.1:
+ - Status badge (green=ready, red=not found)
+ - Current path + version display
+ - Version list (radio buttons): each entry shows source label + path + version
+ - "Auto Detect" button -> re-scan
+ - "Browse..." button -> file dialog
+
+ File: frontend/src/components/settings/ThreadCountInput.vue (NEW, ~60 lines)
+
+ - Number input 1-4, default 2
+ - On change -> saveSetting("max_workers", newValue)
+ - Helper text about CPU cores
+
+ File: frontend/src/components/settings/OutputFolderInput.vue (NEW, ~80 lines)
+
+ - Radio: "Same as source" / "Custom folder"
+ - Custom: text input + "Browse" button
+ - On change -> saveSetting("default_output_dir", dir)
+
+ File: frontend/src/components/settings/AppAbout.vue (NEW, ~50 lines)
+
+ - Read-only: app version, Python version, FFmpeg version, ffprobe version, OS info
+ - fetchAppInfo() on mount
+
+ 10. Frontend: SettingsPage.vue
+
+ File: frontend/src/pages/SettingsPage.vue (REWRITE, ~60 lines)
+
+ Compose all 4 components in DaisyUI card layout, matching PRD 5.1.
+
+ ---
+ File Summary
+
+ ┌─────┬────────────────────────────────────────────────────────┬─────────┬───────────────────────────────────┐
+ │  #  │                          File                          │ Action  │            Description            │
+ ├─────┼────────────────────────────────────────────────────────┼─────────┼───────────────────────────────────┤
+ │ 1   │ core/process_control.py                                │ NEW     │ OS-level suspend/resume           │
+ ├─────┼────────────────────────────────────────────────────────┼─────────┼───────────────────────────────────┤
+ │ 2   │ core/ffmpeg_setup.py                                   │ MODIFY  │ Add version discovery + switch    │
+ ├─────┼────────────────────────────────────────────────────────┼─────────┼───────────────────────────────────┤
+ │ 3   │ core/task_runner.py                                    │ MODIFY  │ pause/resume/retry + fix stop_all │
+ ├─────┼────────────────────────────────────────────────────────┼─────────┼───────────────────────────────────┤
+ │ 4   │ main.py                                                │ MODIFY  │ 6 new @expose methods             │
+ ├─────┼────────────────────────────────────────────────────────┼─────────┼───────────────────────────────────┤
+ │ 5   │ frontend/src/composables/useTaskControl.ts             │ MODIFY  │ 3 new methods                     │
+ ├─────┼────────────────────────────────────────────────────────┼─────────┼───────────────────────────────────┤
+ │ 6   │ frontend/src/composables/useSettings.ts                │ NEW     │ Settings state management         │
+ ├─────┼────────────────────────────────────────────────────────┼─────────┼───────────────────────────────────┤
+ │ 7   │ frontend/src/components/task-queue/TaskRow.vue         │ MODIFY  │ Pause/Resume + move buttons       │
+ ├─────┼────────────────────────────────────────────────────────┼─────────┼───────────────────────────────────┤
+ │ 8   │ frontend/src/components/task-queue/TaskList.vue        │ MODIFY  │ Wire new events                   │
+ ├─────┼────────────────────────────────────────────────────────┼─────────┼───────────────────────────────────┤
+ │ 9   │ frontend/src/pages/TaskQueuePage.vue                   │ MODIFY  │ Wire new events + reorder         │
+ ├─────┼────────────────────────────────────────────────────────┼─────────┼───────────────────────────────────┤
+ │ 10  │ frontend/src/components/settings/FFmpegSetup.vue       │ NEW     │ FFmpeg status + version list      │
+ ├─────┼────────────────────────────────────────────────────────┼─────────┼───────────────────────────────────┤
+ │ 11  │ frontend/src/components/settings/ThreadCountInput.vue  │ NEW     │ Worker count input                │
+ ├─────┼────────────────────────────────────────────────────────┼─────────┼───────────────────────────────────┤
+ │ 12  │ frontend/src/components/settings/OutputFolderInput.vue │ NEW     │ Output folder selection           │
+ ├─────┼────────────────────────────────────────────────────────┼─────────┼───────────────────────────────────┤
+ │ 13  │ frontend/src/components/settings/AppAbout.vue          │ NEW     │ Read-only app info                │
+ ├─────┼────────────────────────────────────────────────────────┼─────────┼───────────────────────────────────┤
+ │ 14  │ frontend/src/pages/SettingsPage.vue                    │ REWRITE │ Full settings page                │
+ └─────┴────────────────────────────────────────────────────────┴─────────┴───────────────────────────────────┘
+
+ Execution Order
+
+ 1. core/process_control.py (new module, no dependencies)
+ 2. core/task_runner.py (depends on #1)
+ 3. core/ffmpeg_setup.py (independent)
+ 4. main.py (depends on #2, #3)
+ 5. frontend/src/composables/useTaskControl.ts (depends on #4 API)
+ 6. frontend/src/composables/useSettings.ts (depends on #4 API)
+ 7. frontend/src/components/task-queue/TaskRow.vue + TaskList.vue (depends on #5)
+ 8. frontend/src/pages/TaskQueuePage.vue (depends on #7)
+ 9. frontend/src/components/settings/*.vue (depends on #6)
+ 10. frontend/src/pages/SettingsPage.vue (depends on #9)
+
+ Verification
+
+ - TypeScript: cd frontend && npx vue-tsc --noEmit
+ - Vite build: cd frontend && bun run build
+ - Python imports: uv run python -c "from core.process_control import suspend_process, resume_process"
+
+ Manual test checklist (PRD Phase 4 tests):
+ 1. Pause running task -> state shows "Paused", process actually suspended
+ 2. Resume paused task -> progress continues
+ 3. Stop paused task -> state shows "Cancelled"
+ 4. Retry failed task -> resets to "Pending", re-executes
+ 5. Move task up/down -> queue order changes
+ 6. Batch pause/resume/stop -> correct behavior
+ 7. Change thread count -> reflected in settings
+ 8. Set custom output folder -> used by new tasks
+ 9. Settings page shows FFmpeg status correctly
+ 10. FFmpeg version list shows all discovered versions
+ 11. Switch FFmpeg version -> new version becomes active
+ 12. App info shows correct versions
+```
+
+####   完成内容
+
+```
+  后端 (3 文件)
+
+  - core/process_control.py (新建) - OS级进程挂起/恢复，Windows用ntdll.NtSuspendProcess，Linux/macOS用SIGSTOP/SIGCONT
+  - core/task_runner.py (修改) -
+    新增pause_task、resume_task、retry_task，修复stop_all包含paused状态，实现pause_all/resume_all
+  - core/ffmpeg_setup.py (重写) - 优先级链式FFmpeg发现(用户指定 > bundled > 平台路径 > PATH >
+    static_ffmpeg)，discover_ffmpeg_versions()版本发现，switch_ffmpeg()版本切换
+  - main.py (修改) -
+    新增6个@expose方法：pause_task、resume_task、retry_task、get_ffmpeg_versions、switch_ffmpeg、select_ffmpeg_binary
+
+  前端 (8 文件)
+
+  - useTaskControl.ts - 新增pauseTask、resumeTask、retryTask
+  - useSettings.ts (新建) - 设置状态管理，FFmpeg版本发现/切换/检测
+  - TaskRow.vue - 新增Pause/Resume按钮、上移/下移排序按钮
+  - TaskList.vue - 连接新事件
+  - TaskQueuePage.vue - 连接pause/resume/reorder逻辑
+  - FFmpegSetup.vue (新建) - FFmpeg状态显示+版本列表+切换
+  - ThreadCountInput.vue (新建) - 并发线程数设置
+  - OutputFolderInput.vue (新建) - 输出文件夹设置
+  - AppAbout.vue (新建) - 只读应用信息
+  - SettingsPage.vue (重写) - 完整设置页
+
+  验证: TypeScript 0 错误, Vite build 1.51s, Python imports 全部OK
+```
+
+#### CC-Mem
+
+     Legend: session-request | 🔴 bugfix | 🟣 feature | 🔄 refactor | ✅ change | 🔵 discovery | ⚖️ decision
+    
+     Column Key
+       Read: Tokens to read this observation (cost to learn it now)
+       Work: Tokens spent on work that produced this record ( research, building, deciding)
+    
+     Context Index: This semantic index (titles, types, files, tokens) is usually sufficient to understand past work.
+    
+     When you need implementation details, rationale, or debugging context:
+       - Fetch by ID: get_observations([IDs]) for observations visible in this index
+       - Search history: Use the mem-search skill for past decisions, bugs, and deeper research
+       - Trust this index over re-reading code for past decisions and learnings
+    
+     Context Economics
+       Loading: 50 observations (18,465 tokens to read)
+       Work investment: 0 tokens spent on research, building, and decisions
+    
+     Apr 23, 2026
+    
+     #S1 Audio transcoding parameter consistency fix - user requested explanation of changes made to ensure passed
+     parameters match command preview (Apr 23, 12:50 AM)
+    
+     #S2 ComboInput component enhanced with improved filtering behavior (Apr 23, 12:54 AM)
+    
+     General
+       #1110  1:55 AM  🟣  Phase 4 task structure completed and implementation started
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\process_control.py
+       #1111  1:56 AM  🟣  Process control module implemented with cross-platform suspend/resume
+     General
+       #1112           🟣  Process control module completed and verified
+       #1113           🟣  TaskRunner modification task started
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_runner.py
+       #1114           🟣  TaskRunner imports process control module for pause/resume
+       #1115           🟣  TaskRunner pause/resume/retry methods implemented
+       #1116           🟣  TaskRunner bulk control methods implemented
+     General
+       #1117  1:57 AM  🟣  TaskRunner pause/resume/retry implementation completed
+       #1118           🟣  FFmpeg setup refactoring task started
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\ffmpeg_setup.py
+       #1119  1:58 AM  🟣  FFmpeg setup module refactored with version discovery and switching
+     General
+       #1120           🟣  FFmpeg setup refactoring completed
+       #1121           🟣  Bridge API implementation task started
+     ..\..\Git\GithubManager\ff-intelligent-neo\main.py
+       #1122           🟣  Task control Bridge API methods added
+       #1123           🟣  FFmpeg version management Bridge API methods added
+     General
+       #1124           🟣  Bridge API implementation completed
+       #1125           🟣  Frontend task control and reorder UI implementation started
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskList.vue
+       #1126  1:59 AM  🔵  TaskList.vue structure examined for Phase 4 modifications
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useTaskControl.ts
+       #1127           🟣  Task control composable extended with pause/resume/retry methods
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskRow.vue
+       #1128           🟣  TaskRow component updated with pause/resume/retry and reordering UI
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskList.vue
+       #1129           🟣  TaskList component updated with pause/resume/reorder event wiring
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\pages\TaskQueuePage.vue
+       #1130  2:00 AM  🟣  TaskQueuePage updated with pause/resume/retry handlers and task reordering
+     General
+       #1131           🟣  Frontend task control and reorder UI completed
+       #1132           🟣  Settings page implementation started
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useSettings.ts
+       #1133  2:01 AM  🟣  Settings composable implemented with FFmpeg management and app info
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\settings\FFmpegSetup.vue
+       #1134           🟣  FFmpeg setup component created with version management UI
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\settings\ThreadCountInput.vue
+       #1135           🟣  Thread count input component created for worker configuration
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\settings\OutputFolderInput.vue
+       #1136           🟣  Output folder input component created with radio selection
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\settings\AppAbout.vue
+       #1137  2:02 AM  🟣  App information component created for read-only metadata display
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\pages\SettingsPage.vue
+       #1138           🟣  Settings page completely rewritten with full component composition
+     General
+       #1139           🟣  Settings page implementation completed
+       #1140  2:03 AM  🟣  Build verification started with Python import check
+       #1141           🟣  TaskRunner module import verification passed
+       #1142           🟣  FFmpeg setup module import verification passed
+       #1143  2:05 AM  🟣  Main.py Bridge API import verification passed
+       #1144  2:06 AM  🔵  TypeScript compilation identified unused variable warnings
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\settings\FFmpegSetup.vue
+       #1145           🔴  TypeScript unused variable warnings fixed in FFmpegSetup.vue
+       #1146           🔴  TypeScript unused variable warning fixed in FFmpegSetup.vue v-for loop
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskRow.vue
+       #1147           🔴  TypeScript unused variable warning fixed in TaskRow.vue
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useSettings.ts
+       #1148           🔴  TypeScript unused import warning fixed in useSettings.ts
+       #1149           🔴  Vue ref import removed from useSettings.ts during cleanup
+       #1150           🔴  Unused loading variable removed from useSettings composable
+       #1151  2:07 AM  🔴  Vue ref import restored to useSettings.ts composable
+     General
+       #1152  2:09 AM  🔵  TypeScript compilation error identified in useSettings.ts return statement
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useSettings.ts
+       #1153           🔵  Compilation error location identified in useSettings.ts return statement
+       #1154  2:10 AM  🔴  loading property restored to useSettings return statement but variable still missing
+       #1155           🔴  Untitled
+       #1156  2:12 AM  🔵  TypeScript compilation error persists after attempted fix
+       #1157  2:13 AM  🔵  Return block inspection confirms loading property still present
+       #1158           🔵  File read confirms loading property remains in return statement
+       #1159  11:59 AM  🟣  TypeScript compilation error resolved by removing loading from return statement
+
+#### 📝 Commit Message
+
+```
+feat(phase4): 实现任务暂停/恢复功能和完整设置页面
+
+- 后端：添加OS级进程控制，支持跨平台暂停/恢复任务
+- 后端：实现TaskRunner暂停/恢复/重试和批量操作方法
+- 后端：重构FFmpeg设置模块，添加版本发现和切换功能
+- 后端：新增6个Bridge API方法，支持任务控制和FFmpeg管理
+- 前端：扩展任务控制UI，添加暂停/恢复/重试按钮和任务重排序
+- 前端：实现完整设置页面，包含FFmpeg设置、线程配置、输出路径和应用信息
+- 前端：修复TypeScript编译警告和错误，确保代码质量
+```
+
+#### 🚀 Release Notes
+
+```
+## 2026-04-23 - 任务控制与设置页面
+
+### ✨ 新增
+- 任务暂停/恢复功能：可随时暂停和恢复正在运行的任务，避免资源浪费
+- 任务重试功能：失败任务可一键重试，无需重新添加
+- 任务排序功能：支持上移/下调整任务队列顺序
+- FFmpeg版本管理：自动发现系统中的FFmpeg版本，支持手动切换
+- 完整设置页面：提供FFmpeg配置、线程数调整、输出文件夹设置等选项
+- 应用信息面板：显示当前版本、FFmpeg版本和系统信息
+
+### 🐛 修复
+- 修复TypeScript编译警告，提高代码质量
+- 修复任务状态处理逻辑，确保暂停状态正确显示和处理
+```
+
+### Phase5
 

@@ -16,7 +16,11 @@ const emit = defineEmits<{
   toggleSelect: [taskId: string]
   start: [taskId: string]
   stop: [taskId: string]
+  pause: [taskId: string]
+  resume: [taskId: string]
   retry: [taskId: string]
+  moveUp: [taskId: string]
+  moveDown: [taskId: string]
   showLog: [taskId: string]
 }>()
 </script>
@@ -33,20 +37,26 @@ const emit = defineEmits<{
           <th class="w-24">State</th>
           <th class="w-52">Progress</th>
           <th class="w-36">Info</th>
-          <th class="w-40">Actions</th>
+          <th class="w-52">Actions</th>
         </tr>
       </thead>
       <tbody>
         <TaskRow
-          v-for="task in tasks"
+          v-for="(task, index) in tasks"
           :key="task.id"
           :task="task"
           :progress="progressMap[task.id]"
           :selected="selectedIds.has(task.id)"
+          :is-first="index === 0"
+          :is-last="index === tasks.length - 1"
           @toggle-select="emit('toggleSelect', $event)"
           @start="emit('start', $event)"
           @stop="emit('stop', $event)"
+          @pause="emit('pause', $event)"
+          @resume="emit('resume', $event)"
           @retry="emit('retry', $event)"
+          @move-up="emit('moveUp', $event)"
+          @move-down="emit('moveDown', $event)"
           :class="{ 'bg-base-300/20': activeLogTaskId === task.id }"
           @show-log="emit('showLog', $event)"
         />

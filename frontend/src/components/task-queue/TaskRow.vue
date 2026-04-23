@@ -12,13 +12,19 @@ defineProps<{
   task: TaskDTO
   progress?: TaskProgressDTO
   selected: boolean
+  isFirst: boolean
+  isLast: boolean
 }>()
 
 const emit = defineEmits<{
   toggleSelect: [taskId: string]
   start: [taskId: string]
   stop: [taskId: string]
+  pause: [taskId: string]
+  resume: [taskId: string]
   retry: [taskId: string]
+  moveUp: [taskId: string]
+  moveDown: [taskId: string]
   showLog: [taskId: string]
 }>()
 
@@ -110,14 +116,35 @@ const stateLabel: Record<string, string> = {
     <!-- Actions -->
     <td>
       <div class="flex items-center gap-1" @click.stop>
-        <!-- Pending: Start -->
-        <button
-          v-if="task.state === 'pending'"
-          class="btn btn-xs btn-primary"
-          @click="emit('start', task.id)"
-        >
-          Start
-        </button>
+        <!-- Pending: Start + Move buttons -->
+        <template v-if="task.state === 'pending'">
+          <button
+            class="btn btn-xs btn-primary"
+            @click="emit('start', task.id)"
+          >
+            Start
+          </button>
+          <button
+            class="btn btn-xs btn-ghost btn-square"
+            :disabled="isFirst"
+            title="Move up"
+            @click="emit('moveUp', task.id)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <button
+            class="btn btn-xs btn-ghost btn-square"
+            :disabled="isLast"
+            title="Move down"
+            @click="emit('moveDown', task.id)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </template>
 
         <!-- Failed: Retry -->
         <button
@@ -128,18 +155,41 @@ const stateLabel: Record<string, string> = {
           Retry
         </button>
 
-        <!-- Running / Paused: Stop -->
-        <button
-          v-if="task.state === 'running' || task.state === 'paused'"
-          class="btn btn-xs btn-error btn-outline"
-          @click="emit('stop', task.id)"
-        >
-          Stop
-        </button>
+        <!-- Running: Pause + Stop -->
+        <template v-if="task.state === 'running'">
+          <button
+            class="btn btn-xs btn-warning btn-outline"
+            @click="emit('pause', task.id)"
+          >
+            Pause
+          </button>
+          <button
+            class="btn btn-xs btn-error btn-outline"
+            @click="emit('stop', task.id)"
+          >
+            Stop
+          </button>
+        </template>
+
+        <!-- Paused: Resume + Stop -->
+        <template v-if="task.state === 'paused'">
+          <button
+            class="btn btn-xs btn-info btn-outline"
+            @click="emit('resume', task.id)"
+          >
+            Resume
+          </button>
+          <button
+            class="btn btn-xs btn-error btn-outline"
+            @click="emit('stop', task.id)"
+          >
+            Stop
+          </button>
+        </template>
 
         <!-- Log toggle -->
         <button
-          v-if="task.state === 'running' || task.state === 'failed' || (task.log_lines && task.log_lines.length > 0)"
+          v-if="task.state === 'running' || task.state === 'failed' || task.state === 'paused' || task.state === 'cancelled' || (task.log_lines && task.log_lines.length > 0)"
           class="btn btn-xs btn-ghost"
           @click="emit('showLog', task.id)"
         >

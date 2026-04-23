@@ -1,6 +1,7 @@
 """Thread pool-based task runner with per-task cancellation.
 
-Phase 2a: start / stop only.  Pause / resume added in Phase 4.
+Phase 2a: start / stop only.
+Phase 4: pause / resume / retry via OS-level process suspension.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from core.ffmpeg_runner import run_single
 from core.ffmpeg_setup import get_ffmpeg_path, get_ffprobe_path
 from core.logging import get_logger
 from core.models import Task, TaskProgress, TaskState
+from core.process_control import resume_process, suspend_process
 from core.task_queue import TaskQueue
 
 logger = get_logger()
@@ -152,6 +154,112 @@ class TaskRunner:
 
         return True
 
+    def pause_task(self, task_id: str) -> bool:
+        """Suspend a running task's FFmpeg process."""
+        task = self._queue.get_task(task_id)
+        if task is None or task.state != "running":
+            return False
+
+        with self._procs_lock:
+            proc = self._running_procs.get(task_id)
+            if proc is None:
+                return False
+
+            # Check if process already exited
+            if proc.poll() is not None:
+                # Process finished on its own - let _run_task handle the
+                # terminal transition, don't mark as paused
+                logger.info(
+                    "pause_task: process already exited (task {})", task_id
+                )
+                return False
+
+            try:
+                suspend_process(proc.pid)
+            except OSError as exc:
+                logger.warning(
+                    "pause_task: suspend failed (task {}): {}", task_id, exc
+                )
+                return False
+
+        old_state = self._queue.transition_task(task_id, "paused")
+        self._emit("task_state_changed", {
+            "task_id": task_id,
+            "old_state": old_state or "running",
+            "new_state": "paused",
+        })
+        self._emit("queue_changed", self._queue.get_summary())
+        logger.info("Task {} paused", task_id)
+        return True
+
+    def resume_task(self, task_id: str) -> bool:
+        """Resume a paused task's FFmpeg process."""
+        task = self._queue.get_task(task_id)
+        if task is None or task.state != "paused":
+            return False
+
+        with self._procs_lock:
+            proc = self._running_procs.get(task_id)
+            if proc is None:
+                return False
+
+            if proc.poll() is not None:
+                logger.warning(
+                    "resume_task: process already exited (task {})", task_id
+                )
+                # Mark as failed since process died while paused
+                old_state = self._queue.transition_task(task_id, "failed")
+                task.error = "Process exited while paused"
+                self._emit("task_state_changed", {
+                    "task_id": task_id,
+                    "old_state": old_state or "paused",
+                    "new_state": "failed",
+                })
+                self._emit("queue_changed", self._queue.get_summary())
+                return False
+
+            try:
+                resume_process(proc.pid)
+            except OSError as exc:
+                logger.warning(
+                    "resume_task: resume failed (task {}): {}", task_id, exc
+                )
+                return False
+
+        old_state = self._queue.transition_task(task_id, "running")
+        self._emit("task_state_changed", {
+            "task_id": task_id,
+            "old_state": old_state or "paused",
+            "new_state": "running",
+        })
+        self._emit("queue_changed", self._queue.get_summary())
+        logger.info("Task {} resumed", task_id)
+        return True
+
+    def retry_task(self, task_id: str) -> bool:
+        """Reset a failed task to pending and re-execute it."""
+        task = self._queue.get_task(task_id)
+        if task is None or task.state != "failed":
+            return False
+
+        # Clear error and reset progress
+        task.error = ""
+        task.progress = TaskProgress()
+        task.output_path = ""
+        task.started_at = ""
+        task.completed_at = ""
+
+        old_state = self._queue.transition_task(task_id, "pending")
+        self._emit("task_state_changed", {
+            "task_id": task_id,
+            "old_state": old_state or "failed",
+            "new_state": "pending",
+        })
+        self._emit("queue_changed", self._queue.get_summary())
+
+        # Re-submit for execution
+        return self.start_task(task_id)
+
     # ------------------------------------------------------------------
     # Bulk control
     # ------------------------------------------------------------------
@@ -161,7 +269,7 @@ class TaskRunner:
         stopped = 0
         task_ids = [
             t.id for t in self._queue.get_all_tasks_objects()
-            if t.state in ("pending", "running")
+            if t.state in ("pending", "running", "paused")
         ]
         for tid in task_ids:
             if self.stop_task(tid):
@@ -169,14 +277,28 @@ class TaskRunner:
         return stopped
 
     def pause_all(self) -> int:
-        """Phase 4: pause all running tasks. Returns count paused."""
-        # Placeholder for Phase 4
-        return 0
+        """Pause all running tasks. Returns count paused."""
+        paused = 0
+        task_ids = [
+            t.id for t in self._queue.get_all_tasks_objects()
+            if t.state == "running"
+        ]
+        for tid in task_ids:
+            if self.pause_task(tid):
+                paused += 1
+        return paused
 
     def resume_all(self) -> int:
-        """Phase 4: resume all paused tasks. Returns count resumed."""
-        # Placeholder for Phase 4
-        return 0
+        """Resume all paused tasks. Returns count resumed."""
+        resumed = 0
+        task_ids = [
+            t.id for t in self._queue.get_all_tasks_objects()
+            if t.state == "paused"
+        ]
+        for tid in task_ids:
+            if self.resume_task(tid):
+                resumed += 1
+        return resumed
 
     # ------------------------------------------------------------------
     # Internal: task execution

@@ -268,6 +268,36 @@ class FFmpegApi(Bridge):
             return {"success": False, "error": str(exc)}
 
     @expose
+    def pause_task(self, task_id: str) -> dict:
+        """Pause a single running task."""
+        try:
+            ok = self._runner.pause_task(task_id)
+            return {"success": ok, "data": None}
+        except Exception as exc:
+            logger.exception("pause_task failed: {}", exc)
+            return {"success": False, "error": str(exc)}
+
+    @expose
+    def resume_task(self, task_id: str) -> dict:
+        """Resume a single paused task."""
+        try:
+            ok = self._runner.resume_task(task_id)
+            return {"success": ok, "data": None}
+        except Exception as exc:
+            logger.exception("resume_task failed: {}", exc)
+            return {"success": False, "error": str(exc)}
+
+    @expose
+    def retry_task(self, task_id: str) -> dict:
+        """Retry a failed task."""
+        try:
+            ok = self._runner.retry_task(task_id)
+            return {"success": ok, "data": None}
+        except Exception as exc:
+            logger.exception("retry_task failed: {}", exc)
+            return {"success": False, "error": str(exc)}
+
+    @expose
     def stop_all(self) -> dict:
         """Stop all non-terminal tasks."""
         try:
@@ -391,6 +421,45 @@ class FFmpegApi(Bridge):
         except Exception as exc:
             logger.exception("save_settings failed: {}", exc)
             return {"success": False, "error": str(exc)}
+
+    # ------------------------------------------------------------------
+    # FFmpeg version management
+    # ------------------------------------------------------------------
+
+    @expose
+    def get_ffmpeg_versions(self) -> dict:
+        """Discover and return all available FFmpeg versions."""
+        try:
+            from core.ffmpeg_setup import discover_ffmpeg_versions
+            versions = discover_ffmpeg_versions()
+            return {"success": True, "data": versions}
+        except Exception as exc:
+            logger.exception("get_ffmpeg_versions failed: {}", exc)
+            return {"success": False, "error": str(exc)}
+
+    @expose
+    def switch_ffmpeg(self, path: str) -> dict:
+        """Switch to a specific FFmpeg binary."""
+        try:
+            from core.ffmpeg_setup import switch_ffmpeg
+            info = switch_ffmpeg(path)
+            return {"success": True, "data": info}
+        except (ValueError, Exception) as exc:
+            logger.exception("switch_ffmpeg failed: {}", exc)
+            return {"success": False, "error": str(exc)}
+
+    @expose
+    def select_ffmpeg_binary(self) -> dict:
+        """Open file dialog to select an FFmpeg binary."""
+        try:
+            result = self._window.create_file_dialog(
+                dialog_type=webview.FileDialog.OPEN,
+            )
+            if result and len(result) > 0:
+                return {"success": True, "data": result[0]}
+            return {"success": True, "data": None}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
 
 if __name__ == "__main__":
