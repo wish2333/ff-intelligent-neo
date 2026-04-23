@@ -1352,3 +1352,259 @@ feat(phase4): 实现任务暂停/恢复功能和完整设置页面
 
 ### Phase5
 
+#### Complete
+
+```
+  Changes (9 files)
+
+  Backend (3 files):
+
+  ┌───────────────────────┬──────────────────────────────────────────────────────────────────────────────────────────┐
+  │         File          │                                         Changes                                          │
+  ├───────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────┤
+  │ core/task_queue.py    │ load_state(): running->failed, paused->pending recovery; save_state(): only non-terminal │
+  │                       │  + last 50 terminal; proper datetime import                                              │
+  ├───────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────┤
+  │ core/ffmpeg_runner.py │ Calculate estimated_remaining from elapsed/percent ratio, display in progress events     │
+  ├───────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────┤
+  │ main.py               │ download_ffmpeg @expose (with packaged guard); atexit cleanup; fixed switch_ffmpeg       │
+  │                       │ exception handling                                                                       │
+  └───────────────────────┴──────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Frontend (5 files):
+
+  ┌─────────────────────┬────────────────────────────────────────────────────────────────────────────────────────────┐
+  │        File         │                                          Changes                                           │
+  ├─────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ TaskProgressBar.vue │ Display ~Xm Xs estimated remaining time                                                    │
+  ├─────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ useSettings.ts      │ downloadFfmpeg() method                                                                    │
+  ├─────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ FFmpegSetup.vue     │ Download button (when no versions found); reactive status badge; removed handleSwitch      │
+  │                     │ wrapper                                                                                    │
+  ├─────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ TaskQueuePage.vue   │ Loading spinner while data loads                                                           │
+  ├─────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ SettingsPage.vue    │ Loading spinner while data loads                                                           │
+  └─────────────────────┴────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Build (1 file):
+
+  ┌──────────┬───────────────────────────────────────────────────────────────────────────────┐
+  │   File   │                                    Changes                                    │
+  ├──────────┼───────────────────────────────────────────────────────────────────────────────┤
+  │ app.spec │ App name ff-intelligent-neo; removed batch_runner; added 5 new module imports │
+  └──────────┴───────────────────────────────────────────────────────────────────────────────┘
+
+  Verification
+
+  - TypeScript: 0 errors
+  - Vite build: 1.24s
+  - Python imports: all OK
+
+  Manual Test Checklist
+
+    1. Execute a task, close and reopen the app -> running task shows as "Failed" with "Process interrupted by app restart" error
+    2. Pause a task, close and reopen -> paused task shows as "Pending"
+    3. Add 55+ completed tasks, close/reopen -> only 50 most recent kept
+    4. Running task shows ~Xm Xs remaining time in progress bar
+    5. Settings page, FFmpeg section: click "Download FFmpeg" when no versions found
+    6. App closes cleanly (no orphan FFmpeg processes)
+    7. Both pages show loading spinner during initial data fetch
+
+
+```
+
+暂停时关闭应用，应用无法完全关闭，窗口关闭了但控制台一直还在，关闭控制台之后任务状态是pending但是也没法按原本的进度继续任务。运行时直接关闭，应用也是无法完全关闭，FFmpeg在后台执行完任务了才关闭。感觉不用搞得那么复杂，无论是暂停时还是运行时关闭，都直接掐断进程，重启后显示Failed提示用户可以Retry即可
+
+  1. main.py _cleanup(): No more graceful shutdown. Directly kills all FFmpeg processes via proc.kill(), fires all
+
+    cancel events, calls shutdown(wait=False) to abandon threads immediately. The process exits cleanly.
+  2. core/task_queue.py load_state(): Both running and paused tasks now reset to failed (not pending). Error message:
+
+    "Process interrupted by app close". User can Retry.
+  3. PRD 10.3: Updated to reflect simplified behavior.
+
+```
+  Changes to fix FFmpeg process survival on app close:
+
+  ┌─────────────────────────┬────────────────────────────────────────────────────────────────────────────────────────┐
+  │          File           │                                         Change                                         │
+  ├─────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ pywebvue/app.py         │ Added on_closing callback parameter, registered on window.events.closing               │
+  ├─────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ core/process_control.py │ Added shared kill_process_tree() helper (Windows: taskkill /F /T /PID, Unix: os.killpg │
+  │                         │  with fallback)                                                                        │
+  ├─────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ core/ffmpeg_runner.py   │ Added CREATE_NEW_PROCESS_GROUP on Windows to Popen; all kill paths use shared          │
+  │                         │ kill_process_tree()                                                                    │
+  ├─────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ core/task_runner.py     │ Removed local _kill_process_tree, imports shared version; stop_task and force_kill_all │
+  │                         │  use it; force_kill_all clears _cancel_events                                          │
+  ├─────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+  │ main.py                 │ Simplified _cleanup to runner.force_kill_all(); added on_closing=api._cleanup to App;  │
+  │                         │ added double-execution guard                                                           │
+  └─────────────────────────┴────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Root causes addressed:
+  1. proc.kill() on Windows only kills the direct child, not FFmpeg's sub-processes -> fixed with taskkill /F /T /PID
+  2. atexit may not fire if pywebview uses os._exit() -> fixed by also hooking into window.events.closing
+  3. Duplicated kill logic across files -> consolidated into core/process_control.py
+  4. _cleanup could fire twice (atexit + on_closing) -> added idempotency guard
+```
+
+#### CC-Mem
+
+```
+     Legend: session-request | 🔴 bugfix | 🟣 feature | 🔄 refactor | ✅ change | 🔵 discovery | ⚖️ decision
+
+     Column Key
+       Read: Tokens to read this observation (cost to learn it now)
+       Work: Tokens spent on work that produced this record ( research, building, deciding)
+
+     Context Index: This semantic index (titles, types, files, tokens) is usually sufficient to understand past work.
+
+     When you need implementation details, rationale, or debugging context:
+       - Fetch by ID: get_observations([IDs]) for observations visible in this index
+       - Search history: Use the mem-search skill for past decisions, bugs, and deeper research
+       - Trust this index over re-reading code for past decisions and learnings
+
+     Context Economics
+       Loading: 50 observations (15,274 tokens to read)
+       Work investment: 10,968 tokens spent on research, building, and decisions
+       Your savings: -39% reduction from reuse
+
+     Apr 23, 2026
+
+     #S1 Audio transcoding parameter consistency fix - user requested explanation of changes made to ensure passed
+     parameters match command preview (Apr 23, 12:50 AM)
+
+     #S2 ComboInput component enhanced with improved filtering behavior (Apr 23, 12:54 AM)
+
+     frontend/src/
+       #1214  12:40 PM  🟣  Phase 5 Task 5 completed: build verification and testing
+     core/task_queue.py
+       #1215            🔵  Git diff shows 22 files changed with 2460 insertions and 106 deletions in latest commit
+     .git/
+       #1216  12:41 PM  🔵  Git commit history shows Phase 4 as most recent commit, Phase 5 changes are uncommitted
+     core/task_queue.py
+       #1217            🔵  Phase 5 changes confirmed as 9 unstaged files with 151 insertions and 7 deletions
+     app.spec
+       #1218  12:42 PM  🔵  Complete Phase 5 diff confirms all features implemented across 9 files
+     core/task_queue.py
+       #1219            🟣  Phase 5 implementation fully complete and verified
+     main.py
+       #1220            🔵  static_ffmpeg package integration confirmed across codebase
+     core/ffmpeg_setup.py
+       #1221            🔵  FFmpeg discovery priority chain confirmed in core/ffmpeg_setup.py
+     main.py
+       #1222  12:43 PM  🔵  Shutdown cleanup integration points confirmed in main.py
+     core/task_queue.py
+       #1223            🔵  Code review identified 4 HIGH severity issues in Phase 5 implementation
+       #1224            🔄  Added proper datetime import to task_queue.py replacing inline __import__ calls
+       #1225            🔴  Fixed critical race condition in task queue save_state() method
+     ..\..\Git\GithubManager\ff-intelligent-neo\main.py
+       #1226  12:55 PM  🔴  Implemented force-kill shutdown behavior for app exit
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_queue.py
+       #1227            🔴  Modified queue recovery logic to mark all interrupted tasks as failed
+     ..\..\Git\GithubManager\ff-intelligent-neo\docs\PRD-2.0.0.md
+       #1228            🔵  PRD specifies different queue recovery behavior than recent implementation
+       #1229            ✅  Updated PRD documentation to reflect simplified queue recovery behavior
+       #1230  12:58 PM  ✅  Updated PRD section 10.3 to reflect simplified queue recovery behavior
+     ..\..\Git\GithubManager\ff-intelligent-neo\pywebvue\bridge.py
+       #1231  1:05 PM  🔵  pywebvue bridge lacks window lifecycle hooks for cleanup
+     ..\..\Git\GithubManager\ff-intelligent-neo\main.py
+       #1232  1:07 PM  🔵  main.py application entry point lacks subprocess cleanup on window close
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_runner.py
+       #1233           🔵  TaskRunner.shutdown() exists but is never called on window close
+     ..\..\Git\GithubManager\ff-intelligent-neo\pywebvue\app.py
+       #1234           🔵  pywebvue App class lacks window lifecycle event registration
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\process_control.py
+       #1235           🔵  Window close solution requires webview.events.closed or signal handlers
+     General
+       #1236           ⚖️  Solution approach: Add on_closing lifecycle hook to pywebvue App
+       #1237           ⚖️  Three-phase implementation plan for ffmpeg cleanup on window close
+     ..\..\Git\GithubManager\ff-intelligent-neo\pywebvue\app.py
+       #1238  1:08 PM  ✅  Added on_closing parameter to pywebvue App.__init__()
+       #1239           🟣  Implemented on_closing lifecycle hook in pywebvue App class
+     General
+       #1240           🔵  FFmpeg process tree termination requires platform-specific handling
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\ffmpeg_runner.py
+       #1241           ✅  Added sys import to ffmpeg_runner.py for platform detection
+       #1242           ✅  Added CREATE_NEW_PROCESS_GROUP flag for Windows subprocess creation
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_runner.py
+       #1243           ✅  Added sys import to task_runner.py for platform detection
+       #1244           🟣  Implemented _kill_process_tree() helper for reliable subprocess termination
+       #1245           🔴  Replaced proc.kill() with _kill_process_tree() in stop_task()
+       #1246           🟣  Added force_kill_all() method to TaskRunner for shutdown cleanup
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\ffmpeg_runner.py
+       #1247           ✅  Added platform-specific process tree termination to ffmpeg_runner.py cancellation
+       #1248  1:09 PM  🟣  Completed Task 7: FFmpeg process tree termination implemented
+     ..\..\Git\GithubManager\ff-intelligent-neo\main.py
+       #1249           🔄  Simplified _cleanup() in main.py to use TaskRunner.force_kill_all()
+       #1250           🟣  Integrated on_closing lifecycle hook into main.py App initialization
+     ..\..\Git\GithubManager\ff-intelligent-neo\pywebvue\app.py
+       #1251           🔴  Completed fix for FFmpeg processes continuing after window close
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\ffmpeg_runner.py
+       #1252  1:29 PM  🔵  Code review identified 5 issues in FFmpeg cleanup implementation
+     General
+       #1253           ⚖️  Created task to fix code review issues in FFmpeg cleanup implementation
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\process_control.py
+       #1254           ✅  Started implementing code review fixes for process cleanup issues
+       #1255  1:30 PM  🔄  Consolidated process tree termination into shared kill_process_tree() in process_control.py
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\ffmpeg_runner.py
+       #1256  1:39 PM  ✅  Added kill_process_tree import to ffmpeg_runner.py
+       #1257           🔄  Replaced inline process kill logic with shared kill_process_tree() in ffmpeg_runner.py
+       #1258           🔴  Fixed exception handler to use kill_process_tree() instead of proc.kill()
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_runner.py
+       #1259           🔄  Removed duplicate _kill_process_tree from task_runner.py, imported shared version
+       #1260  1:40 PM  🔄  Updated stop_task() to use imported kill_process_tree instead of local function
+       #1261           🔴  Fixed force_kill_all() to use shared kill_process_tree and clear _cancel_events
+     ..\..\Git\GithubManager\ff-intelligent-neo\main.py
+       #1262           🔴  Added double-call guard to _cleanup() method in main.py
+     ..\..\Git\GithubManager\ff-intel
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\process_control.py
+       #1263  1:43 PM  🟣  Completed Task 9: Fixed all code review issues for process cleanup
+     ..\..\Git\GithubManager\ff-intelligent-neo\build.py
+       #1264  1:50 PM  🔵  FFmpeg pre-download fails due to missing static_ffmpeg module
+     ..\..\Git\GithubManager\ff-intelligent-neo\app.spec
+       #1265           🔵  static_ffmpeg dependency declared but not installed in uv environment
+     ..\..\Git\GithubManager\ff-intelligent-neo\pyproject.toml
+       #1266           🔵  pre_build.py invoked as standalone subprocess, not imported module
+     ..\..\Git\GithubManager\ff-intelligent-neo\build.py
+       #1267  1:51 PM  🔵  build.py declares only pyinstaller in PEP 723 metadata, static-ffmpeg in pyproject.tomlligent-neo\core\process_control.py
+       #1263  1:43 PM  🟣  Completed Task 9: Fixed all code review issues for process cleanup
+```
+
+#### 📝 Commit Message
+
+```
+feat(main): 改进任务队列管理、进程控制与用户体验
+
+- 任务队列优化：修复状态持久化逻辑，限制历史任务存储数量，添加预计完成时间显示
+- FFmpeg功能增强：添加自动下载功能，实现进度显示，优化安装体验
+- 进程控制改进：解决应用关闭时FFmpeg进程残留问题，统一跨平台终止逻辑
+- UI体验提升：添加加载状态指示器，优化进度条显示，简化状态管理逻辑
+- 构建更新：调整应用名称，添加新模块，移除废弃组件
+```
+
+#### 🚀 Release Notes
+
+```
+## 2026-04-23 - 增强的任务管理与进程控制
+
+### ✨ 新增
+- 任务进度显示：现在可以看到预计剩余完成时间，格式为"X分X秒"
+- FFmpeg自动下载：当检测到没有FFmpeg版本时，可在设置界面直接下载
+- 加载优化：任务队列和设置页面在加载数据时显示加载指示器
+
+### 🐛 修复
+- 应用关闭问题：无论任务是在运行还是暂停状态，现在应用关闭会正确终止所有FFmpeg进程
+- 任务状态恢复：重新打开应用后，被中断的任务会标记为"失败"并显示"进程被应用关闭中断"，用户可以重试
+- 内存优化：只保留最近50个已完成任务，避免历史任务占用过多存储空间
+
+### ⚡ 优化
+- 进度显示更精确：基于已用时间和完成比例计算剩余时间
+- 应用稳定性改进：解决了重复清理进程的问题，添加了双重执行保护
+- 代码结构优化：合并了分散的进程控制逻辑，提高维护性
+```

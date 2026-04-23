@@ -1,0 +1,8 @@
+Field Name,Type,Default,Required,Description,Validation Rules
+percent,float,0.0,Yes,Completion percentage,0.0 - 100.0
+current_seconds,float,0.0,Yes,Current processing position in seconds,>= 0
+total_seconds,float,0.0,Yes,Total media duration in seconds,>= 0
+speed,str,"",No,Processing speed,FFmpeg speed=Nx format string
+fps,str,"",No,Current encoding FPS,FFmpeg fps=N format string
+frame,int,0,No,Current frame number,>= 0
+estimated_remaining,str,"",No,Estimated remaining time,Human-readable format string

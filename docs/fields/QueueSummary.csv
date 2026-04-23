@@ -1,0 +1,7 @@
+Field Name,Type,Default,Required,Description,Validation Rules
+pending,int,0,Yes,Number of pending tasks,>= 0
+running,int,0,Yes,Number of running tasks,>= 0
+paused,int,0,Yes,Number of paused tasks,>= 0
+completed,int,0,Yes,Number of completed tasks,>= 0
+failed,int,0,Yes,Number of failed tasks,>= 0
+cancelled,int,0,Yes,Number of cancelled tasks,>= 0

@@ -1,0 +1,4 @@
+Field Name,Type,Default,Required,Description,Validation Rules
+transcode,TranscodeConfig,TranscodeConfig(),Yes,Transcoding parameters,See TranscodeConfig.csv
+filters,FilterConfig,FilterConfig(),Yes,Filter chain parameters,See FilterConfig.csv
+output_dir,str,"",No,Output directory for processed files,If empty, uses default_output_dir from AppSettings

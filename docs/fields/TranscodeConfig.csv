@@ -1,0 +1,8 @@
+Field Name,Type,Default,Required,Description,Validation Rules
+video_codec,str,"libx264",Yes,Video codec name,"Common values: libx264, libx265, copy, none"
+audio_codec,str,"aac",Yes,Audio codec name,"Common values: aac, mp3, copy, none"
+video_bitrate,str,"",No,Video bitrate string,"Format: '<number><unit>', e.g. '5M', '2000k'. Empty = default"
+audio_bitrate,str,"",No,Audio bitrate string,"Format: '<number><unit>', e.g. '128k'. Empty = default"
+resolution,str,"",No,Output resolution,"Format: 'WxH', e.g. '1920x1080'. Empty = original"
+framerate,str,"",No,Output framerate,"Format: '<number>', e.g. '30', '60'. Empty = original"
+output_extension,str,".mp4",Yes,Output file extension,"Must include dot prefix, e.g. '.mp4', '.mkv'"
