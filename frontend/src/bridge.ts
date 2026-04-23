@@ -16,21 +16,28 @@ function getRawApi(): PyWebViewApi {
 
 /**
  * Poll until the pywebview bridge is ready.
- * Returns a promise that resolves when ``window.pywebview.api`` is populated.
+ * Returns a promise that resolves when ``window.pywebview.api`` is populated
+ * AND at least one exposed method is callable.
  */
 export function waitForPyWebView(timeout = 10_000): Promise<void> {
   return new Promise((resolve, reject) => {
     const start = Date.now();
     const check = () => {
-      if (window.pywebview?.api) {
-        resolve();
-        return;
+      try {
+        const api = window.pywebview?.api;
+        // Verify the api proxy has resolved its methods
+        if (api && typeof (api as any).setup_ffmpeg === "function") {
+          resolve();
+          return;
+        }
+      } catch {
+        // api might not be fully ready yet
       }
       if (Date.now() - start > timeout) {
         reject(new Error("pywebview bridge did not initialize within timeout"));
         return;
       }
-      setTimeout(check, 50);
+      setTimeout(check, 100);
     };
     check();
   });
@@ -49,10 +56,11 @@ export async function call<T = unknown>(
   ...args: unknown[]
 ): Promise<ApiResponse<T>> {
   const api = getRawApi();
-  if (!(method in api)) {
+  const fn = api[method as keyof typeof api];
+  if (typeof fn !== "function") {
     return { success: false, error: `Method '${method}' not found on bridge` };
   }
-  return (await api[method](...args)) as ApiResponse<T>;
+  return (await fn(...args)) as ApiResponse<T>;
 }
 
 /**

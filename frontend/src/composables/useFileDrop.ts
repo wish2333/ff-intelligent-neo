@@ -1,63 +1,61 @@
-import { ref, onMounted, onUnmounted } from "vue";
+/**
+ * File drag-and-drop composable.
+ *
+ * Manages drag state and integrates with pywebvue's get_dropped_files
+ * to retrieve paths from the Python backend after a drop event.
+ */
 
-export function useFileDrop(onFilesDropped: (paths: string[]) => void) {
-  const isDragging = ref(false);
-  let dragCounter = 0;
+import { ref, onUnmounted } from "vue"
+import { call } from "../bridge"
 
-  function onDragEnter(e: DragEvent) {
-    e.preventDefault();
-    dragCounter++;
-    isDragging.value = true;
-  }
+export function useFileDrop() {
+  const isDragging = ref(false)
+  let dragCounter = 0
 
-  function onDragOver(e: DragEvent) {
-    e.preventDefault();
-  }
-
-  function onDragLeave() {
-    dragCounter--;
-    if (dragCounter <= 0) {
-      dragCounter = 0;
-      isDragging.value = false;
+  function onDragEnter(e: DragEvent): void {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounter++
+    if (dragCounter === 1) {
+      isDragging.value = true
     }
   }
 
-  async function onDrop(e: DragEvent) {
-    e.preventDefault();
-    dragCounter = 0;
-    isDragging.value = false;
+  function onDragOver(e: DragEvent): void {
+    e.preventDefault()
+    e.stopPropagation()
+  }
 
-    // Poll Python backend for file paths (pywebview processes drop asynchronously)
-    const api = (window as any).pywebview?.api;
-    if (!api) return;
-
-    for (let attempt = 0; attempt < 30; attempt++) {
-      try {
-        const result = await api.get_dropped_files();
-        if (result.success && result.data && result.data.length > 0) {
-          onFilesDropped(result.data);
-          return;
-        }
-      } catch {
-        // bridge not ready yet
-      }
-      await new Promise((r) => setTimeout(r, 100));
+  function onDragLeave(e: DragEvent): void {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounter--
+    if (dragCounter === 0) {
+      isDragging.value = false
     }
   }
 
-  onMounted(() => {
-    window.addEventListener("dragenter", onDragEnter);
-    window.addEventListener("dragover", onDragOver);
-    window.addEventListener("dragleave", onDragLeave);
-    window.addEventListener("drop", onDrop);
-  });
+  async function onDrop(): Promise<string[]> {
+    isDragging.value = false
+    dragCounter = 0
+    // Wait for pywebvue's document-level drop handler to populate the buffer
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    const res = await call<string[]>("get_dropped_files")
+    return res.success && res.data ? res.data : []
+  }
 
-  onUnmounted(() => {
-    window.removeEventListener("dragenter", onDragEnter);
-    window.removeEventListener("dragover", onDragOver);
-    window.removeEventListener("dragleave", onDragLeave);
-    window.removeEventListener("drop", onDrop);
-  });
+  function reset(): void {
+    isDragging.value = false
+    dragCounter = 0
+  }
 
-  return { isDragging };
+  onUnmounted(reset)
+
+  return {
+    isDragging,
+    onDragEnter,
+    onDragOver,
+    onDragLeave,
+    onDrop,
+  }
 }

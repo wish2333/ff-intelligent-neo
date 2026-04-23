@@ -1,34 +1,191 @@
 [
   {
+    "id": "mp4-h264",
+    "name": "MP4 H.264",
+    "description": "Standard H.264 video with AAC audio, good quality-to-size ratio",
+    "config": {
+      "transcode": {
+        "video_codec": "libx264",
+        "audio_codec": "aac",
+        "video_bitrate": "5M",
+        "audio_bitrate": "192k",
+        "resolution": "",
+        "framerate": "",
+        "output_extension": ".mp4"
+      },
+      "filters": {
+        "rotate": "",
+        "crop": "",
+        "watermark_path": "",
+        "watermark_position": "bottom-right",
+        "watermark_margin": 10,
+        "volume": "",
+        "speed": ""
+      },
+      "output_dir": ""
+    },
+    "is_default": true
+  },
+  {
+    "id": "mp4-h265",
+    "name": "MP4 H.265/HEVC",
+    "description": "High efficiency H.265 encoding, smaller files at similar quality",
+    "config": {
+      "transcode": {
+        "video_codec": "libx265",
+        "audio_codec": "aac",
+        "video_bitrate": "3M",
+        "audio_bitrate": "192k",
+        "resolution": "",
+        "framerate": "",
+        "output_extension": ".mp4"
+      },
+      "filters": {
+        "rotate": "",
+        "crop": "",
+        "watermark_path": "",
+        "watermark_position": "bottom-right",
+        "watermark_margin": 10,
+        "volume": "",
+        "speed": ""
+      },
+      "output_dir": ""
+    },
+    "is_default": true
+  },
+  {
+    "id": "720p-h264",
+    "name": "720p H.264",
+    "description": "Downscale to 720p with H.264, ideal for web sharing",
+    "config": {
+      "transcode": {
+        "video_codec": "libx264",
+        "audio_codec": "aac",
+        "video_bitrate": "2M",
+        "audio_bitrate": "128k",
+        "resolution": "1280x720",
+        "framerate": "",
+        "output_extension": ".mp4"
+      },
+      "filters": {
+        "rotate": "",
+        "crop": "",
+        "watermark_path": "",
+        "watermark_position": "bottom-right",
+        "watermark_margin": 10,
+        "volume": "",
+        "speed": ""
+      },
+      "output_dir": ""
+    },
+    "is_default": true
+  },
+  {
     "id": "audio-mp3",
     "name": "Audio to MP3",
     "description": "Extract/convert audio to MP3 320kbps",
-    "output_extension": ".mp3",
-    "command_template": "-i {input} -vn -c:a libmp3lame -b:a 320k {output}",
+    "config": {
+      "transcode": {
+        "video_codec": "none",
+        "audio_codec": "libmp3lame",
+        "video_bitrate": "",
+        "audio_bitrate": "320k",
+        "resolution": "",
+        "framerate": "",
+        "output_extension": ".mp3"
+      },
+      "filters": {
+        "rotate": "",
+        "crop": "",
+        "watermark_path": "",
+        "watermark_position": "bottom-right",
+        "watermark_margin": 10,
+        "volume": "",
+        "speed": ""
+      },
+      "output_dir": ""
+    },
     "is_default": true
   },
   {
     "id": "audio-aac",
     "name": "Audio to AAC",
     "description": "Extract/convert audio to AAC 256kbps",
-    "output_extension": ".m4a",
-    "command_template": "-i {input} -vn -c:a aac -b:a 256k {output}",
+    "config": {
+      "transcode": {
+        "video_codec": "none",
+        "audio_codec": "aac",
+        "video_bitrate": "",
+        "audio_bitrate": "256k",
+        "resolution": "",
+        "framerate": "",
+        "output_extension": ".m4a"
+      },
+      "filters": {
+        "rotate": "",
+        "crop": "",
+        "watermark_path": "",
+        "watermark_position": "bottom-right",
+        "watermark_margin": 10,
+        "volume": "",
+        "speed": ""
+      },
+      "output_dir": ""
+    },
     "is_default": true
   },
   {
     "id": "remux-mp4",
     "name": "Remux to MP4",
     "description": "Copy streams to MP4 container (no re-encode, very fast)",
-    "output_extension": ".mp4",
-    "command_template": "-i {input} -c copy {output}",
+    "config": {
+      "transcode": {
+        "video_codec": "copy",
+        "audio_codec": "copy",
+        "video_bitrate": "",
+        "audio_bitrate": "",
+        "resolution": "",
+        "framerate": "",
+        "output_extension": ".mp4"
+      },
+      "filters": {
+        "rotate": "",
+        "crop": "",
+        "watermark_path": "",
+        "watermark_position": "bottom-right",
+        "watermark_margin": 10,
+        "volume": "",
+        "speed": ""
+      },
+      "output_dir": ""
+    },
     "is_default": true
   },
   {
-    "id": "extract-audio",
+    "id": "extract-wav",
     "name": "Extract Audio (WAV)",
     "description": "Extract audio to uncompressed WAV",
-    "output_extension": ".wav",
-    "command_template": "-i {input} -vn -c:a pcm_s16le {output}",
+    "config": {
+      "transcode": {
+        "video_codec": "none",
+        "audio_codec": "aac",
+        "video_bitrate": "",
+        "audio_bitrate": "",
+        "resolution": "",
+        "framerate": "",
+        "output_extension": ".wav"
+      },
+      "filters": {
+        "rotate": "",
+        "crop": "",
+        "watermark_path": "",
+        "watermark_position": "bottom-right",
+        "watermark_margin": 10,
+        "volume": "",
+        "speed": ""
+      },
+      "output_dir": ""
+    },
     "is_default": true
   }
 ]

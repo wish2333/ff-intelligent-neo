@@ -1,38 +1,53 @@
-"""FFmpeg binary setup using static-ffmpeg package."""
+"""FFmpeg binary discovery, setup, and version management.
+
+Priority chain for FFmpeg resolution:
+1. User-specified path (from settings, highest priority)
+2. Platform-specific known paths (Homebrew, etc.)
+3. System PATH (shutil.which)
+4. static_ffmpeg package (may download on first call)
+
+In packaged (PyInstaller) environments, bundled binaries are checked first.
+"""
 
 from __future__ import annotations
 
 import os
+import platform as _platform
 import shutil
 import sys
 from pathlib import Path
 
+from core.logging import get_logger
+
+logger = get_logger()
+
+# Module-level caches
+_ffmpeg_override_path: str | None = None
+_ffmpeg_override_ffprobe: str | None = None
+
 
 def is_frozen() -> bool:
     """Check if running as a PyInstaller bundle."""
-    return getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+    return getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")
 
 
-def _find_bundled_ffmpeg_bin(name: str) -> str | None:
-    """Locate a binary from the PyInstaller bundle directory.
+# ---------------------------------------------------------------------------
+# Bundled binary lookup (PyInstaller)
+# ---------------------------------------------------------------------------
 
-    In onedir mode, binaries are next to the executable.
-    In onefile mode, binaries are in sys._MEIPASS.
-    """
+
+def _find_bundled_bin(name: str) -> str | None:
+    """Locate a binary from the PyInstaller bundle directory."""
     if not is_frozen():
         return None
-
-    import logging
-    logger = logging.getLogger(__name__)
 
     suffix = ".exe" if sys.platform == "win32" else ""
     bin_name = f"{name}{suffix}"
 
-    # Check sys._MEIPASS (onefile) and executable directory (onedir)
     search_dirs = []
-    if hasattr(sys, '_MEIPASS'):
+    if hasattr(sys, "_MEIPASS"):
         search_dirs.append(Path(sys._MEIPASS))
-    if hasattr(sys, 'executable'):
+    if hasattr(sys, "executable"):
         search_dirs.append(Path(sys.executable).parent)
 
     for search_dir in search_dirs:
@@ -45,83 +60,326 @@ def _find_bundled_ffmpeg_bin(name: str) -> str | None:
     return None
 
 
-def _find_static_ffmpeg_bin(name: str) -> str | None:
-    """Locate a binary (ffmpeg/ffprobe) from various sources.
+# ---------------------------------------------------------------------------
+# Platform-known paths
+# ---------------------------------------------------------------------------
 
-    Priority:
-    1. Bundled binary (PyInstaller packaged)
-    2. PATH (system-installed ffmpeg)
-    3. static_ffmpeg package directory
-    """
-    import logging
-    logger = logging.getLogger(__name__)
 
-    # 1. Bundled binary (packaged environment)
-    bundled = _find_bundled_ffmpeg_bin(name)
-    if bundled:
-        return bundled
+def _find_platform_bin(name: str) -> str | None:
+    """Check platform-specific known installation paths."""
+    suffix = ".exe" if sys.platform == "win32" else ""
+    known: list[str] = []
 
-    # 2. Try PATH (handles system-installed ffmpeg)
-    path_result = shutil.which(name)
-    if path_result:
-        logger.info("[ffmpeg_setup] Found {} in PATH: {}", name, path_result)
-        return path_result
+    machine = _platform.machine().lower()
+    if sys.platform == "darwin":
+        if machine in ("arm64", "aarch64"):
+            known = ["/opt/homebrew/bin/{name}"]
+        else:
+            known = ["/usr/local/bin/{name}"]
 
-    # 3. Try to find via static_ffmpeg package location
-    try:
-        import static_ffmpeg
-        pkg_dir = Path(static_ffmpeg.__file__).parent
-        logger.info("[ffmpeg_setup] static_ffmpeg package dir: {}", pkg_dir)
-        for pattern in [f"bin/*/{name}", f"bin/*/{name}.exe", f"bin/*/{name}.EXE"]:
-            matches = list(pkg_dir.glob(pattern))
-            if matches:
-                logger.info("[ffmpeg_setup] Found {} via pattern {}: {}", name, pattern, matches[0])
-                return str(matches[0])
-        for bin_dir in pkg_dir.glob("bin/*"):
-            if bin_dir.is_dir():
-                candidate = bin_dir / f"{name}.exe" if sys.platform == "win32" else bin_dir / name
-                if candidate.exists():
-                    logger.info("[ffmpeg_setup] Found {} in bin dir: {}", name, candidate)
-                    return str(candidate)
-                else:
-                    logger.debug("[ffmpeg_setup] Candidate does not exist: {}", candidate)
-    except (ImportError, Exception) as e:
-        logger.warning("[ffmpeg_setup] Error accessing static_ffmpeg: {}", e)
-
-    logger.warning("[ffmpeg_setup] {} not found", name)
+    for template in known:
+        candidate = template.format(name=f"{name}{suffix}")
+        if os.path.isfile(candidate):
+            return candidate
     return None
 
 
-def ensure_ffmpeg() -> bool:
-    """Download ffmpeg binaries if needed and verify availability.
+# ---------------------------------------------------------------------------
+# static_ffmpeg lookup
+# ---------------------------------------------------------------------------
 
-    In packaged environment: uses bundled binaries, no download.
-    In dev environment: uses static_ffmpeg.add_paths() to download if needed.
 
-    Returns True if ffmpeg is available after this call.
-    """
-    if is_frozen():
-        return _find_static_ffmpeg_bin("ffmpeg") is not None
-
+def _find_static_ffmpeg_bin(name: str) -> str | None:
+    """Locate a binary from the static_ffmpeg package directory."""
     try:
         import static_ffmpeg
-        static_ffmpeg.add_paths()
+
+        pkg_dir = Path(static_ffmpeg.__file__).parent
+        for pattern in [
+            f"bin/*/{name}",
+            f"bin/*/{name}.exe",
+            f"bin/*/{name}.EXE",
+        ]:
+            matches = list(pkg_dir.glob(pattern))
+            if matches:
+                return str(matches[0])
+
+        for bin_dir in pkg_dir.glob("bin/*"):
+            if bin_dir.is_dir():
+                suffix = ".exe" if sys.platform == "win32" else ""
+                candidate = bin_dir / f"{name}{suffix}"
+                if candidate.exists():
+                    return str(candidate)
     except ImportError:
         pass
+    except Exception as exc:
+        logger.warning("[ffmpeg_setup] static_ffmpeg error: {}", exc)
 
-    return _find_static_ffmpeg_bin("ffmpeg") is not None
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Main resolution (priority chain)
+# ---------------------------------------------------------------------------
+
+
+def _resolve_user_path(path_str: str, name: str) -> str | None:
+    """Resolve a user-specified path for *name* (ffmpeg / ffprobe)."""
+    if not path_str:
+        return None
+    candidate = path_str.strip()
+    # If pointing to a directory, look for the binary inside it
+    if os.path.isdir(candidate):
+        exe = f"{name}.exe" if sys.platform == "win32" else name
+        candidate = os.path.join(candidate, exe)
+    if os.path.isfile(candidate):
+        return candidate
+    return None
+
+
+def _find_ffprobe_for_ffmpeg(ffmpeg_path: str) -> str | None:
+    """Try to find ffprobe in the same directory as ffmpeg."""
+    ffmpeg_dir = os.path.dirname(ffmpeg_path)
+    exe = "ffprobe.exe" if sys.platform == "win32" else "ffprobe"
+    candidate = os.path.join(ffmpeg_dir, exe)
+    if os.path.isfile(candidate):
+        return candidate
+    return None
+
+
+def ensure_ffmpeg(ffmpeg_path_override: str = "") -> str | None:
+    """Ensure ffmpeg is available, returning its path or None.
+
+    Priority:
+    1. User-specified path (from config)
+    2. Bundled binary (PyInstaller)
+    3. Platform-specific known paths
+    4. System PATH
+    5. static_ffmpeg (may download on first call)
+    """
+    # 1. User-specified path (highest priority)
+    if ffmpeg_path_override:
+        result = _resolve_user_path(ffmpeg_path_override, "ffmpeg")
+        if result:
+            return result
+
+    # 2. Bundled binary (packaged environment)
+    bundled = _find_bundled_bin("ffmpeg")
+    if bundled:
+        return bundled
+
+    # 3. Platform-specific known paths
+    platform_path = _find_platform_bin("ffmpeg")
+    if platform_path:
+        return platform_path
+
+    # 4. System PATH
+    path_result = shutil.which("ffmpeg")
+    if path_result:
+        return path_result
+
+    # 5. static_ffmpeg (may download)
+    try:
+        import static_ffmpeg
+
+        static_ffmpeg.add_paths()
+        path_result = shutil.which("ffmpeg")
+        if path_result:
+            return path_result
+    except Exception as exc:
+        logger.warning("static_ffmpeg unavailable: {}", exc)
+
+    return None
 
 
 def is_ffmpeg_ready() -> bool:
     """Check if ffmpeg is already available without downloading."""
-    return _find_static_ffmpeg_bin("ffmpeg") is not None
+    return get_ffmpeg_path() is not None
 
 
 def get_ffmpeg_path() -> str | None:
-    """Return the ffmpeg binary path, or None."""
-    return _find_static_ffmpeg_bin("ffmpeg")
+    """Return the active ffmpeg binary path, or None."""
+    global _ffmpeg_override_path
+
+    if _ffmpeg_override_path is not None:
+        if os.path.isfile(_ffmpeg_override_path):
+            return _ffmpeg_override_path
+        # Override path no longer valid, clear it
+        _ffmpeg_override_path = None
+
+    from core.config import load_settings
+
+    settings = load_settings()
+    return ensure_ffmpeg(settings.ffmpeg_path)
 
 
 def get_ffprobe_path() -> str | None:
-    """Return the ffprobe binary path, or None."""
-    return _find_static_ffmpeg_bin("ffprobe")
+    """Return the active ffprobe binary path, or None."""
+    global _ffmpeg_override_ffprobe
+
+    if _ffmpeg_override_ffprobe is not None:
+        if os.path.isfile(_ffmpeg_override_ffprobe):
+            return _ffmpeg_override_ffprobe
+        _ffmpeg_override_ffprobe = None
+
+    # Try to derive from ffmpeg path first
+    ffmpeg_path = get_ffmpeg_path()
+    if ffmpeg_path:
+        ffprobe = _find_ffprobe_for_ffmpeg(ffmpeg_path)
+        if ffprobe:
+            return ffprobe
+
+    # Fallback: same resolution chain for ffprobe
+    from core.config import load_settings
+
+    settings = load_settings()
+    ffmpeg_override = settings.ffmpeg_path
+    if ffmpeg_override:
+        # Try same directory as user's ffmpeg
+        result = _resolve_user_path(ffmpeg_override, "ffprobe")
+        if result:
+            return result
+
+    # Try other sources
+    for finder in [
+        _find_bundled_bin,
+        _find_platform_bin,
+        lambda n: shutil.which(n),
+        _find_static_ffmpeg_bin,
+    ]:
+        result = finder("ffprobe")
+        if result:
+            return result
+
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Version discovery & switching
+# ---------------------------------------------------------------------------
+
+
+def discover_ffmpeg_versions() -> list[dict]:
+    """Discover all available FFmpeg installations.
+
+    Returns a list of dicts:
+    ``{"path": str, "version": str, "source": str, "active": bool}``
+    """
+    from core.config import load_settings
+
+    settings = load_settings()
+    current_path = get_ffmpeg_path()
+
+    versions: list[dict] = []
+    seen_paths: set[str] = set()
+
+    def _add(path: str, source: str) -> None:
+        if not path or path in seen_paths:
+            return
+        seen_paths.add(path)
+        version = _get_version_string(path)
+        versions.append({
+            "path": path,
+            "version": version or "unknown",
+            "source": source,
+            "active": os.path.normpath(path) == os.path.normpath(current_path)
+            if current_path else False,
+        })
+
+    # 1. User-specified
+    if settings.ffmpeg_path:
+        user_ff = _resolve_user_path(settings.ffmpeg_path, "ffmpeg")
+        if user_ff:
+            _add(user_ff, "User")
+
+    # 2. Bundled
+    bundled = _find_bundled_bin("ffmpeg")
+    if bundled:
+        _add(bundled, "Bundled")
+
+    # 3. Platform paths
+    platform_path = _find_platform_bin("ffmpeg")
+    if platform_path:
+        _add(platform_path, "System")
+
+    # 4. PATH
+    path_ff = shutil.which("ffmpeg")
+    if path_ff:
+        _add(path_ff, "PATH")
+
+    # 5. static_ffmpeg
+    static_ff = _find_static_ffmpeg_bin("ffmpeg")
+    if static_ff:
+        _add(static_ff, "Static FFmpeg")
+
+    return versions
+
+
+def _get_version_string(ffmpeg_path: str) -> str | None:
+    """Run ffmpeg -version and extract the version number."""
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            [ffmpeg_path, "-version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            encoding="utf-8",
+            errors="replace",
+        )
+        import re
+
+        match = re.search(
+            r"ffmpeg version\s+([^\s]+)", result.stdout, re.IGNORECASE
+        )
+        if match:
+            return match.group(1)
+    except Exception as exc:
+        logger.debug("Failed to get version for {}: {}", ffmpeg_path, exc)
+    return None
+
+
+def switch_ffmpeg(path: str) -> dict:
+    """Switch to a specific FFmpeg binary.
+
+    Validates the path, saves to settings, and returns version info.
+    Raises ValueError if the path is invalid.
+    """
+    if not os.path.isfile(path):
+        raise ValueError(f"FFmpeg not found at: {path}")
+
+    version = _get_version_string(path)
+    if version is None:
+        raise ValueError(
+            f"Cannot determine FFmpeg version for: {path}"
+        )
+
+    # Save to settings
+    from core.config import save_settings
+    from core.models import AppSettings
+
+    settings = AppSettings(ffmpeg_path=path)
+    save_settings(settings)
+
+    # Clear caches so new path takes effect
+    global _ffmpeg_override_path, _ffmpeg_override_ffprobe
+    _ffmpeg_override_path = path
+    _ffmpeg_override_ffprobe = _find_ffprobe_for_ffmpeg(path)
+
+    # Clear app_info version caches
+    try:
+        import core.app_info as _ai
+
+        _ai._ffmpeg_version = None
+        _ai._ffprobe_version = None
+    except Exception:
+        pass
+
+    logger.info("Switched FFmpeg to: {} (v{})", path, version)
+
+    return {
+        "path": path,
+        "version": version,
+        "ffprobe_path": _ffmpeg_override_ffprobe or "",
+    }
