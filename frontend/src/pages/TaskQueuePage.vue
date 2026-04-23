@@ -26,6 +26,7 @@ const fileDrop = useFileDrop()
 const globalConfig = useGlobalConfig()
 
 const activeLogTaskId = ref<string | null>(null)
+const isReady = ref(false)
 
 const logContents = computed(() => {
   if (activeLogTaskId.value === null) return []
@@ -38,6 +39,8 @@ onMounted(async () => {
     await Promise.all([queue.fetchTasks(), queue.fetchSummary()])
   } catch (err) {
     console.error("[TaskQueuePage] mount failed:", err)
+  } finally {
+    isReady.value = true
   }
 })
 
@@ -117,6 +120,12 @@ async function handleMoveDown(taskId: string): Promise<void> {
     @dragleave="fileDrop.onDragLeave"
     @drop.prevent="handleDrop"
   >
+    <!-- Loading state -->
+    <div v-if="!isReady" class="flex flex-1 items-center justify-center">
+      <span class="loading loading-spinner loading-lg text-primary" />
+    </div>
+
+    <template v-else>
     <!-- Drag overlay -->
     <div
       v-if="fileDrop.isDragging.value"
@@ -181,5 +190,6 @@ async function handleMoveDown(taskId: string): Promise<void> {
       :logs="logContents"
       @close="activeLogTaskId = null"
     />
+    </template>
   </div>
 </template>

@@ -21,6 +21,9 @@ defineProps<{
     <span v-if="progress.total_seconds > 0" class="font-mono">
       {{ formatDuration(progress.current_seconds) }}/{{ formatDuration(progress.total_seconds) }}
     </span>
+    <span v-if="progress.estimated_remaining" class="font-mono text-info">
+      ~{{ progress.estimated_remaining }}
+    </span>
     <span v-if="progress.speed" class="font-mono">{{ progress.speed }}x</span>
     <span v-if="progress.fps" class="font-mono">{{ progress.fps }} fps</span>
   </div>

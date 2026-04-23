@@ -9,11 +9,13 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import sys
 import threading
 import time
 
 from core.logging import get_logger
 from core.models import Task, TaskProgress
+from core.process_control import kill_process_tree
 
 logger = get_logger()
 
@@ -88,15 +90,18 @@ def run_single(
     cmd = [ffmpeg_path, "-hide_banner", "-y", *args]
     logger.debug("Running: {}", " ".join(cmd))
 
+    popen_kw: dict = {
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.PIPE,
+        "text": True,
+        "encoding": "utf-8",
+        "errors": "replace",
+    }
+    if sys.platform == "win32":
+        popen_kw["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+
     try:
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-        )
+        proc = subprocess.Popen(cmd, **popen_kw)
     except OSError as e:
         logger.error("Failed to start ffmpeg: {}", e)
         return False, str(e)
@@ -107,6 +112,7 @@ def run_single(
     last_progress_time = 0.0
     current_speed = ""
     current_fps = ""
+    task_start_time = time.monotonic()
 
     def _read_stderr() -> None:
         nonlocal last_progress_time, current_speed, current_fps
@@ -141,12 +147,25 @@ def run_single(
                         now = time.monotonic()
                         if now - last_progress_time >= 0.5:
                             last_progress_time = now
+                            # Calculate estimated remaining time
+                            estimated_remaining = ""
+                            elapsed = now - task_start_time
+                            if percent > 1 and elapsed > 0:
+                                remaining = (elapsed / percent) * (100 - percent)
+                                mins = int(remaining // 60)
+                                secs = int(remaining % 60)
+                                if mins > 0:
+                                    estimated_remaining = f"{mins}m {secs}s"
+                                else:
+                                    estimated_remaining = f"{secs}s"
+
                             progress = TaskProgress(
                                 percent=percent,
                                 current_seconds=current,
                                 total_seconds=duration,
                                 speed=current_speed,
                                 fps=current_fps,
+                                estimated_remaining=estimated_remaining,
                             )
                             task.update_progress(progress)
                             on_progress(progress)
@@ -161,7 +180,7 @@ def run_single(
     try:
         while True:
             if cancel_event.is_set():
-                proc.kill()
+                kill_process_tree(proc.pid)
                 logger.info("FFmpeg process killed (task {})", task.id)
                 try:
                     proc.wait(timeout=5)
@@ -177,7 +196,7 @@ def run_single(
             time.sleep(0.1)
     except Exception as e:
         logger.error("Exception during proc wait (task {}): {}", task.id, e)
-        proc.kill()
+        kill_process_tree(proc.pid)
         returncode = -1
 
     reader_thread.join(timeout=2)
@@ -190,6 +209,7 @@ def run_single(
                 total_seconds=duration,
                 speed=current_speed,
                 fps=current_fps,
+                estimated_remaining="",
             )
             task.update_progress(progress)
             on_progress(progress)

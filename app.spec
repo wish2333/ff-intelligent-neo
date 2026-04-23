@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 # ============================================================
-# PyInstaller spec for FF Intelligent MVP
+# PyInstaller spec for FF Intelligent Neo
 # ============================================================
 
 import sys
@@ -14,7 +14,7 @@ ENTRY_SCRIPT = str(project_root / "main.py")
 
 
 # ========== [MODIFY] Output name ==========
-APP_NAME = "ff-intelligent-mvp"
+APP_NAME = "ff-intelligent-neo"
 
 
 # ========== [MODIFY] Frontend assets ==========
@@ -51,7 +51,11 @@ hiddenimports = [
     "core.file_info",
     "core.preset_manager",
     "core.ffmpeg_runner",
-    "core.batch_runner",
+    "core.command_builder",
+    "core.task_queue",
+    "core.task_runner",
+    "core.process_control",
+    "core.config",
     "core.app_info",
     "core.logging",
     "static_ffmpeg",

@@ -59,6 +59,7 @@ class App:
         dev_url: str = "http://localhost:5173",
         tick_interval: int = _DEFAULT_TICK_INTERVAL,
         on_start: Callable[[], None] | None = None,
+        on_closing: Callable[[], None] | None = None,
     ) -> None:
         self._bridge = bridge
         self._title = title
@@ -69,6 +70,7 @@ class App:
         self._dev_url = dev_url
         self._tick_interval = tick_interval
         self._on_start = on_start
+        self._on_closing = on_closing
 
     @property
     def dev(self) -> bool:
@@ -111,6 +113,10 @@ class App:
         )
 
         self._bridge._window = window
+
+        # on_closing hook: runs when the user closes the window.
+        if self._on_closing is not None:
+            window.events.closing += self._on_closing
 
         # Set up bridge infrastructure (drag-drop + tick timer).
         self._setup_bridge(window)

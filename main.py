@@ -444,7 +444,7 @@ class FFmpegApi(Bridge):
             from core.ffmpeg_setup import switch_ffmpeg
             info = switch_ffmpeg(path)
             return {"success": True, "data": info}
-        except (ValueError, Exception) as exc:
+        except (ValueError, OSError) as exc:
             logger.exception("switch_ffmpeg failed: {}", exc)
             return {"success": False, "error": str(exc)}
 
@@ -461,9 +461,53 @@ class FFmpegApi(Bridge):
         except Exception as e:
             return {"success": False, "error": str(e)}
 
+    @expose
+    def download_ffmpeg(self) -> dict:
+        """Download FFmpeg using static_ffmpeg package and re-detect."""
+        self._ensure_loguru()
+        try:
+            from core.ffmpeg_setup import is_frozen
+
+            if is_frozen():
+                return {"success": False, "error": "Download not available in packaged app"}
+
+            import static_ffmpeg
+            static_ffmpeg.add_paths()
+
+            # Use shutil.which directly to bypass stale user-override paths
+            import shutil as _shutil
+            ffmpeg_path = _shutil.which("ffmpeg")
+            if ffmpeg_path:
+                return {"success": True, "data": {"ffmpeg_path": ffmpeg_path}}
+            return {"success": False, "error": "FFmpeg not found after download attempt"}
+        except Exception as exc:
+            logger.exception("download_ffmpeg failed: {}", exc)
+            return {"success": False, "error": str(exc)}
+
+    # ------------------------------------------------------------------
+    # Cleanup
+    # ------------------------------------------------------------------
+
+    def _cleanup(self) -> None:
+        """Force-kill all FFmpeg processes and exit immediately."""
+        if getattr(self, "_cleanup_done", False):
+            return
+        self._cleanup_done = True
+        try:
+            if hasattr(self, "_runner_inst"):
+                self._ensure_loguru()
+                runner = self._runner_inst
+                logger.info("Force-killing all tasks for shutdown...")
+                runner.force_kill_all()
+        except Exception as exc:
+            logger.error("Cleanup error: {}", exc)
+
 
 if __name__ == "__main__":
+    import atexit
+
     api = FFmpegApi()
+    atexit.register(api._cleanup)
     app = App(
         api,
         title="FF Intelligent Neo",
@@ -471,5 +515,6 @@ if __name__ == "__main__":
         height=900,
         min_size=(800, 600),
         frontend_dir="frontend_dist",
+        on_closing=api._cleanup,
     )
     app.run()

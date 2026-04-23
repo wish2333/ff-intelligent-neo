@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import threading
+from datetime import datetime
 from pathlib import Path
 from typing import Callable
 
@@ -182,16 +183,32 @@ class TaskQueue:
     # ------------------------------------------------------------------
 
     def save_state(self) -> None:
-        """Persist current queue to JSON (debounced in normal flow)."""
+        """Persist current queue to JSON (debounced in normal flow).
+
+        Saves all non-terminal tasks plus the most recent 50 terminal tasks
+        (completed/failed/cancelled) to keep the file manageable.
+        """
         from core.logging import get_logger
         _logger = get_logger()
+
+        with self._lock:
+            non_terminal = [t for t in self._tasks if t.state not in ("completed", "failed", "cancelled")]
+            terminal = [t for t in self._tasks if t.state in ("completed", "failed", "cancelled")]
+            # Keep most recent 50 terminal tasks (newest first by completed_at)
+            terminal.sort(key=lambda t: t.completed_at or "", reverse=True)
+            terminal = terminal[:50]
+            # Restore original queue order and snapshot under lock
+            saved_ids = {t.id for t in non_terminal + terminal}
+            ordered = [t for t in self._tasks if t.id in saved_ids]
+            to_save = [t.to_dict() for t in ordered]
 
         path = _queue_path()
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             data = {
                 "version": "2.0.0",
-                "tasks": [t.to_dict() for t in self._tasks],
+                "saved_at": datetime.now().isoformat(),
+                "tasks": to_save,
             }
             path.write_text(
                 json.dumps(data, indent=2, ensure_ascii=False),
@@ -201,7 +218,19 @@ class TaskQueue:
             _logger.error("Failed to save queue state: {}", exc)
 
     def load_state(self) -> None:
-        """Load queue from JSON on startup."""
+        """Load queue from JSON on startup with state recovery.
+
+        Per PRD 10.3:
+        - running -> failed (process no longer exists after restart)
+        - paused -> pending (process no longer exists after restart)
+        - pending -> kept as-is
+        - completed/failed/cancelled -> kept for history
+
+        Note: State is set directly rather than via Task.transition() because
+        loaded tasks may not have valid transition paths from their persisted
+        state (e.g. "running" was valid at save time but the process is gone).
+        Both running and paused tasks are marked as failed -- user can retry.
+        """
         from core.logging import get_logger
         _logger = get_logger()
 
@@ -212,6 +241,21 @@ class TaskQueue:
             text = path.read_text(encoding="utf-8")
             data = json.loads(text)
             tasks = [Task.from_dict(d) for d in data.get("tasks", [])]
+
+            recovered = 0
+            for task in tasks:
+                if task.state in ("running", "paused"):
+                    task.state = "failed"
+                    task.error = "Process interrupted by app close"
+                    task.completed_at = datetime.now().isoformat()
+                    recovered += 1
+
+            if recovered:
+                _logger.info(
+                    "Queue recovery: {} tasks reset to failed (app was closed)",
+                    recovered,
+                )
+
             with self._lock:
                 self._tasks = tasks
         except (json.JSONDecodeError, OSError) as exc:

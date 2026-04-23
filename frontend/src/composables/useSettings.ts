@@ -140,6 +140,25 @@ export function useSettings() {
     }
   }
 
+  async function downloadFfmpeg(): Promise<boolean> {
+    ffmpegStatus.value = "detecting"
+    try {
+      const res = await call<{ ffmpeg_path: string }>("download_ffmpeg")
+      if (res.success && res.data) {
+        ffmpegStatus.value = "ready"
+        await fetchFfmpegVersions()
+        await fetchAppInfo()
+        return true
+      }
+      ffmpegStatus.value = "not_found"
+      return false
+    } catch (err) {
+      console.error("[useSettings] downloadFfmpeg error:", err)
+      ffmpegStatus.value = "not_found"
+      return false
+    }
+  }
+
   return {
     settings,
     ffmpegVersions,
@@ -152,5 +171,6 @@ export function useSettings() {
     selectFfmpegBinary,
     detectFfmpeg,
     fetchAppInfo,
+    downloadFfmpeg,
   }
 }

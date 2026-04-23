@@ -4,7 +4,7 @@
  *
  * FFmpeg setup, thread count, output folder, and app info.
  */
-import { onMounted, computed } from "vue"
+import { onMounted, ref, computed } from "vue"
 import { waitForPyWebView } from "../bridge"
 import { useSettings } from "../composables/useSettings"
 
@@ -14,6 +14,7 @@ import OutputFolderInput from "../components/settings/OutputFolderInput.vue"
 import AppAbout from "../components/settings/AppAbout.vue"
 
 const s = useSettings()
+const isReady = ref(false)
 
 const currentVersion = computed(() => {
   const active = s.ffmpegVersions.value.find((v) => v.active)
@@ -30,6 +31,8 @@ onMounted(async () => {
     ])
   } catch (err) {
     console.error("[SettingsPage] mount failed:", err)
+  } finally {
+    isReady.value = true
   }
 })
 
@@ -44,6 +47,12 @@ async function handleOutputDirChange(value: string): Promise<void> {
 
 <template>
   <div class="flex flex-1 flex-col gap-4 p-4 overflow-auto">
+    <!-- Loading state -->
+    <div v-if="!isReady" class="flex flex-1 items-center justify-center">
+      <span class="loading loading-spinner loading-lg text-primary" />
+    </div>
+
+    <template v-else>
     <h1 class="text-2xl font-bold">Settings</h1>
 
     <div class="grid gap-4 lg:grid-cols-2">
@@ -57,6 +66,7 @@ async function handleOutputDirChange(value: string): Promise<void> {
             @detect="s.detectFfmpeg()"
             @select-binary="s.selectFfmpegBinary()"
             @switch="(path) => s.switchFfmpeg(path)"
+            @download="s.downloadFfmpeg()"
           />
         </div>
       </div>
@@ -89,5 +99,6 @@ async function handleOutputDirChange(value: string): Promise<void> {
         <AppAbout :info="s.appInfo.value" />
       </div>
     </div>
+    </template>
   </div>
 </template>

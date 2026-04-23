@@ -16,7 +16,7 @@ from core.ffmpeg_runner import run_single
 from core.ffmpeg_setup import get_ffmpeg_path, get_ffprobe_path
 from core.logging import get_logger
 from core.models import Task, TaskProgress, TaskState
-from core.process_control import resume_process, suspend_process
+from core.process_control import resume_process, suspend_process, kill_process_tree
 from core.task_queue import TaskQueue
 
 logger = get_logger()
@@ -55,6 +55,22 @@ class TaskRunner:
             self._executor.shutdown(wait=wait)
             self._executor = None
             logger.info("TaskRunner shut down")
+
+    def force_kill_all(self) -> None:
+        """Kill all running FFmpeg processes without state transitions.
+
+        Used during app shutdown where we just need processes dead.
+        """
+        with self._procs_lock:
+            for proc in self._running_procs.values():
+                if proc.poll() is None:
+                    kill_process_tree(proc.pid)
+            self._running_procs.clear()
+        for evt in self._cancel_events.values():
+            evt.set()
+        self._cancel_events.clear()
+        if self._executor is not None:
+            self._executor.shutdown(wait=False)
 
     # ------------------------------------------------------------------
     # Single-task control
@@ -129,14 +145,11 @@ class TaskRunner:
         if cancel_event:
             cancel_event.set()
 
-        # Kill the process
+        # Kill the process tree
         with self._procs_lock:
             proc = self._running_procs.pop(task_id, None)
             if proc and proc.poll() is None:
-                try:
-                    proc.kill()
-                except OSError:
-                    pass
+                kill_process_tree(proc.pid)
 
         # Transition state
         if task.state in ("pending", "running", "paused"):
