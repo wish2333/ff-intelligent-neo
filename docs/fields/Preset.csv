@@ -1,0 +1,6 @@
+Field Name,Type,Default,Required,Description,Validation Rules
+id,str,auto-generated,Yes,Unique preset identifier,Auto-generated UUID
+name,str,"",Yes,Preset display name,Non-empty string
+description,str,"",No,Preset description text,Free text
+config,TaskConfig,TaskConfig(),Yes,Task configuration associated with preset,See TaskConfig.csv
+is_default,bool,False,No,Whether this is a built-in default preset,Default presets cannot be deleted

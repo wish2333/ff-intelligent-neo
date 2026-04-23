@@ -1025,11 +1025,19 @@ class ValidationContext:
 ### 10.3 启动恢复逻辑
 
 1. 加载 `queue_state.json`
-2. 所有 `running` 状态的任务重置为 `failed`（因进程已不存在）
-3. 所有 `paused` 状态的任务重置为 `pending`（因进程已不存在）
-4. 保留 `pending` 任务不变
-5. 保留 `completed` / `failed` / `cancelled` 任务用于历史查看
-6. 清理超过 50 条的已完成/失败任务（保留最近 50 条）
+2. 所有 `running` 和 `paused` 状态的任务重置为 `failed`（因进程已被强制终止）
+3. 保留 `pending` 任务不变
+4. 保留 `completed` / `failed` / `cancelled` 任务用于历史查看
+5. 清理超过 50 条的已完成/失败任务（保留最近 50 条）
+6. 用户可对 `failed` 任务点击 Retry 重新执行
+
+
+
+
+
+
+
+
 
 ---
 

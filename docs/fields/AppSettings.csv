@@ -1,0 +1,5 @@
+Field Name,Type,Default,Required,Description,Validation Rules
+max_workers,int,2,Yes,Maximum concurrent task workers,1-8 recommended, depends on CPU cores
+default_output_dir,str,"",No,Default output directory for processed files,If empty, outputs to source file directory
+ffmpeg_path,str,"",No,Custom FFmpeg binary path,If empty, uses auto-downloaded FFmpeg
+ffprobe_path,str,"",No,Custom FFprobe binary path,If empty, uses auto-downloaded FFprobe

@@ -1,0 +1,8 @@
+Field Name,Type,Default,Required,Description,Validation Rules
+rotate,str,"",No,Rotation angle,"Values: '90', '180', '270'. Empty = no rotation"
+crop,str,"",No,Crop area specification,"Format: 'W:H:X:Y'. Empty = no crop"
+watermark_path,str,"",No,Watermark image file path,Must be valid image file path if set
+watermark_position,str,"bottom-right",No,Watermark position,"Values: top-left, top-right, bottom-left, bottom-right"
+watermark_margin,int,10,No,Watermark margin in pixels,>= 0
+volume,str,"",No,Audio volume adjustment,"Format: '<number>', e.g. '0.5' (half), '2.0' (double). Empty = original"
+speed,str,"",No,Playback speed adjustment,"Range: 0.25-4.0 recommended. Empty = original. Values outside range trigger warning"

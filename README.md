@@ -1,97 +1,114 @@
-# FF Intelligent
+# FF Intelligent Neo
 
-基于 FFmpeg 的批量媒体处理桌面工具，提供直观的 GUI 界面，支持批量转码、预设管理、实时进度监控。
+A desktop FFmpeg batch processing tool with a modern GUI. Add media files, configure transcode parameters and filters, then process them in a controllable task queue with real-time progress tracking.
 
-## 功能特性
+## Features
 
-- **批量处理** — 多文件并行转码，可配置工作线程数
-- **预设系统** — 内置常用转码预设（MP3、AAC、MP4 封装、音频提取），支持自定义预设
-- **实时进度** — 转码进度实时展示，包含速度、剩余时间、状态
-- **文件管理** — 自动提取媒体文件元数据（编码格式、分辨率、时长等）
-- **跨平台** — 支持 Windows、macOS、Linux
-- **Android** — 可通过 Buildozer 构建 Android APK
+- **Batch Processing** - Add multiple files and process them in a managed task queue
+- **Individual Task Control** - Start, pause, resume, stop, and retry each task independently
+- **Batch Operations** - Pause all, resume all, or stop all tasks at once
+- **Rich FFmpeg Configuration** - Video/audio codecs, bitrate, resolution, framerate, output format
+- **Filter Chains** - Rotate, crop, scale, watermark overlay, volume adjustment, speed change with automatic priority ordering
+- **Preset Management** - Built-in and user-defined presets for common configurations
+- **Real-time Progress** - Live progress bars with speed, FPS, and estimated remaining time
+- **Command Preview** - See the generated FFmpeg command before execution with validation
+- **Persistent State** - Task queue and settings survive application restarts
+- **Cross-platform** - Windows, macOS, and Linux support
 
-## 技术栈
+## Tech Stack
 
-| 层级 | 技术 |
-|------|------|
-| 后端 | Python 3.10+ / pywebview |
-| 前端 | Vue 3 + TypeScript + Vite |
-| UI | Tailwind CSS + DaisyUI |
-| 桥接 | PyWebVue（Python ↔ Vue 通信） |
-| 打包 | PyInstaller（Desktop）/ Buildozer（Android） |
+| Layer | Technology |
+|-------|-----------|
+| Desktop Container | [pywebview](https://pywebview.flowrl.com/) |
+| Backend | Python 3.11+ |
+| Frontend | [Vue 3](https://vuejs.org/) + TypeScript |
+| UI Framework | [DaisyUI v5](https://daisyui.com/) + [Tailwind CSS v4](https://tailwindcss.com/) |
+| Build | [Vite 6](https://vite.dev/) (frontend) + [PyInstaller](https://pyinstaller.org/) (packaging) |
+| Package Manager | [uv](https://github.com/astral-sh/uv) (Python), [bun](https://bun.sh/) (Node) |
 
-## 快速开始
+## Quick Start
 
-### 环境要求
+### Prerequisites
 
-- Python >= 3.10
-- [uv](https://github.com/astral-sh/uv)（包管理）
-- [bun](https://bun.sh/) / npm / yarn（前端构建，任选其一）
+- Python 3.11+
+- [uv](https://github.com/astral-sh/uv)
+- [bun](https://bun.sh/)
+- FFmpeg (auto-downloaded on first run, or set custom path in Settings)
 
-### 开发
+### Development
 
 ```bash
-# 安装依赖
+# Install Python dependencies
 uv sync
 
-# 安装前端依赖并构建
-cd frontend && bun install && bun run build && cd ..
+# Install frontend dependencies
+cd frontend && bun install && cd ..
 
-# 启动应用
-uv run main.py
+# Start development mode (with frontend hot reload)
+uv run dev.py
 ```
 
-### 构建
+### Build
 
 ```bash
-# Desktop — onedir 模式（推荐，启动快）
+# Build distributable executable
 uv run build.py
-
-# Desktop — onefile 模式（单文件，便于分发）
-uv run build.py --onefile
-
-# Android APK（需 macOS 或 Linux）
-uv run build.py --android
-
-# 清理构建产物
-uv run build.py --clean
 ```
 
-构建时会自动下载对应平台的 FFmpeg 二进制并打包进产物，无需用户手动安装。
+The output is in `dist/`.
 
-## 内置预设
-
-| 预设 | 说明 |
-|------|------|
-| Audio to MP3 | 转码为 MP3 320kbps |
-| Audio to AAC | 转码为 AAC 256kbps（M4A 容器） |
-| Remux to MP4 | 快速封装为 MP4（流拷贝，无需重编码） |
-| Extract Audio | 提取为无损 WAV |
-
-## 项目结构
+## Project Structure
 
 ```
-ff-intelligent-mvp/
-├── main.py                # 应用入口
-├── build.py               # 自动化构建脚本
-├── app.spec               # PyInstaller 打包配置
-├── pyproject.toml         # 项目配置与依赖
-├── core/                  # 核心业务模块
-│   ├── models.py          # 数据模型
-│   ├── batch_runner.py    # 批量转码调度
-│   ├── ffmpeg_runner.py   # 单次 FFmpeg 执行
-│   ├── ffmpeg_setup.py    # FFmpeg 二进制管理
-│   ├── preset_manager.py  # 预设管理
-│   ├── file_info.py       # 媒体文件元数据提取
-│   ├── app_info.py        # 应用信息与版本检测
-│   └── logging.py         # 日志配置
-├── frontend/              # Vue.js 前端
-├── presets/               # 内置预设
-├── scripts/               # 构建辅助脚本
-│   └── pre_build.py       # FFmpeg 预下载脚本
-└── docs/                  # 文档
+ff-intelligent-neo/
+├── main.py                  # Application entry point + Bridge API
+├── build.py                 # PyInstaller build script
+├── app.spec                 # PyInstaller configuration
+├── core/                    # Python backend modules
+│   ├── models.py            # Data models (Task, Config, Progress, etc.)
+│   ├── task_queue.py        # Thread-safe task queue with persistence
+│   ├── task_runner.py       # Task execution engine (ThreadPool)
+│   ├── ffmpeg_runner.py     # FFmpeg process management
+│   ├── command_builder.py   # FFmpeg command construction
+│   ├── process_control.py   # Cross-platform process tree termination
+│   ├── config.py            # Settings persistence
+│   ├── preset_manager.py    # Preset management
+│   ├── ffmpeg_setup.py      # FFmpeg binary setup
+│   ├── file_info.py         # Media file probing (ffprobe)
+│   ├── app_info.py          # Application metadata
+│   └── logging.py           # Logging configuration
+├── pywebvue/                # PyWebView-Vue bridge layer
+│   ├── app.py               # Window management + event system
+│   └── bridge.py            # @expose decorator + Bridge base class
+├── frontend/                # Vue 3 + TypeScript frontend
+│   └── src/
+│       ├── pages/           # Page components (TaskQueue, CommandConfig, Settings)
+│       ├── components/      # Reusable UI components
+│       ├── composables/     # Vue composables (business logic)
+│       ├── types/           # TypeScript type definitions
+│       └── utils/           # Utility functions
+├── presets/                 # Built-in preset configurations
+└── docs/                    # Project documentation
 ```
+
+## Pages
+
+| Page | Route | Description |
+|------|-------|-------------|
+| Task Queue | `/task-queue` | Add files, manage tasks, monitor progress |
+| Command Config | `/command-config` | Configure transcode parameters, filters, and presets |
+| Settings | `/settings` | FFmpeg path, output directory, worker count |
+
+## Documentation
+
+Detailed documentation is available in `docs/`:
+
+- [Project Overview](docs/Project.md) - Project background, tech stack, development setup
+- [Architecture](docs/Structure.md) - System architecture and module relationships
+- [Business Flows](docs/Procedure.md) - Process flow diagrams
+- [Business Rules](docs/BusinessRules.md) - State machine rules and validation logic
+- [State Machine](docs/StateMachine.md) - Task lifecycle state diagram
+- [Field Reference](docs/fields/) - Data model field inventory (CSV)
 
 ## License
 
