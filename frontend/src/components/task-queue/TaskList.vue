@@ -30,18 +30,17 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="flex-1 overflow-auto rounded-lg border border-base-300">
-    <table class="table table-sm">
+  <div class="flex-1 overflow-hidden rounded-lg border border-base-300">
+    <table class="table table-sm w-full">
       <thead>
         <tr>
-          <th class="w-10">
+          <th class="w-10 shrink-0">
             <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" disabled />
           </th>
-          <th>{{ t("taskQueue.table.file") }}</th>
-          <th class="w-24">{{ t("taskQueue.table.state") }}</th>
-          <th class="w-52">{{ t("taskQueue.table.progress") }}</th>
-          <th class="w-36">{{ t("taskQueue.table.info") }}</th>
-          <th class="w-52">{{ t("taskQueue.table.actions") }}</th>
+          <th class="min-w-0">{{ t("taskQueue.table.file") }}</th>
+          <th class="w-20 shrink-0">{{ t("taskQueue.table.state") }}</th>
+          <th class="w-44 shrink-0">{{ t("taskQueue.table.progress") }}</th>
+          <th class="w-52 shrink-0">{{ t("taskQueue.table.actions") }}</th>
         </tr>
       </thead>
       <tbody>

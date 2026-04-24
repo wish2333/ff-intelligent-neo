@@ -117,6 +117,7 @@ export default {
       log: "日志",
       moveUp: "上移",
       moveDown: "下移",
+      openFolder: "打开文件夹",
     },
 
     taskLog: {

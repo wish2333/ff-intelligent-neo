@@ -39,10 +39,10 @@ async function handleOutputDirChange(value: string): Promise<void> {
 
 <template>
   <div class="flex flex-1 flex-col gap-4 p-4 overflow-auto">
-    <h1 class="text-2xl font-bold">{{ t("settings.title") }}</h1>
+    <h1 class="text-xl font-bold tracking-tight">{{ t("settings.title") }}</h1>
 
     <div class="grid gap-4 lg:grid-cols-2">
-      <div class="card bg-base-200/50">
+      <div class="card bg-base-200 shadow-sm border border-base-300">
         <div class="card-body">
           <FFmpegSetup
             :versions="s.ffmpegVersions.value"
@@ -58,7 +58,7 @@ async function handleOutputDirChange(value: string): Promise<void> {
       </div>
 
       <div class="space-y-4">
-        <div class="card bg-base-200/50">
+        <div class="card bg-base-200 shadow-sm border border-base-300">
           <div class="card-body">
             <ThreadCountInput
               :value="s.settings.max_workers"
@@ -66,7 +66,7 @@ async function handleOutputDirChange(value: string): Promise<void> {
             />
           </div>
         </div>
-        <div class="card bg-base-200/50">
+        <div class="card bg-base-200 shadow-sm border border-base-300">
           <div class="card-body">
             <OutputFolderInput
               :value="s.settings.default_output_dir"
@@ -77,7 +77,7 @@ async function handleOutputDirChange(value: string): Promise<void> {
       </div>
     </div>
 
-    <div class="card bg-base-200/50">
+    <div class="card bg-base-200 shadow-sm border border-base-300">
       <div class="card-body">
         <AppAbout :info="s.appInfo.value" />
       </div>

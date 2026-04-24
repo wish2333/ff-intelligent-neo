@@ -112,11 +112,11 @@ onMounted(async () => {
     />
 
     <!-- Tab Bar -->
-    <div class="tabs tabs-bordered" role="tablist">
+    <div role="tablist" class="tabs tabs-bordered">
       <a
         v-for="tab in TABS"
         :key="tab.key"
-        class="tab text-sm"
+        class="tab text-sm font-medium"
         :class="{ 'tab-active': activeMode === tab.key }"
         role="tab"
         @click="handleTabClick(tab.key)"

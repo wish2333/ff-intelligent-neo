@@ -691,3 +691,70 @@ frontend/src/
 **main.py download_ffmpeg() 变更**:
 - 非 Windows 返回 `{"success": False, "error": "download_not_supported", "data": {"platform": ..., "instructions": {...}}}`
 - 新增 `_get_ffmpeg_install_instructions()` 返回平台特定安装命令
+
+---
+
+## Phase 5: 第二阶段用户体验优化
+
+<!-- v2.1.0-CHANGE: Phase 5 新增队列布局重构、打开文件夹 API、按钮升级等架构 -->
+
+### 队列表格布局重构
+
+**TaskList.vue 变更**:
+- 移除"信息"列（Info），duration 和 file_size 合并显示到文件名列中
+- 列宽: Checkbox `w-10 shrink-0` / File `min-w-0`（弹性） / State `w-20 shrink-0` / Progress `w-44 shrink-0` / Actions `w-52 shrink-0`
+- 容器: `overflow-hidden`（禁止横向滚动）
+- 文件名列: 内部 `min-w-0 flex-1` + `truncate` 截断长文件名
+
+**TaskRow.vue 变更**:
+- 文件列信息合并: 文件名 + duration + file_size 均在同一 `<td>` 中，使用 `opacity-50` 次要文本
+- 操作列: `shrink-0 whitespace-nowrap`，固定宽度防止按钮跳位
+- 所有操作按钮统一升级为 `btn-sm`
+
+**TaskProgressBar.vue 变更**:
+- 进度条容器: `shrink-0 w-20`
+- 所有数值指标: `shrink-0` + `tabular-nums`（等宽数字对齐）
+
+### 打开文件夹功能
+
+**Bridge API - open_folder**:
+
+| 方法 | 参数 | 返回 | 说明 |
+|------|------|------|------|
+| `open_folder` | `path: str` | `{success: bool, error?: str, data: null}` | 在系统文件管理器中打开指定路径 |
+
+**跨平台实现** (main.py):
+- Windows: `os.startfile(folder)`
+- macOS: `subprocess.Popen(["open", folder])`
+- Linux: `subprocess.Popen(["xdg-open", folder])`
+
+**前端集成** (TaskRow.vue):
+- `v-if="task.state === 'completed' && task.output_path"` 条件渲染
+- 点击调用 `call("open_folder", task.output_path)`
+- 失败时静默处理（console error，不弹提示）
+
+### 任务状态变更重新获取
+
+**useTaskQueue.ts 变更**:
+- `task_state_changed` 事件处理器新增逻辑：当 `new_state === "completed" || new_state === "failed"` 时调用 `fetchTasks()`
+- 原因: 事件仅携带 `{task_id, old_state, new_state}`，不包含后端设置的 `output_path`、`error` 等字段
+- 效果: completed 任务立即显示"打开文件夹"按钮，无需手动刷新页面
+
+### 前端设计一致性
+
+**统一的卡片样式**:
+- 所有 `.card` 组件: `card bg-base-200 shadow-sm border border-base-300`
+
+**统一的页面布局**:
+- 页面标题: `text-xl font-bold tracking-tight`
+- 页面描述: `text-sm text-base-content/60`
+
+**统一的导航栏**:
+- 容器: `border-b border-base-300`
+- 品牌名: `text-base tracking-tight`
+- 导航项间距: `gap-0.5`
+- 右侧控件间距: `gap-1.5`
+
+**统一的 Badge 样式**:
+- 所有状态 badge: `badge-sm`
+- 队列摘要 badge: `badge-sm`

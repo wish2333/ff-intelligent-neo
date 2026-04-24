@@ -117,6 +117,7 @@ export default {
       log: "Log",
       moveUp: "Move up",
       moveDown: "Move down",
+      openFolder: "Open folder",
     },
 
     taskLog: {

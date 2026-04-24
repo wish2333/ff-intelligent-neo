@@ -28,7 +28,7 @@ function copyCommand() {
 </script>
 
 <template>
-  <div class="card bg-base-200 shadow-sm">
+  <div class="card bg-base-200 shadow-sm border border-base-300">
     <div class="card-body p-4">
       <div class="flex items-center justify-between mb-2">
         <h2 class="card-title text-sm font-semibold">{{ t("config.commandPreview.title") }}</h2>

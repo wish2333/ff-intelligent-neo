@@ -118,7 +118,7 @@ watch(
 </script>
 
 <template>
-  <div class="card bg-base-200 shadow-sm">
+  <div class="card bg-base-200 shadow-sm border border-base-300">
     <div class="card-body p-4">
       <h2 class="card-title text-sm font-semibold mb-3">{{ t("config.clip.title") }}</h2>
       <p class="text-xs text-base-content/60 mb-3">

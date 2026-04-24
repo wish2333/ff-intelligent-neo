@@ -105,7 +105,7 @@ const bgInfoText = computed(() => {
 </script>
 
 <template>
-  <div class="card bg-base-200 shadow-sm">
+  <div class="card bg-base-200 shadow-sm border border-base-300">
     <div class="card-body p-4">
       <h2 class="card-title text-sm font-semibold mb-3">{{ t("config.filters.title") }}</h2>
 

@@ -70,8 +70,8 @@ async function handleAddToQueue(): Promise<void> {
 
 <template>
   <div class="flex flex-1 flex-col gap-4 p-4 overflow-y-auto">
-    <h1 class="text-xl font-bold">{{ t("mergePage.title") }}</h1>
-    <p class="text-xs text-base-content/60">
+    <h1 class="text-xl font-bold tracking-tight">{{ t("mergePage.title") }}</h1>
+    <p class="text-sm text-base-content/60">
       {{ t("mergePage.description") }}
     </p>
 

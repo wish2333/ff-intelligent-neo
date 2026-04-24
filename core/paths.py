@@ -96,3 +96,13 @@ def migrate_if_needed() -> None:
             print(f"[paths] Migrated presets from {old_presets} to {new_presets}")
         except OSError as exc:
             print(f"[paths] Failed to migrate presets: {exc}")
+
+    # Migrate queue_state.json
+    old_queue = old_dir / "queue_state.json"
+    new_queue = new_data / "queue_state.json"
+    if old_queue.exists() and not new_queue.exists():
+        try:
+            shutil.copy2(str(old_queue), str(new_queue))
+            print(f"[paths] Migrated queue_state.json from {old_queue} to {new_queue}")
+        except OSError as exc:
+            print(f"[paths] Failed to migrate queue_state.json: {exc}")

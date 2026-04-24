@@ -52,8 +52,8 @@ onMounted(() => {
 
 <template>
   <div class="flex flex-1 flex-col gap-4 p-4 overflow-y-auto">
-    <h1 class="text-xl font-bold">{{ t("avMix.title") }}</h1>
-    <p class="text-xs text-base-content/60">
+    <h1 class="text-xl font-bold tracking-tight">{{ t("avMix.title") }}</h1>
+    <p class="text-sm text-base-content/60">
       {{ t("avMix.description") }}
       {{ t("avMix.dragHint") }}
     </p>
@@ -74,7 +74,7 @@ onMounted(() => {
       @drop-right="handleDropSubtitle"
     >
       <template #left>
-        <div class="card bg-base-200 shadow-sm">
+        <div class="card bg-base-200 shadow-sm border border-base-300">
           <div class="card-body p-4">
             <h2 class="card-title text-sm font-semibold mb-3">{{ t("avMix.audio.title") }}</h2>
             <p class="text-xs text-base-content/60 mb-3">
@@ -117,7 +117,7 @@ onMounted(() => {
         </div>
       </template>
       <template #right>
-        <div class="card bg-base-200 shadow-sm">
+        <div class="card bg-base-200 shadow-sm border border-base-300">
           <div class="card-body p-4">
             <h2 class="card-title text-sm font-semibold mb-3">{{ t("avMix.subtitle.title") }}</h2>
             <p class="text-xs text-base-content/60 mb-3">

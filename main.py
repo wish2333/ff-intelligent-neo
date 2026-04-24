@@ -440,6 +440,25 @@ class FFmpegApi(Bridge):
             logger.exception("resume_all failed: {}", exc)
             return {"success": False, "error": str(exc)}
 
+    @expose
+    def open_folder(self, path: str) -> dict:
+        """Open the given folder in the system file explorer."""
+        import subprocess, os
+        try:
+            folder = os.path.dirname(path) if os.path.isfile(path) else path
+            if not os.path.isdir(folder):
+                return {"success": False, "error": f"Path not found: {folder}"}
+            if sys.platform == "win32":
+                os.startfile(folder)  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", folder])
+            else:
+                subprocess.Popen(["xdg-open", folder])
+            return {"success": True, "data": None}
+        except Exception as exc:
+            logger.exception("open_folder failed: {}", exc)
+            return {"success": False, "error": str(exc)}
+
     # ------------------------------------------------------------------
     # Config & Presets
     # ------------------------------------------------------------------

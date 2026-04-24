@@ -367,3 +367,58 @@
 | 日志迁移 | 日志不迁移（7天轮转自动清理，无长期价值） |
 | 集中管理 | 新增 `core/paths.py` 模块，所有路径通过该模块获取 |
 | 初始化顺序 | `main.py` 在所有 core 模块导入之前调用 `paths.migrate_if_needed()` |
+
+---
+
+## Phase 5: 第二阶段用户体验优化
+
+<!-- v2.1.0-CHANGE: Phase 5 新增队列布局、打开文件夹、按钮尺寸等 UX 规则 -->
+
+### 队列表格布局规则
+
+| 规则 | 说明 |
+|------|------|
+| 无横向滚动 | 表格容器使用 `overflow-hidden`，禁止出现横向滚动条 |
+| 信息列移除 | 移除原有的"信息"列（duration/file_size 信息合并到文件名列中） |
+| 列宽约束 | Checkbox: `w-10 shrink-0`, State: `w-20 shrink-0`, Progress: `w-44 shrink-0`, Actions: `w-52 shrink-0` |
+| 文件列弹性 | 文件名列 `min-w-0`，自动填充剩余空间，内部使用 `truncate` 截断长文件名 |
+| 操作列固定 | Actions 列 `w-52 shrink-0 whitespace-nowrap`，确保按钮不换行跳位 |
+
+### 打开文件夹规则
+
+| 规则 | 说明 |
+|------|------|
+| 显示条件 | 仅 `completed` 状态且 `output_path` 非空的任务显示"打开文件夹"按钮 |
+| 跨平台 | Windows: `os.startfile(folder)`, macOS: `subprocess.Popen(["open", folder])`, Linux: `subprocess.Popen(["xdg-open", folder])` |
+| 路径解析 | 若 path 是文件则打开其所在目录（`os.path.dirname`），若 path 是目录则直接打开 |
+| 按钮样式 | `btn btn-sm btn-ghost`，文本按钮（显示 `t("taskQueue.actions.openFolder")`） |
+| Bridge API | `open_folder(path: str) -> {success, error?, data: null}` |
+| 静默失败 | 前端调用失败时 silently fail（不弹错误提示） |
+
+### 任务按钮尺寸规则
+
+| 规则 | 说明 |
+|------|------|
+| 统一尺寸 | 所有任务操作按钮（Start, Pause, Resume, Stop, Retry, Reset, Log, Open Folder, Move Up/Down）统一使用 `btn-sm` |
+| 批量按钮 | BatchControlBar 中所有按钮（Start All, Pause All, Resume All, Stop All）统一使用 `btn-sm` |
+| 禁用按钮 | Move Up/Down 的 `btn-xs btn-ghost btn-square` 也升级为 `btn-sm` |
+| 设计理念 | 重要操作按钮不应过小，`btn-sm` 是 DaisyUI 中适合操作按钮的最小尺寸 |
+
+### 任务状态变更重新获取规则
+
+| 规则 | 说明 |
+|------|------|
+| 触发条件 | `task_state_changed` 事件中 `new_state === "completed"` 或 `new_state === "failed"` |
+| 行为 | 调用 `fetchTasks()` 完整重新获取任务列表 |
+| 原因 | `task_state_changed` 事件仅携带 `{task_id, old_state, new_state}`，不包含 `output_path` 等后端更新的字段 |
+| 影响范围 | 确保 completed 任务立即显示 output_path（用于打开文件夹按钮），failed 任务立即显示 error 信息 |
+
+### 前端设计一致性规则
+
+| 规则 | 说明 |
+|------|------|
+| 卡片样式 | 所有卡片统一使用 `card bg-base-200 shadow-sm border border-base-300` |
+| 页面标题 | 标题: `text-xl font-bold tracking-tight`，描述: `text-sm text-base-content/60` |
+| 导航栏 | `border-b border-base-300`，品牌名 `text-base tracking-tight`，导航项 `gap-0.5`，右侧控件 `gap-1.5` |
+| 队列摘要 | `border border-base-300 bg-base-100`，统计 badge 使用 `badge-sm` |
+| 状态徽标 | 所有状态 badge 统一使用 `badge-sm` |

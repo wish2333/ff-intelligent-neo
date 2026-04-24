@@ -27,8 +27,8 @@ onMounted(() => {
 
 <template>
   <div class="flex flex-1 flex-col gap-4 p-4 overflow-y-auto">
-    <h1 class="text-xl font-bold">{{ t("custom.title") }}</h1>
-    <p class="text-xs text-base-content/60">
+    <h1 class="text-xl font-bold tracking-tight">{{ t("custom.title") }}</h1>
+    <p class="text-sm text-base-content/60">
       {{ t("custom.description") }}
     </p>
     <div class="alert alert-warning text-xs py-2">
@@ -47,7 +47,7 @@ onMounted(() => {
     />
 
     <!-- Raw Args Textarea -->
-    <div class="card bg-base-200 shadow-sm">
+    <div class="card bg-base-200 shadow-sm border border-base-300">
       <div class="card-body p-4">
         <h2 class="card-title text-sm font-semibold mb-3">{{ t("custom.ffmpegParameters") }}</h2>
         <textarea

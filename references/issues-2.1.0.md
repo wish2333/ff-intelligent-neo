@@ -3770,5 +3770,339 @@ feat(i18n): 国际化支持 + FFmpeg平台化 + 数据目录迁移
 ### 问题
 
 - 前端优化
+
   - 队列页面的文件列表，会被文件名影响，被拉伸，造成不必要的横向滚动，请你通过TailWindCSS限制每列宽度（尤其是文件名列宽度）确保这一页不会出现横向滚动；同时，信息列删除，操作列新增打开文件夹按钮
   - 请根据 @references\DESIGN.md 和 @references\Overflow-DESIGN.md 的设计哲学，在不动摇DaisyUI组件及其延伸自开发的组件的功能的前提下，优化修缮前端设计（包括字体字号、颜色搭配、排版、提示和文字戳出框、容器溢出等问题）
+
+  ```
+    队列表页修复
+  
+    TaskList.vue:
+    - 移除了“信息”列（错误/输出路径显示）
+    - 设置了列宽度约束：复选框 w-10，状态 w-20，进度 w-44，操作 shrink-0
+    - 容器使用 overflow-hidden 而非 overflow-x-auto 来防止水平滚动
+  
+    TaskRow.vue:
+    - 文件名列：max-w-0，min-w-0，truncate 增强防止文件名撑破表格
+    - 元数据行（时长/大小）：添加 truncate
+    - 进度列：w-44 shrink-0 min-w-0
+    - 操作列：shrink-0，whitespace-nowrap 防止按钮换行
+    - 新增打开文件夹按钮（已完成任务旁），调用后端 open_folder API
+    - 移除了错误/输出路径的 <td>
+  
+    TaskProgressBar.vue:
+    - 进度条固定宽度 w-20 shrink-0 替代 flex-1
+    - 百分比宽度 w-9（之前 w-10）
+    - 所有文本指标添加 shrink-0 + tabular-nums（等宽数字对齐）
+    - 移除 fps 前空格（{{ progress.fps }}fps）
+  
+    main.py:
+    - 新增 open_folder(path) API - 跨平台打开文件所在文件夹（Windows/macOS/Linux）
+  
+    设计润色（DESIGN.md + Overflow-DESIGN.md）
+  
+    全局一致性:
+    - 所有卡片组件统一使用 bg-base-200 shadow-sm border border-base-300（13处）
+    - 导航栏添加 border-b border-base-300 + shrink-0
+  
+    排版:
+    - 所有页面标题：text-xl font-bold tracking-tight
+    - 页面描述文字：text-sm text-base-content/60（之前 text-xs）
+    - 导航栏品牌名：text-base + tracking-tight
+    - FFmpeg 状态 badge 添加 font-medium
+    - 标签页添加 font-medium
+  
+    间距/布局:
+    - 导航栏按钮间距 gap-0.5
+    - 右侧控件间距 gap-1.5
+    - 队列摘要栏：gap-2，badge-sm，更紧凑的 px-3 py-1.5
+  
+    i18n:
+    - 新增 taskQueue.actions.openFolder（EN: "Open folder", ZH: "打开文件夹"）
+  
+    手动测试项
+  
+    1. 队列页添加长文件名的文件，确认表格不出现水平滚动条
+    2. 文件名列确认长文件名被截断，hover 显示完整路径
+    3. 已完成任务行确认出现打开文件夹按钮，点击后在资源管理器中打开
+    4. 进度列确认时间/速度等数值等宽对齐
+    5. 切换中英文，确认所有新增文本正确显示
+    6. 各页面确认卡片边框风格一致（shadow-sm border border-base-300）
+    7. 导航栏确认底部边框线可见，主题切换和语言切换正常
+  ```
+
+  - 目前队列页文件名又有点太短了，可以扩充到现在的两倍。队列页关于批量的四个按钮和文件列表-操作中的开始按钮，都太小了，对于重要操作来说不应该这么小。进度列不用缩，现在文件名列没见变长，操作列右边有大约半个窗口宽度的空白。
+    - 文件名列：进度列从 w-44 缩至 w-36，文件名列由 flex-1 自动填充更多空间（约翻倍）
+    - 批量按钮（开始全部/暂停/恢复/停止）：btn-xs -> btn-sm
+    - 行内 Start 按钮：btn-xs -> btn-sm
+    - 操作按钮间距从 gap-1 加大到 gap-1.5
+    - 我发现问题了，任务完成时在队列界面的话，打开文件夹按钮没有显示，但是切换界面回来就出现了。此外，操作列固定一下宽度吧  ，不然按钮位置可能会被进度列挤着跳动，造成误操作
+      - 找到原因了。task_state_changed 事件只更新了 state，没有更新 output_path。需要确认后端在任务完成时是否发送了 output_path。看到了。_handle_task_completion (line 498-510) 发出事件时只带了 task_id 和状态，没带 output_path。前端task_state_changed 监听只更新了 state，所以 output_path 一直是空的直到重新 fetch。最简单的修复：在前端收到 task_state_changed 变为 completed 时重新 fetch tasks，这样能拿到完整数据。但更好的方式是让后端事件带上 output_path，或者前端做一次 fetch。最干净的方式：前端监听到 completed 时调一次 fetchTasks()。
+      - 现在固定操作列宽度。pending 状态最宽：Start + 2个方向按钮；running 状态：Pause + Stop + Log。用 w-52 (208px) 足够。
+
+### 打包优化
+
+```
+  问题原因：
+  app.spec 中无条件打包 FFmpeg（只要 ffmpeg_binaries/ 目录存在），而 --with-ffmpeg 只是控制是否下载，没有控制是否打包。
+
+  修改内容：
+
+  ┌──────────┬──────────────────────────────────────────────────────────────────────────┐
+  │   文件   │                                   修改                                   │
+  ├──────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ app.spec │ 通过 os.environ.get("BUNDLE_FFMPEG") 决定是否打包 FFmpeg；添加 import os │
+  ├──────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ build.py │ 设置 os.environ["BUNDLE_FFMPEG"] 传递给子进程和当前进程                  │
+  ├──────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ build.py │ 不打包时调用 _clean_ffmpeg_binaries() 清理残留文件                       │
+  ├──────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ build.py │ --clean 时也会清理 ffmpeg_binaries/ 目录                                 │
+  ├──────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ build.py │ _generate_onefile_spec() 同样遵循环境变量                                │
+  └──────────┴──────────────────────────────────────────────────────────────────────────┘
+
+  现在的行为：
+  - uv run build.py → 不打包 FFmpeg（会清理残留）
+  - uv run build.py --with-ffmpeg → 下载并打包 FFmpeg
+  - uv run build.py --clean → 清理所有构建产物（含 ffmpeg_binaries/）
+```
+
+打包之后发现打包的程序居然能读取到开发环境的任务队列？证明之前把所有数据迁移到软件目录\data的操作不完全，请你发现一下问题
+
+```
+  问题根因
+
+  core/task_queue.py 中有硬编码的路径函数：
+
+  # 旧代码 - 问题所在
+  def _appdata_dir() -> Path:
+      import os
+      base = os.environ.get("APPDATA", "")
+      if not base:
+          base = os.path.expanduser("~")
+      return Path(base) / "ff-intelligent-neo"
+
+  def _queue_path() -> Path:
+      return _appdata_dir() / "queue_state.json"
+
+  这导致打包后的程序始终从 %APPDATA%\ff-intelligent-neo\queue_state.json 读取任务队列，而不是
+  <程序目录>\data\queue_state.json。
+
+  修复内容
+
+  ┌────────────────────┬─────────────────────────────────────────────────────────────────────────────────────────────┐
+  │        文件        │                                            修改                                             │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ core/task_queue.py │ 删除 _appdata_dir()，改用 from core.paths import get_data_dir，_queue_path() 返回           │
+  │                    │ get_data_dir() / "queue_state.json"                                                         │
+  ├────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ core/paths.py      │ migrate_if_needed() 增加 queue_state.json 的迁移逻辑                                        │
+  └────────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  core/paths.py 的 get_data_dir() 已正确区分：
+  - 打包模式：sys.executable.parent / data /
+  - 开发模式：项目根目录 / data /
+
+  main.py 第18行已调用 migrate_if_needed()，所以升级后旧数据会自动迁移。
+```
+
+
+
+### CC-Mem
+
+```
+Legend: session-request | 🔴 bugfix | 🟣 feature | 🔄 refactor | ✅ change | 🔵 discovery | ⚖️ decision
+Apr 25, 2026
+
+     ..\..\Git\GithubManager\ff-intelligent-neo\main.py
+       #1944  3:10 AM  🔴  Task queue table layout optimization completed
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\pages\MergePage.vue
+       #1945           🔵  Design system polish review started across multiple page components
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskList.vue
+       #1946           🔴  TaskList table layout refined with table-fixed and adjusted column widths
+       #1947  3:11 AM  🔴  Task queue table layout comprehensively optimized to prevent horizontal scrolling
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\layout\AppNavbar.vue
+       #1948           ✅  AppNavbar typography and spacing refined per DESIGN.md guidelines
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\pages\SettingsPage.vue
+       #1949           ✅  SettingsPage typography and card styling updated per DESIGN.md
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskList.vue
+       #1950  3:18 AM  🔵  Frontend task queue component structure examined
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskRow.vue
+       #1951           🔵  Task row component implements state-based action controls
+     General
+       #1952           🔵  Task state tracking system updates task completion status
+       #1953  3:27 AM  ✅  Queue page UI improvements requested
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\BatchControlBar.vue
+       #1954           🔵  Investigated BatchControlBar component for button sizing
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskRow.vue
+       #1955           🔵  Located start button sizing in TaskRow component
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskList.vue
+       #1956           ✅  Reduced progress column width to allocate space for file names
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskRow.vue
+       #1957           ✅  Reduced progress column width in TaskRow component
+       #1958           ✅  Enlarged start button and increased button spacing in TaskRow
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\BatchControlBar.vue
+       #1959           ✅  Enlarged all four batch operation buttons in BatchControlBar
+     General
+       #1960  3:33 AM  🔴  UI table column width layout adjusted
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskList.vue
+       #1961           🔴  TaskList table column width distribution issue identified
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskRow.vue
+       #1962           🔵  TaskRow cell constraints preventing filename column expansion
+       #1963           🔴  Removed max-w-0 constraint from TaskRow filename cell
+       #1964           ✅  Increased progress column width in TaskRow
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskList.vue
+       #1965           ✅  Synchronized TaskList header progress column width
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskRow.vue
+       #1966  3:36 AM  🔵  Actions column structure uses conditional templates per task state
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\types\task.ts
+       #1967           🔵  TaskDTO type includes output_path string field
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskRow.vue
+       #1968           ✅  Increased TaskRow action button sizes and added text labels
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useTaskProgress.ts
+       #1969  3:39 AM  🔵  Task progress tracking uses Vue composable with reactive maps
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useTaskQueue.ts
+       #1970           🔵  Task queue state management uses Vue composable pattern
+     ..\..\Git\GithubManager\ff-intelligent-neo\main.py
+       #1971           🔵  Backend emits task_state_changed events and manages completed tasks
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_runner.py
+       #1972           🔵  task_state_changed event emission located in task_runner.py
+       #1973           🔵  Task state change events emitted at 10+ transition points in task_runner.py
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useTaskQueue.ts
+       #1974           🔴  Fixed task data refresh on completion and adjusted actions column width
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\task-queue\TaskRow.vue
+       #1976  3:46 AM  🔴  TaskList table layout fixes completed
+     build.py
+       #1975           🔵  build.py implements --with-ffmpeg flag correctly
+     ..\..\Git\GithubManager\ff-intelligent-neo\docs\BusinessRules.md
+       #1978           ✅  Documentation task created for Phase 5 UX rules
+     build.py
+       #1977           🔴  Found root cause of FFmpeg packaging bug in app.spec
+     ..\..\Git\GithubManager\ff-intelligent-neo\docs\BusinessRules.md
+       #1979           🟣  Documentation system creation for Phase 5 UX improvements
+       #1980           🟣  Phase 5 UX rules documented in BusinessRules.md
+       #1981  3:47 AM  ✅  Documentation task workflow progressed
+     ..\..\Git\GithubManager\ff-intelligent-neo\docs\Structure.md
+       #1982           🟣  Phase 5 UX architecture documented in Structure.md
+       #1983           ✅  Documentation workflow progressing through tasks
+     ..\..\Git\GithubManager\ff-intelligent-neo\references\PRD-2.1.0.md
+       #1984  3:48 AM  ✅  PRD-2.1.0.md updated with Phase 5 button mapping and documentation status
+     app.spec
+       #1985           🔴  Fixed FFmpeg bundling to respect --with-ffmpeg flag
+       #1986           🔴  Added os import to app.spec for environment variable support
+       #1987  3:49 AM  🔴  Updated build.py to pass BUNDLE_FFMPEG flag via environment variable
+       #1988           🔴  Completed env variable passing from build.py to PyInstaller
+       #1989  3:50 AM  🔴  Added environment variable setup to onefile build mode
+       #1990           🔴  Completed env variable passing for onefile builds
+       #1991           🔴  Added missing os import to build.py
+       #1992  3:51 AM  🔴  Implemented _clean_ffmpeg_binaries() function
+       #1993           🔴  Fixed onefile build to respect --with-ffmpeg flag
+       #1994  3:53 AM  🔴  Fixed environment variable timing in onefile build
+       #1995  3:54 AM  🔄  Unified environment variable setting approach across build modes
+       #1996           ✅  Enhanced _clean() function to remove ffmpeg_binaries directory
+     ..\..\Git\GithubManager\ff-intelligent-neo
+       #1997  4:03 AM  🔵  Investigation started for packaged program reading dev environment task queues
+       #1998           🔵  Project structure identified for task queue path investigation
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\config.py
+       #1999           🔵  Settings path resolution imports from core.paths module
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\paths.py
+       #2000           🔵  Data migration incomplete - task queues not handled in migrate_if_needed()
+     ..\..\Git\GithubManager\ff-intelligent-neo\core
+       #2001           🔵  Located task_queue.py in core module
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_queue.py
+       #2002           🔵  Examining task queue persistence implementation
+       #2003           🔵  Task queue file paths searched in core module
+       #2004           🔵  Task queue files confirmed for detailed inspection
+       #2005           🔵  Alternative file structure analysis attempted on task_queue.py
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_runner.py
+       #2006           🔵  Automated parsing failed for both task queue files
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_queue.py
+       #2007           🔵  ROOT CAUSE FOUND: Task queue uses hardcoded APPDATA path instead of data directory
+     ..\..\Git\GithubManager\ff-intelligent-neo\main.py
+       #2008           🔵  main.py does not reference task queue path functions
+       #2009           🔵  TaskQueue instantiated and loaded at application startup in main.py
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_queue.py
+       #2010  4:04 AM  🔵  Confirmed hardcoded APPDATA path implementation in task_queue.py
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\paths.py
+       #2011           🔵  Verified APPDATA usage isolated to task_queue.py bug
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\preset_manager.py
+       #2012           🔵  Confirmed preset_manager.py correctly uses core.paths for data directory
+     ..\..\Git\GithubManager\ff-intelligent-neo\main.py
+       #2013           🔵  Application startup sequence confirms migration occurs before queue loading
+     General
+       #2014           🔵  Search for get_data_dir usage across core module files
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\config.py
+       #2015           🔵  Path usage search confirms task_queue.py is the only module not using centralized paths
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_queue.py
+       #2016           🔵  Complete investigation report: Packaged app reads dev task queues due to incomplete data
+     migration
+       #2017  4:05 AM  🔵  Located exact line numbers for hardcoded path functions in task_queue.py
+       #2018           🔵  Confirmed exact code structure requiring modification in task_queue.py
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\paths.py
+       #2019           🔵  Confirmed core.paths.py provides get_data_dir() function for task queue fix
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_queue.py
+       #2020  4:06 AM  🔵  Mapped exact line numbers for task_queue.py fix implementation
+       #2021           🔴  Fixed task queue hardcoded APPDATA path in core/task_queue.py
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\paths.py
+       #2022           🔴  Added queue_state.json migration to core/paths.py migrate_if_needed()
+       #2023           🔵  Verified no other hardcoded APPDATA paths remain in core module
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\config.py
+       #2024           🔵  Verified all core modules now use centralized path management consistently
+     ..\..\Git\GithubManager\ff-intelligent-neo\main.py
+       #2025  4:07 AM  🔵  Confirmed main.py calls migrate_if_needed() at startup before core imports
+     ..\..\Git\GithubManager\ff-intelligent-neo
+       #2026           🔵  Final verification confirms complete fix - no hardcoded APPDATA paths for active storage
+     remain
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\__pycache__
+       #2027  4:08 AM  ✅  Cleared Python bytecode cache to ensure fixed code takes effect
+```
+
+### 📝 Commit Message
+
+```
+fix: 队列布局/构建/数据路径多项修复
+
+前端队列页:
+- 修复文件名撑破表格导致横向滚动，调整列宽分配
+- 文件名列空间翻倍，操作列固定 w-52 防止按钮跳动
+- 批量操作与行内按钮 btn-xs → btn-sm，间距加大
+- 新增"打开文件夹"按钮（已完成任务，调用 open_folder API）
+- 修复任务完成时按钮不显示：completed 状态触发 fetchTasks()
+
+设计润色（DESIGN.md）:
+- 全局卡片统一 bg-base-200 shadow-sm border border-base-300
+- 标题 text-xl font-bold tracking-tight，描述 text-sm
+- 导航栏添加底边框，标签页与 badge 添加 font-medium
+- 新增 i18n: taskQueue.actions.openFolder
+
+构建优化:
+- 修复 FFmpeg 打包未受 --with-ffmpeg 控制的问题
+- app.spec 通过 BUNDLE_FFMPEG 环境变量决定是否打包
+- 不打包时自动清理 ffmpeg_binaries 残留
+
+数据路径修复:
+- task_queue.py 删除硬编码 APPDATA 路径，改用 get_data_dir()
+- paths.py migrate_if_needed() 新增 queue_state.json 迁移
+```
+
+### 🚀 Release Notes
+
+```
+## 2026-04-25 - 队列界面优化与稳定性修复
+
+### ✨ 新增
+- 任务完成后可直接打开输出文件所在的文件夹
+
+### 🐛 修复
+- 修复队列页长文件名导致出现横向滚动条的问题
+- 修复任务刚完成时"打开文件夹"按钮不显示、需切换页面才出现的问题
+- 修复打包后的程序错误读取开发环境任务队列的问题
+
+### ⚡ 优化
+- 队列表格列宽重新分配，文件名显示空间翻倍
+- 批量操作按钮与行内操作按钮放大，提升可点击性
+- 操作列固定宽度，按钮不再随进度条跳动造成误操作
+- 全局卡片边框、字体、间距视觉风格统一
+- 默认安装包体积缩小（FFmpeg 不再自动打包，需手动指定）
+```

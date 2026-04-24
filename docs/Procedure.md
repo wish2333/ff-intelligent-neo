@@ -628,3 +628,49 @@ main.py: download_ffmpeg()
 -> sys.platform != "win32"
 -> 返回 {"success": False, "error": "download_not_supported", "data": {"platform": "darwin", "instructions": {"method": "homebrew", "command": "brew install ffmpeg", "url": "https://brew.sh"}}}
 ```
+
+---
+
+## Phase 5: 第二阶段用户体验优化流程
+
+<!-- v2.1.0-CHANGE: Phase 5 新增打开文件夹流程、任务状态变更重新获取流程 -->
+
+### 打开文件夹流程
+
+```
+用户 -> TaskRow.vue: 看到 completed 任务的"打开文件夹"按钮
+-> 点击按钮 -> call("open_folder", task.output_path)
+-> main.py: open_folder(path)
+  -> folder = os.path.dirname(path) if os.path.isfile(path) else path
+  -> if sys.platform == "win32": os.startfile(folder)
+  -> elif sys.platform == "darwin": subprocess.Popen(["open", folder])
+  -> else: subprocess.Popen(["xdg-open", folder])
+  -> return {success: True}
+-> TaskRow.vue: 无需额外处理（调用静默失败）
+```
+
+**流程说明**:
+1. 任务完成后，后端设置 `output_path`，前端通过重新获取任务列表获得该字段
+2. TaskRow 条件渲染：`task.state === 'completed' && task.output_path` 时显示按钮
+3. 点击后调用 `open_folder` Bridge API，后端根据平台选择打开方式
+4. 失败时前端静默处理（不弹错误提示），避免干扰用户操作
+
+### 任务状态变更重新获取流程
+
+```
+后端: task_runner._run_task() 完成
+-> _emit("task_state_changed", {task_id, old_state, new_state: "completed"})
+-> useTaskQueue.ts: on("task_state_changed", handler)
+-> handler: 局部更新 task.state (乐观更新)
+-> handler: 检查 new_state === "completed" || new_state === "failed"
+  -> 是: 调用 fetchTasks() 完整重新获取
+  -> 否: 仅使用局部更新
+-> fetchTasks(): call("get_tasks") -> tasks.value = res.data
+-> TaskRow.vue: output_path 已填充 -> 显示"打开文件夹"按钮
+```
+
+**流程说明**:
+1. 后端任务完成/失败时广播 `task_state_changed` 事件，事件仅包含 `{task_id, old_state, new_state}`
+2. 前端先做乐观更新（局部修改 task.state），立即反映状态变化
+3. 对于终态（completed/failed），额外调用 `fetchTasks()` 获取完整数据（包括 output_path、error 等）
+4. 这样无需用户手动刷新页面，completed 任务立即显示"打开文件夹"按钮

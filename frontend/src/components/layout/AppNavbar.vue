@@ -68,24 +68,24 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="navbar bg-base-200 px-4">
+  <div class="navbar bg-base-200 border-b border-base-300 px-4 shrink-0">
     <div class="navbar-start">
-      <span class="text-lg font-bold">FF Neo</span>
+      <span class="text-base font-bold tracking-tight">FF Neo</span>
     </div>
 
-    <div class="navbar-center flex gap-1">
+    <div class="navbar-center flex gap-0.5">
       <router-link
         v-for="item in navItems"
         :key="item.name"
         :to="item.path"
-        class="btn btn-ghost btn-sm"
+        class="btn btn-ghost btn-sm text-sm"
         active-class="btn-active"
       >
         {{ item.label }}
       </router-link>
     </div>
 
-    <div class="navbar-end flex items-center gap-2">
+    <div class="navbar-end flex items-center gap-1.5">
       <!-- Language toggle -->
       <button
         class="btn btn-ghost btn-sm btn-square"
@@ -110,7 +110,7 @@ onUnmounted(() => {
 
       <!-- FFmpeg status badge -->
       <span
-        class="badge badge-sm"
+        class="badge badge-sm font-medium"
         :class="
           ffmpegReady ? 'badge-success' : ffmpegVersion ? 'badge-warning' : 'badge-error'
         "

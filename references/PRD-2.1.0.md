@@ -726,12 +726,12 @@ Phase4补充任务：
 
 | 状态 | 显示按钮 | 样式 |
 |------|---------|------|
-| pending | Start, MoveUp, MoveDown | btn-primary, btn-ghost |
-| running | Pause, Stop, Log | btn-warning-outline, btn-error-outline, btn-ghost |
-| paused | Resume, Stop, Log | btn-info-outline, btn-error-outline, btn-ghost |
-| completed | Reset | btn-info |
-| failed | Retry, Log | btn-warning, btn-ghost |
-| cancelled | Reset | btn-info |
+| pending | Start, MoveUp, MoveDown | btn-sm btn-primary, btn-sm btn-ghost |
+| running | Pause, Stop, Log | btn-sm btn-warning-outline, btn-sm btn-error-outline, btn-sm btn-ghost |
+| paused | Resume, Stop, Log | btn-sm btn-info-outline, btn-sm btn-error-outline, btn-sm btn-ghost |
+| completed | Reset, Open Folder | btn-sm btn-info, btn-sm btn-ghost |
+| failed | Retry, Log | btn-sm btn-warning, btn-sm btn-ghost |
+| cancelled | Reset | btn-sm btn-info |
 
 ## Reset 状态转移
 
@@ -764,7 +764,7 @@ completed 和 cancelled 为终态的任务可通过用户操作重置为 pending
 
 ### A.2 docs/BusinessRules.md 变更
 
-**状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步 + Phase 4 已同步 (见 BusinessRules.md Phase 4 章节)
+**状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步 + Phase 4 已同步 + Phase 5 已同步 (见 BusinessRules.md Phase 5 章节)
 
 **Phase 3 变更内容**：8 个业务规则章节（新增）
 
@@ -910,6 +910,36 @@ completed 和 cancelled 为终态的任务可通过用户操作重置为 pending
 - activeMode="custom" 时 toTaskConfig 优先生成 custom_command 配置
 ```
 
+**Phase 5 变更内容**：6 个业务规则章节（新增）
+
+```markdown
+### 队列表格布局规则
+- 容器 overflow-hidden 禁止横向滚动
+- 移除信息列，duration/file_size 合并到文件名列
+- 列宽: Checkbox w-10, State w-20, Progress w-44, Actions w-52（均为 shrink-0）
+- 文件列 min-w-0 弹性填充，内部 truncate 截断
+
+### 打开文件夹规则
+- completed 状态且 output_path 非空时显示"打开文件夹"按钮
+- 跨平台: os.startfile (Win) / open (macOS) / xdg-open (Linux)
+- Bridge API: open_folder(path) -> {success, error?, data: null}
+- 失败静默处理
+
+### 任务按钮尺寸规则
+- 所有任务操作按钮统一 btn-sm（不再使用 btn-xs）
+- 批量控制按钮统一 btn-sm
+
+### 任务状态变更重新获取规则
+- task_state_changed 事件 new_state 为 completed/failed 时调用 fetchTasks()
+- 原因: 事件不携带 output_path 等后端字段
+
+### 前端设计一致性规则
+- 卡片: card bg-base-200 shadow-sm border border-base-300
+- 标题: text-xl font-bold tracking-tight
+- 导航栏: border-b border-base-300, 品牌名 text-base tracking-tight
+- 队列摘要: border border-base-300 bg-base-100, badge-sm
+```
+
 ### A.3 docs/fields/ 变更
 
 **状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步 + Phase 4 已同步
@@ -962,7 +992,7 @@ completed 和 cancelled 为终态的任务可通过用户操作重置为 pending
 
 ### A.4 docs/Structure.md 变更
 
-**状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步 + Phase 4 已同步 (见 Structure.md Phase 4 章节)
+**状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步 + Phase 4 已同步 + Phase 5 已同步 (见 Structure.md Phase 5 章节)
 
 **Phase 3 变更内容**：编码器数据库、命令构建器扩展、新页面与组件
 
@@ -1091,9 +1121,29 @@ Linux: 对应包管理器安装提示
 APPDATA -> <app_dir>/data/，copy-not-move 策略，一次性迁移
 ```
 
+**Phase 5 变更内容**：
+
+```markdown
+## 队列表格布局重构
+TaskList.vue: 移除信息列，列宽约束，overflow-hidden 禁止横向滚动
+TaskRow.vue: 文件名列合并 duration/file_size，操作列 w-52 shrink-0 whitespace-nowrap
+TaskProgressBar.vue: 进度条 shrink-0 w-20，数值 tabular-nums
+
+## 打开文件夹功能
+Bridge API 新增 open_folder(path) 跨平台打开文件管理器
+TaskRow.vue: completed + output_path 时显示 btn-sm btn-ghost 打开文件夹按钮
+useTaskQueue.ts: task_state_changed completed/failed 时 fetchTasks() 获取 output_path
+
+## 前端设计一致性
+统一卡片: card bg-base-200 shadow-sm border border-base-300
+统一标题: text-xl font-bold tracking-tight
+统一导航栏: border-b border-base-300, 品牌名 text-base tracking-tight
+统一按钮: 所有操作按钮 btn-sm（移除 btn-xs）
+```
+
 ### A.5 docs/Procedure.md 变更
 
-**状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步 + Phase 4 已同步 (见 Procedure.md 语言切换流程、数据目录迁移流程、FFmpeg 平台下载流程)
+**状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步 + Phase 4 已同步 + Phase 5 已同步 (见 Procedure.md 打开文件夹流程、任务状态变更重新获取流程)
 
 **Phase 2 变更内容**：4 个业务流程时序图（新建）
 
@@ -1232,6 +1282,21 @@ _emit("task_state_changed") + _emit("queue_changed")
 
 **待变更**：
 - Phase 4: i18n 流程（语言切换、翻译加载） -- 已完成 (见 Procedure.md Phase 4 章节)
+- Phase 5: 打开文件夹流程、任务状态变更重新获取流程 -- 已完成 (见 Procedure.md Phase 5 章节)
+
+**Phase 5 变更内容**：2 个业务流程（新增）
+
+```markdown
+## 打开文件夹流程
+TaskRow: completed + output_path -> 显示按钮 -> call("open_folder", output_path)
+main.py: 跨平台打开目录（os.startfile / open / xdg-open）
+前端: 失败静默处理
+
+## 任务状态变更重新获取流程
+task_state_changed {task_id, new_state} -> 局部更新 state
+-> completed/failed: 额外 fetchTasks() 获取 output_path 等完整数据
+-> 完成: completed 任务立即显示打开文件夹按钮
+```
 
 ---
 
