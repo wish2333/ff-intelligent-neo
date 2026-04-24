@@ -565,3 +565,66 @@ sequenceDiagram
 3. Queue 页面添加任务时，每个任务都包含 intro/outro 配置
 4. 任务启动时 `build_command` 检测 intro/outro → 调度到 `build_merge_intro_outro_command`
 5. Merge 页面任务不受影响：`start_task` 保留任务已有的 merge 配置
+
+<!-- v2.1.0-CHANGE: Phase 4 新增流程 -->
+
+## Phase 4: 国际化与平台化流程
+
+### 语言切换流程
+
+```
+用户 -> AppNavbar.vue: 点击语言切换按钮 (CN/EN)
+-> useLocale.setLocale("en" | "zh-CN")
+-> vue-i18n: i18n.locale.value = "en"
+-> 页面所有 t("key") 立即响应切换
+-> save_settings({ language: "en" })
+-> core/config.py: 持久化到 data/settings.json
+```
+
+**auto 模式解析**:
+1. 启动时读取 settings.language，若为 "auto" 则读取 navigator.language
+2. 匹配优先级：zh-CN > zh > en > fallback "zh-CN"
+
+### 数据目录迁移流程
+
+```
+main.py 启动
+-> from core.paths import migrate_if_needed
+-> migrate_if_needed()
+-> 检查 get_data_dir()/settings.json 是否存在
+  -> 存在: 跳过，已迁移
+  -> 不存在: 检查旧 APPDATA 路径
+    -> 旧路径存在: 复制 settings.json 到 data/
+    -> 旧路径存在: 复制 presets/ 到 data/presets/
+    -> 日志不迁移（轮转制自动清理）
+    -> 打印一次性迁移日志
+-> 后续所有模块使用 core.paths 获取路径
+```
+
+**初始化顺序**:
+1. `main.py` 顶层调用 `migrate_if_needed()`（在任何 core 模块导入之前）
+2. `core/config.py` 导入时使用 `core.paths.get_settings_path()`
+3. `core/logging.py` 导入时使用 `core.paths.get_log_dir()`
+4. `core/preset_manager.py` 导入时使用 `core.paths.get_presets_dir()`
+
+### FFmpeg 平台下载流程
+
+```
+用户 -> SettingsPage -> FFmpegSetup.vue: 点击按钮
+-> if platform === "win32":
+  -> 弹出 DaisyUI modal 确认对话框
+  -> 确认 -> call("download_ffmpeg")
+  -> main.py: static_ffmpeg.add_paths() 下载
+  -> 成功 -> ffmpeg_version_changed 事件
+-> else:
+  -> 显示平台安装提示 (非按钮，静态文本)
+  -> macOS: "brew install ffmpeg" + brew.sh 链接
+  -> Linux: 对应包管理器命令
+```
+
+**非 Windows 调用 download_ffmpeg**:
+```
+main.py: download_ffmpeg()
+-> sys.platform != "win32"
+-> 返回 {"success": False, "error": "download_not_supported", "data": {"platform": "darwin", "instructions": {"method": "homebrew", "command": "brew install ffmpeg", "url": "https://brew.sh"}}}
+```

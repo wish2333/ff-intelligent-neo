@@ -672,13 +672,15 @@ export default {
 | 3.6 | 音频字幕混合功能 | docs/fields/AudioSubtitleConfig.csv (新增) |
 | 3.7 | 多视频拼接功能 | docs/fields/MergeConfig.csv (新增) |
 
-### Phase 4: 国际化
+### Phase 4: 国际化与平台化
 
 | 编号 | 任务 | 关联文档 |
 |------|------|---------|
-| 4.1 | vue-i18n 集成 + 中文语言包完善 | docs/Structure.md |
+| 4.1 | vue-i18n 集成 + 中英双语语言包 | docs/Structure.md |
 | 4.2 | 英文语言包翻译 | - |
 | 4.3 | 语言切换 UI | docs/fields/AppSettings.csv |
+| 4.4 | FFmpeg 下载按钮平台化（非 Windows 显示安装提示） | docs/BusinessRules.md |
+| 4.5 | 数据目录迁移（APPDATA -> `<app_dir>/data/`） | docs/Structure.md, docs/Procedure.md |
 
 Phase4补充任务：
 
@@ -762,7 +764,7 @@ completed 和 cancelled 为终态的任务可通过用户操作重置为 pending
 
 ### A.2 docs/BusinessRules.md 变更
 
-**状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步 (见 BusinessRules.md Phase 3.5.2-fixes 章节)
+**状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步 + Phase 4 已同步 (见 BusinessRules.md Phase 4 章节)
 
 **Phase 3 变更内容**：8 个业务规则章节（新增）
 
@@ -910,7 +912,7 @@ completed 和 cancelled 为终态的任务可通过用户操作重置为 pending
 
 ### A.3 docs/fields/ 变更
 
-**状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步
+**状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步 + Phase 4 已同步
 
 **Phase 3.5.2-fixes 变更:**
 
@@ -952,9 +954,15 @@ completed 和 cancelled 为终态的任务可通过用户操作重置为 pending
 **待修改文件（Phase 4）**：
 - `docs/fields/AppSettings.csv` - 新增 language 字段
 
+**已修改文件（Phase 4）**：
+
+| 文件 | 变更内容 |
+|------|---------|
+| `docs/fields/AppSettings.csv` | 新增 language 字段（str, default="auto", auto/zh-CN/en） |
+
 ### A.4 docs/Structure.md 变更
 
-**状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步 (见 Structure.md command_builder.py、task_runner.py、MergePage、CustomCommandPage、MergeFileList、FileDropInput 章节)
+**状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步 + Phase 4 已同步 (见 Structure.md Phase 4 章节)
 
 **Phase 3 变更内容**：编码器数据库、命令构建器扩展、新页面与组件
 
@@ -1053,12 +1061,39 @@ video_codec 切换为 copy/none 时清空所有质量字段
 ```
 
 **待变更（Phase 4）**：
-1. 新增 i18n 目录结构
-2. 新增 language 字段到 AppSettings
+1. ~~新增 i18n 目录结构~~ (已完成)
+2. ~~新增 language 字段到 AppSettings~~ (已完成)
+
+**Phase 4 变更内容**：
+
+```markdown
+## i18n 国际化架构
+新增 core/paths.py: 集中路径管理（get_app_dir, get_data_dir, get_settings_path, get_log_dir, get_presets_dir, migrate_if_needed）
+新增 frontend/src/i18n/: vue-i18n 实例 + zh-CN/en 语言包（~200 keys）
+新增 frontend/src/composables/useLocale.ts: 语言切换 composable（持久化到后端）
+修改 core/config.py, core/logging.py, core/preset_manager.py: 改用 core.paths 路径模块
+修改 core/models.py: AppSettings 新增 language 字段
+修改 core/app_info.py: 新增 platform 字段
+修改 main.py: 启动迁移 + 平台化 download_ffmpeg
+
+## 翻译键命名空间
+nav., ffmpeg., settings., taskQueue., config., avMix., merge., custom., common.
+
+## 语言切换 UI
+AppNavbar.vue 导航栏右侧 EN/CN 切换按钮，btn-ghost btn-sm btn-square
+
+## FFmpeg 下载按钮平台化
+Windows: Download FFmpeg 按钮（static_ffmpeg）
+macOS: homebrew 安装提示
+Linux: 对应包管理器安装提示
+
+## 数据目录迁移
+APPDATA -> <app_dir>/data/，copy-not-move 策略，一次性迁移
+```
 
 ### A.5 docs/Procedure.md 变更
 
-**状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步 (见 Procedure.md Merge 独立提交流程、Concat 列表文件创建流程、Intro/Outro 全局应用流程)
+**状态**: Phase 2 已同步 + Phase 3 已同步 + Phase 3.5 已同步 + Phase 3.5.1 已同步 + Phase 3.5.2 已同步 + Phase 3.5.2-fixes 已同步 + Phase 4 已同步 (见 Procedure.md 语言切换流程、数据目录迁移流程、FFmpeg 平台下载流程)
 
 **Phase 2 变更内容**：4 个业务流程时序图（新建）
 
@@ -1196,7 +1231,7 @@ _emit("task_state_changed") + _emit("queue_changed")
 ```
 
 **待变更**：
-- Phase 4: i18n 流程（语言切换、翻译加载）
+- Phase 4: i18n 流程（语言切换、翻译加载） -- 已完成 (见 Procedure.md Phase 4 章节)
 
 ---
 

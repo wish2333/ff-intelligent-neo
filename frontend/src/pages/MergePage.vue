@@ -9,6 +9,7 @@
  */
 
 import { reactive, computed, onMounted } from "vue"
+import { useI18n } from "vue-i18n"
 import { useRouter } from "vue-router"
 import { useGlobalConfig } from "../composables/useGlobalConfig"
 import { useCommandPreview } from "../composables/useCommandPreview"
@@ -16,6 +17,8 @@ import { useTaskQueue } from "../composables/useTaskQueue"
 import MergePanel from "../components/config/MergePanel.vue"
 import CommandPreview from "../components/config/CommandPreview.vue"
 import type { MergeConfigDTO, TaskConfigDTO } from "../types/config"
+
+const { t } = useI18n()
 
 const router = useRouter()
 const { transcode, filters, activeMode } = useGlobalConfig()
@@ -67,9 +70,9 @@ async function handleAddToQueue(): Promise<void> {
 
 <template>
   <div class="flex flex-1 flex-col gap-4 p-4 overflow-y-auto">
-    <h1 class="text-xl font-bold">Video Merge</h1>
+    <h1 class="text-xl font-bold">{{ t("mergePage.title") }}</h1>
     <p class="text-xs text-base-content/60">
-      Concatenate multiple video files. Configure merge mode and intro/outro on the Config page.
+      {{ t("mergePage.description") }}
     </p>
 
     <CommandPreview
@@ -88,7 +91,7 @@ async function handleAddToQueue(): Promise<void> {
         :disabled="!canAddToQueue"
         @click="handleAddToQueue"
       >
-        Add to Queue ({{ mergeConfig.file_list.length }} files)
+        {{ t("mergePage.addToQueue", { count: mergeConfig.file_list.length }) }}
       </button>
     </div>
   </div>

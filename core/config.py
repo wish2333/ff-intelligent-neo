@@ -1,39 +1,18 @@
-"""AppSettings load/save to APPDATA/settings.json."""
+"""AppSettings load/save to data/settings.json."""
 
 from __future__ import annotations
 
 import json
-import os
-from pathlib import Path
 
 from core.models import AppSettings
-
-APP_NAME = "ff-intelligent-neo"
-
-
-def _appdata_dir() -> Path:
-    """Return the APPDATA directory for this application."""
-    base = os.environ.get("APPDATA", "")
-    if not base:
-        base = os.path.expanduser("~")
-    return Path(base) / APP_NAME
-
-
-def _settings_path() -> Path:
-    return _appdata_dir() / "settings.json"
-
-
-def _ensure_dir() -> Path:
-    d = _appdata_dir()
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+from core.paths import get_data_dir, get_settings_path
 
 
 def load_settings(
     default: AppSettings | None = None,
 ) -> AppSettings:
     """Load settings from disk, returning *default* when the file is missing."""
-    path = _settings_path()
+    path = get_settings_path()
     if not path.exists():
         return default or AppSettings()
     try:
@@ -49,8 +28,8 @@ def load_settings(
 
 def save_settings(settings: AppSettings) -> None:
     """Persist settings to disk, creating the directory if necessary."""
-    _ensure_dir()
-    path = _settings_path()
+    get_data_dir()
+    path = get_settings_path()
     path.write_text(
         json.dumps(settings.to_dict(), indent=2, ensure_ascii=False),
         encoding="utf-8",

@@ -7,7 +7,10 @@
  */
 
 import { ref, onMounted, onUnmounted } from "vue"
+import { useI18n } from "vue-i18n"
 import { call } from "../../bridge"
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: string[]
@@ -136,7 +139,7 @@ onUnmounted(() => {
           <polyline points="17 8 12 3 7 8" />
           <line x1="12" y1="3" x2="12" y2="15" />
         </svg>
-        <p class="text-lg font-semibold text-primary">Drop video files here</p>
+        <p class="text-lg font-semibold text-primary">{{ t("mergePage.fileList.dropVideoFilesHere") }}</p>
       </div>
     </div>
 
@@ -206,15 +209,15 @@ onUnmounted(() => {
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
         <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
       </svg>
-      Add Files
+      {{ t("mergePage.fileList.addFiles") }}
     </button>
 
     <!-- Hint -->
     <p v-if="modelValue.length < 2" class="text-xs text-warning">
-      At least 2 files are required for merging.
+      {{ t("mergePage.fileList.minFilesWarning") }}
     </p>
     <p class="text-xs text-base-content/40 mt-1">
-      Drag and drop files onto this page to add them.
+      {{ t("mergePage.fileList.dragDropHint") }}
     </p>
   </div>
 </template>

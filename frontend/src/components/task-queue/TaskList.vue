@@ -2,8 +2,11 @@
 /**
  * Scrollable task list table container.
  */
+import { useI18n } from "vue-i18n"
 import TaskRow from "./TaskRow.vue"
 import type { TaskDTO, TaskProgressDTO } from "../../types/task"
+
+const { t } = useI18n()
 
 defineProps<{
   tasks: TaskDTO[]
@@ -34,11 +37,11 @@ const emit = defineEmits<{
           <th class="w-10">
             <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" disabled />
           </th>
-          <th>File</th>
-          <th class="w-24">State</th>
-          <th class="w-52">Progress</th>
-          <th class="w-36">Info</th>
-          <th class="w-52">Actions</th>
+          <th>{{ t("taskQueue.table.file") }}</th>
+          <th class="w-24">{{ t("taskQueue.table.state") }}</th>
+          <th class="w-52">{{ t("taskQueue.table.progress") }}</th>
+          <th class="w-36">{{ t("taskQueue.table.info") }}</th>
+          <th class="w-52">{{ t("taskQueue.table.actions") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -74,8 +77,8 @@ const emit = defineEmits<{
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
         <polyline points="14 2 14 8 20 8" />
       </svg>
-      <p class="text-sm">No tasks yet</p>
-      <p class="text-xs mt-1">Add files to get started</p>
+      <p class="text-sm">{{ t("taskQueue.noTasksYet") }}</p>
+      <p class="text-xs mt-1">{{ t("taskQueue.addFilesToStart") }}</p>
     </div>
   </div>
 </template>

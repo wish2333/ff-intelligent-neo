@@ -7,8 +7,11 @@
  */
 
 import { ref, computed, onMounted } from "vue"
+import { useI18n } from "vue-i18n"
 import { call } from "../../bridge"
 import type { PresetDTO } from "../../types/preset"
+
+const { t } = useI18n()
 
 const emit = defineEmits<{
   (e: "select", preset: PresetDTO): void
@@ -50,7 +53,7 @@ function handleSelect() {
 
 async function handleDelete() {
   if (!selectedPreset.value || !canDelete.value) return
-  if (confirm(`Delete preset "${selectedPreset.value.name}"?`)) {
+  if (confirm(t("config.preset.deleteConfirm", { name: selectedPreset.value.name }))) {
     const res = await call<null>("delete_preset", selectedPreset.value.id)
     if (res.success) {
       selectedId.value = ""
@@ -73,7 +76,7 @@ defineExpose({ fetchPresets, setSelectedId: (id: string) => { selectedId.value =
 <template>
   <div class="card bg-base-200 shadow-sm">
     <div class="card-body p-4">
-      <h2 class="card-title text-sm font-semibold mb-2">Presets</h2>
+      <h2 class="card-title text-sm font-semibold mb-2">{{ t("config.preset.title") }}</h2>
 
       <!-- Preset dropdown -->
       <div class="flex gap-2 mb-2">
@@ -82,10 +85,10 @@ defineExpose({ fetchPresets, setSelectedId: (id: string) => { selectedId.value =
           @change="handleSelect"
           class="select select-bordered select-sm flex-1"
         >
-          <option value="" disabled>-- Select Preset --</option>
+          <option value="" disabled>{{ t("config.preset.selectPreset") }}</option>
           <optgroup
             v-if="groupPresets(presets).defaults.length"
-            label="Built-in"
+            :label="t('config.preset.builtIn')"
           >
             <option
               v-for="p in groupPresets(presets).defaults"
@@ -97,7 +100,7 @@ defineExpose({ fetchPresets, setSelectedId: (id: string) => { selectedId.value =
           </optgroup>
           <optgroup
             v-if="groupPresets(presets).users.length"
-            label="Custom"
+            :label="t('config.preset.custom')"
           >
             <option
               v-for="p in groupPresets(presets).users"
@@ -124,14 +127,14 @@ defineExpose({ fetchPresets, setSelectedId: (id: string) => { selectedId.value =
           class="btn btn-primary btn-sm flex-1"
           @click="$emit('save')"
         >
-          Save as Preset
+          {{ t("config.preset.saveAsPreset") }}
         </button>
         <button
           class="btn btn-ghost btn-sm btn-error"
           :disabled="!canDelete"
           @click="handleDelete"
         >
-          Delete
+          {{ t("config.preset.delete") }}
         </button>
       </div>
     </div>

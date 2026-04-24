@@ -9,7 +9,10 @@
  * Phase 3.5.1: Add fullscreenDrop prop for document-level drag handling.
  */
 import { ref, computed, onMounted, onUnmounted } from "vue"
+import { useI18n } from "vue-i18n"
 import { call } from "../../bridge"
+
+const { t } = useI18n()
 
 const props = withDefaults(defineProps<{
   modelValue: string
@@ -82,7 +85,7 @@ async function onDrop(e: DragEvent): Promise<void> {
     if (validateExtension(path)) {
       emit("update:modelValue", path)
     } else {
-      error.value = `Unsupported file type. Accepted: ${props.accept}`
+      error.value = t("common.unsupportedFileType", { accept: props.accept })
     }
   }
 }
@@ -118,7 +121,7 @@ async function onFullscreenDrop(e: DragEvent): Promise<void> {
     if (validateExtension(path)) {
       emit("update:modelValue", path)
     } else {
-      error.value = `Unsupported file type. Accepted: ${props.accept}`
+      error.value = t("common.unsupportedFileType", { accept: props.accept })
     }
   }
 }
@@ -131,12 +134,12 @@ async function openFileDialog(): Promise<void> {
       if (validateExtension(res.data)) {
         emit("update:modelValue", res.data)
       } else {
-        error.value = `Unsupported file type. Accepted: ${props.accept}`
+        error.value = t("common.unsupportedFileType", { accept: props.accept })
       }
     }
   } catch (err) {
     console.error("[FileDropInput] select_file_filtered failed:", err)
-    error.value = "Failed to open file dialog"
+    error.value = t("common.fileDialogFailed")
   }
 }
 
@@ -184,7 +187,7 @@ onUnmounted(() => {
           <polyline points="17 8 12 3 7 8" />
           <line x1="12" y1="3" x2="12" y2="15" />
         </svg>
-        <p class="text-lg font-semibold text-primary">Drop file here</p>
+        <p class="text-lg font-semibold text-primary">{{ t("common.dropFileHere") }}</p>
       </div>
     </div>
 
@@ -204,7 +207,7 @@ onUnmounted(() => {
         <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
       </svg>
       <span v-if="!modelValue && !error" class="opacity-40 truncate">
-        {{ placeholder ?? "Drop file here or click to select" }}
+        {{ placeholder ?? t("common.dropDefault") }}
       </span>
 
       <!-- Error state -->
@@ -227,7 +230,7 @@ onUnmounted(() => {
     <button
       v-if="modelValue || error"
       class="btn btn-xs btn-ghost btn-square absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
-      title="Clear"
+      :title="t('common.clear')"
       @click.stop="clear"
     >
       <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">

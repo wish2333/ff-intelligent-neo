@@ -496,6 +496,7 @@ class AppSettings:
     ffmpeg_path: str = ""
     ffprobe_path: str = ""
     theme: str = "auto"
+    language: str = "auto"
 
     def to_dict(self) -> dict:
         return {
@@ -504,6 +505,7 @@ class AppSettings:
             "ffmpeg_path": self.ffmpeg_path,
             "ffprobe_path": self.ffprobe_path,
             "theme": self.theme,
+            "language": self.language,
         }
 
     @classmethod
@@ -514,4 +516,5 @@ class AppSettings:
             ffmpeg_path=data.get("ffmpeg_path", ""),
             ffprobe_path=data.get("ffprobe_path", ""),
             theme=data.get("theme", "auto"),
+            language=data.get("language", "auto"),
         )

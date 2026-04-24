@@ -7,9 +7,12 @@
  */
 
 import { computed } from "vue"
+import { useI18n } from "vue-i18n"
 import { call } from "../../bridge"
 import type { MergeConfigDTO } from "../../types/config"
 import SplitDropZone from "../common/SplitDropZone.vue"
+
+const { t } = useI18n()
 
 const props = defineProps<{
   config: MergeConfigDTO
@@ -68,15 +71,15 @@ async function handleClickOutro() {
 <template>
   <div class="card bg-base-200 shadow-sm">
     <div class="card-body p-4">
-      <h2 class="card-title text-sm font-semibold mb-3">Batch Intro / Outro</h2>
+      <h2 class="card-title text-sm font-semibold mb-3">{{ t("config.mergeSettings.title") }}</h2>
       <p class="text-xs text-base-content/60 mb-3">
-        Set intro and/or outro videos. When set, ALL queue tasks will automatically prepend/append these to the content video.
+        {{ t("config.mergeSettings.description") }}
       </p>
 
       <!-- Intro / Outro -->
       <SplitDropZone
-        left-label="Intro Video"
-        right-label="Outro Video"
+        :left-label="t('config.mergeSettings.introVideo')"
+        :right-label="t('config.mergeSettings.outroVideo')"
         left-accept=".mp4,.mkv,.avi,.mov,.ts,.m2ts"
         right-accept=".mp4,.mkv,.avi,.mov,.ts,.m2ts"
         @drop-left="handleDropIntro"
@@ -85,7 +88,7 @@ async function handleClickOutro() {
         <template #left>
           <div class="form-control">
             <label class="label py-1">
-              <span class="label-text text-xs">Intro Video</span>
+              <span class="label-text text-xs">{{ t("config.mergeSettings.introVideo") }}</span>
             </label>
             <div
               class="rounded-lg border border-dashed px-3 py-6 text-center text-sm cursor-pointer border-base-300 hover:border-primary/50 hover:bg-base-200/50 transition-colors"
@@ -95,18 +98,18 @@ async function handleClickOutro() {
                 {{ config.intro_path.split(/[/\\]/).pop() }}
               </span>
               <span v-else class="opacity-40">
-                Click or drag intro video here
+                {{ t("config.mergeSettings.clickOrDragIntro") }}
               </span>
             </div>
             <div v-if="config.intro_path" class="flex justify-end mt-1">
-              <button class="btn btn-xs btn-ghost text-error" @click.stop="config.intro_path = ''">Clear</button>
+              <button class="btn btn-xs btn-ghost text-error" @click.stop="config.intro_path = ''">{{ t("common.clear") }}</button>
             </div>
           </div>
         </template>
         <template #right>
           <div class="form-control">
             <label class="label py-1">
-              <span class="label-text text-xs">Outro Video</span>
+              <span class="label-text text-xs">{{ t("config.mergeSettings.outroVideo") }}</span>
             </label>
             <div
               class="rounded-lg border border-dashed px-3 py-6 text-center text-sm cursor-pointer border-base-300 hover:border-primary/50 hover:bg-base-200/50 transition-colors"
@@ -116,11 +119,11 @@ async function handleClickOutro() {
                 {{ config.outro_path.split(/[/\\]/).pop() }}
               </span>
               <span v-else class="opacity-40">
-                Click or drag outro video here
+                {{ t("config.mergeSettings.clickOrDragOutro") }}
               </span>
             </div>
             <div v-if="config.outro_path" class="flex justify-end mt-1">
-              <button class="btn btn-xs btn-ghost text-error" @click.stop="config.outro_path = ''">Clear</button>
+              <button class="btn btn-xs btn-ghost text-error" @click.stop="config.outro_path = ''">{{ t("common.clear") }}</button>
             </div>
           </div>
         </template>
@@ -128,10 +131,10 @@ async function handleClickOutro() {
 
       <div class="mt-3 text-xs text-base-content/50">
         <p v-if="config.intro_path || config.outro_path" class="text-primary">
-          Intro/outro is active. All tasks added to the queue will be wrapped with intro/outro.
+          {{ t("config.mergeSettings.activeNotice") }}
         </p>
         <p v-else>
-          No intro/outro set. All tasks will process files normally.
+          {{ t("config.mergeSettings.inactiveNotice") }}
         </p>
       </div>
     </div>

@@ -9,11 +9,14 @@
  */
 
 import { computed, onMounted } from "vue"
+import { useI18n } from "vue-i18n"
 import { call } from "../bridge"
 import { useGlobalConfig } from "../composables/useGlobalConfig"
 import { useCommandPreview } from "../composables/useCommandPreview"
 import SplitDropZone from "../components/common/SplitDropZone.vue"
 import CommandPreview from "../components/config/CommandPreview.vue"
+
+const { t } = useI18n()
 
 const { avsmix, activeMode, toTaskConfig } = useGlobalConfig()
 
@@ -49,10 +52,10 @@ onMounted(() => {
 
 <template>
   <div class="flex flex-1 flex-col gap-4 p-4 overflow-y-auto">
-    <h1 class="text-xl font-bold">Audio / Subtitle Mix</h1>
+    <h1 class="text-xl font-bold">{{ t("avMix.title") }}</h1>
     <p class="text-xs text-base-content/60">
-      Mix external audio tracks and subtitle files. Inherits transcode settings from Config page.
-      Drag files to left/right half of screen, or click to select.
+      {{ t("avMix.description") }}
+      {{ t("avMix.dragHint") }}
     </p>
 
     <CommandPreview
@@ -63,8 +66,8 @@ onMounted(() => {
     />
 
     <SplitDropZone
-      left-label="Audio File"
-      right-label="Subtitle File"
+      :left-label="t('avMix.audio.title')"
+      :right-label="t('avMix.subtitle.title')"
       left-accept=".mp3,.aac,.flac,.wav,.m4a,.ogg,.wma"
       right-accept=".srt,.ass,.ssa"
       @drop-left="handleDropAudio"
@@ -73,13 +76,13 @@ onMounted(() => {
       <template #left>
         <div class="card bg-base-200 shadow-sm">
           <div class="card-body p-4">
-            <h2 class="card-title text-sm font-semibold mb-3">Audio</h2>
+            <h2 class="card-title text-sm font-semibold mb-3">{{ t("avMix.audio.title") }}</h2>
             <p class="text-xs text-base-content/60 mb-3">
-              External audio track. Replaces or mixes with original audio.
+              {{ t("avMix.audio.description") }}
             </p>
             <div class="form-control">
               <label class="label py-1">
-                <span class="label-text text-xs">External Audio</span>
+                <span class="label-text text-xs">{{ t("avMix.audio.externalAudio") }}</span>
               </label>
               <div
                 class="rounded-lg border border-dashed px-3 py-6 text-center text-sm cursor-pointer border-base-300 hover:border-primary/50 hover:bg-base-200/50 transition-colors"
@@ -89,11 +92,11 @@ onMounted(() => {
                   {{ avsmix.external_audio_path.split(/[/\\]/).pop() }}
                 </span>
                 <span v-else class="opacity-40">
-                  Click or drag audio file here
+                  {{ t("avMix.audio.clickOrDrag") }}
                 </span>
               </div>
               <div v-if="avsmix.external_audio_path" class="flex justify-end mt-1">
-                <button class="btn btn-xs btn-ghost text-error" @click.stop="avsmix.external_audio_path = ''">Clear</button>
+                <button class="btn btn-xs btn-ghost text-error" @click.stop="avsmix.external_audio_path = ''">{{ t("common.clear") }}</button>
               </div>
             </div>
             <!-- Replace Audio Toggle -->
@@ -105,8 +108,8 @@ onMounted(() => {
                   class="checkbox checkbox-sm checkbox-primary"
                 />
                 <div>
-                  <span class="label-text text-xs">Replace original audio</span>
-                  <p class="text-xs text-base-content/50 mt-0.5">Disable to mix audio tracks instead</p>
+                  <span class="label-text text-xs">{{ t("avMix.audio.replaceOriginal") }}</span>
+                  <p class="text-xs text-base-content/50 mt-0.5">{{ t("avMix.audio.replaceHint") }}</p>
                 </div>
               </label>
             </div>
@@ -116,13 +119,13 @@ onMounted(() => {
       <template #right>
         <div class="card bg-base-200 shadow-sm">
           <div class="card-body p-4">
-            <h2 class="card-title text-sm font-semibold mb-3">Subtitle</h2>
+            <h2 class="card-title text-sm font-semibold mb-3">{{ t("avMix.subtitle.title") }}</h2>
             <p class="text-xs text-base-content/60 mb-3">
-              Embed subtitle file into output video.
+              {{ t("avMix.subtitle.description") }}
             </p>
             <div class="form-control">
               <label class="label py-1">
-                <span class="label-text text-xs">Subtitle File</span>
+                <span class="label-text text-xs">{{ t("avMix.subtitle.subtitleFile") }}</span>
               </label>
               <div
                 class="rounded-lg border border-dashed px-3 py-6 text-center text-sm cursor-pointer border-base-300 hover:border-primary/50 hover:bg-base-200/50 transition-colors"
@@ -132,17 +135,17 @@ onMounted(() => {
                   {{ avsmix.subtitle_path.split(/[/\\]/).pop() }}
                 </span>
                 <span v-else class="opacity-40">
-                  Click or drag subtitle file here
+                  {{ t("avMix.subtitle.clickOrDrag") }}
                 </span>
               </div>
               <div v-if="avsmix.subtitle_path" class="flex justify-end mt-1">
-                <button class="btn btn-xs btn-ghost text-error" @click.stop="avsmix.subtitle_path = ''">Clear</button>
+                <button class="btn btn-xs btn-ghost text-error" @click.stop="avsmix.subtitle_path = ''">{{ t("common.clear") }}</button>
               </div>
             </div>
             <!-- Subtitle Language -->
             <div v-if="avsmix.subtitle_path" class="form-control mt-2">
               <label class="label py-1">
-                <span class="label-text text-xs">Subtitle Language Code</span>
+                <span class="label-text text-xs">{{ t("avMix.subtitle.languageCode") }}</span>
               </label>
               <input
                 v-model="avsmix.subtitle_language"
@@ -152,7 +155,7 @@ onMounted(() => {
               />
               <label class="label py-0.5">
                 <span class="label-text-alt text-xs text-base-content/50">
-                  ISO 639-2 language code for metadata (optional)
+                  {{ t("avMix.subtitle.languageHint") }}
                 </span>
               </label>
             </div>

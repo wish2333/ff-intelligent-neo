@@ -88,6 +88,7 @@ def get_app_info() -> dict:
         "ffprobe_path": ffprobe_path or "",
         "ffprobe_version": get_ffprobe_version(ffprobe_path),
         "is_packaged": bool(getattr(sys, "frozen", False)),
+        "platform": sys.platform,
     }
 
 

@@ -1,0 +1,8 @@
+{
+  "max_workers": 2,
+  "default_output_dir": "",
+  "ffmpeg_path": "C:\\Program Files\\FFmpeg\\ffmpeg.EXE",
+  "ffprobe_path": "",
+  "theme": "auto",
+  "language": "auto"
+}

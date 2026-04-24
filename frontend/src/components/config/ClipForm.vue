@@ -7,8 +7,11 @@
  */
 
 import { computed, ref, watch } from "vue"
+import { useI18n } from "vue-i18n"
 import { call } from "../../bridge"
 import type { ClipConfigDTO } from "../../types/config"
+
+const { t } = useI18n()
 
 const props = defineProps<{
   config: ClipConfigDTO
@@ -17,7 +20,7 @@ const props = defineProps<{
 
 const isExtractMode = computed(() => props.config.clip_mode === "extract")
 const endLabel = computed(() =>
-  isExtractMode.value ? "Tail Duration (to remove)" : "End Time",
+  isExtractMode.value ? t("config.clip.tailDuration") : t("config.clip.endTime"),
 )
 
 const fileDuration = ref(0)
@@ -89,6 +92,12 @@ const endMs = computed({
   set: (v: number | undefined) => { endFields.value = { ...endFields.value, ms: v || 0 } },
 })
 
+const fileDurationText = computed(() => {
+  const minutes = Math.floor(fileDuration.value / 60)
+  const seconds = Math.floor(fileDuration.value % 60)
+  return t("config.clip.fileDuration", { minutes, seconds })
+})
+
 // Auto-fetch file duration for extract mode
 watch(
   () => [isExtractMode.value, props.filePath],
@@ -111,22 +120,22 @@ watch(
 <template>
   <div class="card bg-base-200 shadow-sm">
     <div class="card-body p-4">
-      <h2 class="card-title text-sm font-semibold mb-3">Video Clip</h2>
+      <h2 class="card-title text-sm font-semibold mb-3">{{ t("config.clip.title") }}</h2>
       <p class="text-xs text-base-content/60 mb-3">
-        Cut or extract segments. Clip mode is independent of transcode/filter settings.
+        {{ t("config.clip.description") }}
       </p>
 
       <!-- Clip Mode -->
       <div class="form-control mb-3">
         <label class="label py-1">
-          <span class="label-text text-xs">Clip Mode</span>
+          <span class="label-text text-xs">{{ t("config.clip.clipMode") }}</span>
         </label>
         <select
           v-model="config.clip_mode"
           class="select select-bordered select-sm w-full"
         >
-          <option value="extract">Extract (remove head/tail)</option>
-          <option value="cut">Precise Cut (time range)</option>
+          <option value="extract">{{ t("config.clip.extractMode") }}</option>
+          <option value="cut">{{ t("config.clip.cutMode") }}</option>
         </select>
       </div>
 
@@ -135,7 +144,7 @@ watch(
         <!-- Start Time -->
         <div class="form-control">
           <label class="label py-1">
-            <span class="label-text text-xs">Start Time</span>
+            <span class="label-text text-xs">{{ t("config.clip.startTime") }}</span>
           </label>
           <div class="flex items-center gap-1">
             <input v-model.number="startH" type="number" min="0" max="99" placeholder="H" class="input input-bordered input-sm w-14 text-center" />
@@ -147,7 +156,7 @@ watch(
             <input v-model.number="startMs" type="number" min="0" max="999" placeholder="ms" class="input input-bordered input-sm w-16 text-center" />
           </div>
           <label class="label py-0.5">
-            <span class="label-text-alt text-xs text-base-content/50">Leave empty to skip</span>
+            <span class="label-text-alt text-xs text-base-content/50">{{ t("config.clip.leaveEmptyToSkip") }}</span>
           </label>
         </div>
 
@@ -167,11 +176,11 @@ watch(
           </div>
           <label v-if="isExtractMode && fileDuration > 0" class="label py-0.5">
             <span class="label-text-alt text-xs text-base-content/50">
-              File duration: {{ Math.floor(fileDuration / 60) }}m {{ Math.floor(fileDuration % 60) }}s
+              {{ fileDurationText }}
             </span>
           </label>
           <label v-else class="label py-0.5">
-            <span class="label-text-alt text-xs text-base-content/50">Leave empty to skip</span>
+            <span class="label-text-alt text-xs text-base-content/50">{{ t("config.clip.leaveEmptyToSkip") }}</span>
           </label>
         </div>
       </div>
@@ -185,9 +194,9 @@ watch(
             class="checkbox checkbox-sm checkbox-primary"
           />
           <div>
-            <span class="label-text text-xs">Use -c copy (fast, lossless)</span>
+            <span class="label-text text-xs">{{ t("config.clip.copyCodec") }}</span>
             <p class="text-xs text-base-content/50 mt-0.5">
-              Disable to re-encode with current transcode settings
+              {{ t("config.clip.copyCodecDesc") }}
             </p>
           </div>
         </label>

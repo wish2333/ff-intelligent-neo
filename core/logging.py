@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import os
 import sys
-from pathlib import Path
 
 from loguru import logger
+from core.paths import get_log_dir
 
 # Remove default handler to avoid duplicate output
 logger.remove()
@@ -19,18 +18,8 @@ logger.add(
 )
 
 
-def _ensure_log_dir() -> Path:
-    """Return (and create) the log directory under APPDATA."""
-    base = os.environ.get("APPDATA", "")
-    if not base:
-        base = os.path.expanduser("~")
-    log_dir = Path(base) / "ff-intelligent-neo" / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    return log_dir
-
-
 try:
-    _log_dir = _ensure_log_dir()
+    _log_dir = get_log_dir()
     _file_sink_id = logger.add(
         str(_log_dir / "app_{time:YYYY-MM-DD}.log"),
         rotation="10 MB",

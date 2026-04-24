@@ -6,8 +6,11 @@
  * Phase 3.5.1: Half-screen layout with fullscreen drag-drop.
  */
 
+import { useI18n } from "vue-i18n"
 import type { AudioSubtitleConfigDTO } from "../../types/config"
 import FileDropInput from "../common/FileDropInput.vue"
+
+const { t } = useI18n()
 
 defineProps<{
   config: AudioSubtitleConfigDTO
@@ -19,20 +22,20 @@ defineProps<{
     <!-- Audio Section -->
     <div class="card bg-base-200 shadow-sm">
       <div class="card-body p-4">
-        <h2 class="card-title text-sm font-semibold mb-3">Audio</h2>
+        <h2 class="card-title text-sm font-semibold mb-3">{{ t("avMix.audio.title") }}</h2>
         <p class="text-xs text-base-content/60 mb-3">
-          External audio track. Replaces or mixes with original audio.
+          {{ t("avMix.audio.description") }}
         </p>
 
         <!-- External Audio Path -->
         <div class="form-control mb-3">
           <label class="label py-1">
-            <span class="label-text text-xs">External Audio</span>
+            <span class="label-text text-xs">{{ t("avMix.audio.externalAudio") }}</span>
           </label>
           <FileDropInput
             :model-value="config.external_audio_path"
             accept=".mp3,.aac,.flac,.wav,.m4a,.ogg,.wma"
-            placeholder="Drop audio file here or click to select"
+            :placeholder="t('avMix.audio.dropHint')"
             fullscreen-drop
             @update:model-value="config.external_audio_path = $event"
           />
@@ -47,8 +50,8 @@ defineProps<{
               class="checkbox checkbox-sm checkbox-primary"
             />
             <div>
-              <span class="label-text text-xs">Replace original audio</span>
-              <p class="text-xs text-base-content/50 mt-0.5">Disable to mix audio tracks instead</p>
+              <span class="label-text text-xs">{{ t("avMix.audio.replaceOriginal") }}</span>
+              <p class="text-xs text-base-content/50 mt-0.5">{{ t("avMix.audio.replaceHint") }}</p>
             </div>
           </label>
         </div>
@@ -58,20 +61,20 @@ defineProps<{
     <!-- Subtitle Section -->
     <div class="card bg-base-200 shadow-sm">
       <div class="card-body p-4">
-        <h2 class="card-title text-sm font-semibold mb-3">Subtitle</h2>
+        <h2 class="card-title text-sm font-semibold mb-3">{{ t("avMix.subtitle.title") }}</h2>
         <p class="text-xs text-base-content/60 mb-3">
-          Embed subtitle file into output video.
+          {{ t("avMix.subtitle.description") }}
         </p>
 
         <!-- Subtitle Path -->
         <div class="form-control mb-3">
           <label class="label py-1">
-            <span class="label-text text-xs">Subtitle File</span>
+            <span class="label-text text-xs">{{ t("avMix.subtitle.subtitleFile") }}</span>
           </label>
           <FileDropInput
             :model-value="config.subtitle_path"
             accept=".srt,.ass,.ssa"
-            placeholder="Drop subtitle file here or click to select"
+            :placeholder="t('avMix.subtitle.dropHint')"
             fullscreen-drop
             @update:model-value="config.subtitle_path = $event"
           />
@@ -80,17 +83,17 @@ defineProps<{
         <!-- Subtitle Language -->
         <div v-if="config.subtitle_path" class="form-control">
           <label class="label py-1">
-            <span class="label-text text-xs">Subtitle Language Code</span>
+            <span class="label-text text-xs">{{ t("avMix.subtitle.languageCode") }}</span>
           </label>
           <input
             v-model="config.subtitle_language"
             type="text"
-            placeholder="e.g. eng, chi, jpn"
+            :placeholder="t('avMix.subtitle.languagePlaceholder')"
             class="input input-bordered input-sm w-full"
           />
           <label class="label py-0.5">
             <span class="label-text-alt text-xs text-base-content/50">
-              ISO 639-2 language code for metadata (optional)
+              {{ t("avMix.subtitle.languageHint") }}
             </span>
           </label>
         </div>

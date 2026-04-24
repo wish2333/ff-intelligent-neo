@@ -1,8 +1,6 @@
 <script setup lang="ts">
-/**
- * Default output folder setting.
- */
 import { call } from "../../bridge"
+import { useI18n } from "vue-i18n"
 
 defineProps<{
   value: string
@@ -11,6 +9,8 @@ defineProps<{
 const emit = defineEmits<{
   change: [value: string]
 }>()
+
+const { t } = useI18n()
 
 function handleRadioChange(event: Event): void {
   const target = event.target as HTMLInputElement
@@ -34,7 +34,7 @@ function handleInputChange(event: Event): void {
 
 <template>
   <div class="space-y-3">
-    <h3 class="text-lg font-semibold">Output</h3>
+    <h3 class="text-lg font-semibold">{{ t("settings.output.title") }}</h3>
 
     <div class="space-y-2">
       <label class="flex items-center gap-2 cursor-pointer">
@@ -46,7 +46,7 @@ function handleInputChange(event: Event): void {
           class="radio radio-sm radio-primary"
           @change="handleRadioChange"
         />
-        <span class="text-sm">Same as source directory</span>
+        <span class="text-sm">{{ t("settings.output.sameAsSource") }}</span>
       </label>
 
       <label class="flex items-center gap-2 cursor-pointer">
@@ -58,7 +58,7 @@ function handleInputChange(event: Event): void {
           class="radio radio-sm radio-primary"
           @change="() => {}"
         />
-        <span class="text-sm">Custom folder:</span>
+        <span class="text-sm">{{ t("settings.output.customFolder") }}</span>
       </label>
 
       <div v-if="!!value" class="flex items-center gap-2 ml-6">
@@ -66,17 +66,17 @@ function handleInputChange(event: Event): void {
           type="text"
           :value="value"
           class="input input-bordered input-sm flex-1"
-          placeholder="Select a folder..."
+          :placeholder="t('settings.output.placeholder')"
           @change="handleInputChange"
         />
         <button class="btn btn-xs btn-outline" @click="handleBrowse">
-          Browse...
+          {{ t("settings.output.browse") }}
         </button>
       </div>
 
       <div v-else class="ml-6">
         <button class="btn btn-xs btn-outline" @click="handleBrowse">
-          Select folder...
+          {{ t("settings.output.selectFolder") }}
         </button>
       </div>
     </div>

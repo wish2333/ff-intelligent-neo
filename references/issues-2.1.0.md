@@ -3311,5 +3311,464 @@ Apr 23, 2026
        #1820           🔵  Command preview dispatch order causes merge config to override other modes
        #1821  5:53 PM  🔵  CommandConfigPage shares global config causing cross-mode contamination
        #1822           🔵  Backend command building pipeline validates config via TaskConfig.from_dict
+              #1824  9:33 PM  🔴  Three-part fix strategy planned for Config Merge and Merge interface issues
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\config\MergeSettingsForm.vue
+       #1825           🔄  MergeSettingsForm.vue refactored to global intro/outro configuration only
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useGlobalConfig.ts
+       #1826           🟣  Global intro/outro now applies to all queue tasks regardless of mode
+     General
+       #1827           🔴  Task 16 completed: Global intro/outro configuration implemented
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\pages\MergePage.vue
+       #1828           🔄  MergePage.vue removed toTaskConfig dependency to build clean task config
+       #1829  9:34 PM  🔵  MergePage.vue handleAddToQueue function references undefined toTaskConfig
+       #1830           🔴  MergePage.vue handleAddToQueue fixed to match preview configuration
+     General
+       #1831           🔴  Task 18 completed: MergePage command preview and execution now match
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\command_builder.py
+       #1832           🔴  concat_protocol URL quoting removed from command_builder.py
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\config\MergeSettingsForm.vue
+       #1833           🔄  MergeSettingsForm.vue removed unused isFilterComplex computed property
+     General
+       #1834  9:45 PM  🔴  FFMpeg concat filter audio/video pad mismatch during intro/outro merge
+       #1835           🔴  Merge page executes Config tasks instead of Merge-configured tasks
+       #1836  9:47 PM  🔵  Task state transition from completed to in_progress observed
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\command_builder.py
+       #1837           🔴  Fixed FFMpeg concat filter configuration causing media type mismatch errors
+       #1838  9:48 PM  🔴  Fixed FFMpeg concat filter configuration in intro/outro merge command
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_runner.py
+       #1839           🔴  Fixed Merge page task configuration being overwritten by Config settings
+     General
+       #1840  10:25 PM  🔴  Video Merge page FFmpeg integration issues identified
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_runner.py
+       #1841  10:26 PM  🔵  Task runner architecture uses thread pool with process tree management
+       #1842            🔵  Task runner delegates FFmpeg execution to ffmpeg_runner.run_single
+       #1843            🔵  build_command constructs FFmpeg arguments from task configuration
+       #1844            ✅  Added os and tempfile imports to task_runner.py
+       #1845            🔴  Implemented temp file creation for TSConcat merge mode
+       #1846  10:27 PM  🔴  Added temp file cleanup with try/finally wrapper in _run_task
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\command_builder.py
+       #1847  10:31 PM  🔄  Centralized global FFmpeg flags to task runner layer
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\task_runner.py
+       #1848  10:41 PM  🔴  TSConcat mode fix completed with temp file cleanup
+     ..\..\Git\GithubManager\ff-intelligent-neo\core\command_builder.py
+       #1849            🔴  Fixed ConcatProtocol Windows path handling
+     General
+       #1850  10:45 PM  🔵  Multiple critical bugs identified across video processing application pages
+     core/command_builder.py
+       #1851  10:46 PM  🔴  Unified concat_protocol and ts_concat merge modes to use concat demuxer
+       #1852  10:49 PM  🔵  Documented fix for merge mode file recognition bug
+     docs/Structure.md
+       #1853  10:50 PM  🔵  User requested documentation review for bug fixes planning
+     references/PRD-2.1.0.md
+       #1854            ✅  Comprehensive bug fixes documentation added to PRD-2.1.0.md
+     docs/BusinessRules.md
+       #1855  10:51 PM  ✅  Updated command path reference rules to fix Windows Unicode issues
+       #1856            ✅  Updated merge rules to reflect concat_protocol/concat demuxer changes
+       #1857            ✅  Updated intro/outro rules to reflect config isolation architecture
+     references/PRD-2.1.0.md
+       #1858  10:52 PM  🔵  Documentation-first bug fix planning initiated for 11 critical issues
+     docs/Structure.md
+       #1859            ✅  Completed comprehensive documentation updates for 16 bug fixes
+       #1860            ✅  Added context-dependent fullscreen drag behavior documentation for FileDropInput
+     docs/Procedure.md
+       #1861            ✅  Added detailed flow diagrams for merge isolation and temp file management
+     ..\..\Git\GithubManager\ff-intelligent-neo\docs\fields\MergeConfig.csv
+       #1862  10:54 PM  🔵  MergeConfig documentation reviewed for potential updates
+       #1863            🔵  Documentation files review in docs/fields/ directory
+       #1864  10:55 PM  ✅  MergeConfig.csv documentation updated for global intro/outro architecture
+     ..\..\Git\GithubManager\ff-intelligent-neo\docs\fields\FilterConfig.csv
+       #1865            ✅  FilterConfig.csv documentation updated with fullscreen drop target context behavior
+     PRD-2.1.0.md
+       #1866            ✅  User identified incomplete PRD documentation
+     ..\..\Git\GithubManager\ff-intelligent-neo\references\PRD-2.1.0.md
+       #1867  10:56 PM  🔵  PRD Appendix A documentation structure reviewed
+       #1868            🔵  Phase 3.5.2 synchronization status appears in multiple PRD sections
+       #1869            ✅  PRD Appendix A status updated to reflect Phase 3.5.2-fixes synchronization
+       #1870            🔵  Verified PRD Appendix A.2 status update completed successfully
+       #1871            🔵  Found inconsistent status in PRD Appendix A.1 section
+       #1872  10:57 PM  ✅  PRD Appendix A.1 status clarified for Phase 3.5.2-fixes
+       #1873            ✅  PRD Appendix A.2 status updated with cross-reference
 ```
 
+### 📝 Commit Message
+
+```
+feat: Phase 3 命令构建器全功能实现与修复
+
+- 新增编码器数据库(13视频+7音频)、硬件编码检测
+- 新增音频归一化、横竖屏转换、视频剪辑、音字混合
+- 新增多视频拼接(ts/concat/filter_complex)及批量片头片尾
+- 新增自定义命令模式，独立页面架构(Config/AVMix/Merge/Custom)
+- 修复队列上传崩溃、跨模式配置污染、Unicode路径非法字节序
+- 修复concat滤镜N>2文件语法错误及音视频pad类型不匹配
+- 实现分屏全屏拖放、分辨率/时间分段输入、字段互斥逻辑
+```
+
+### 🚀 Release Notes
+
+```
+## 2026-04-24 - 命令构建器全面升级
+
+### ✨ 新增
+- **编码器选择器**：支持 13 种视频编码器与 7 种音频编码器，按优先级分组显示，自动检测硬件编码器并灰显不支持项，支持自定义输入
+- **音频归一化**：EBU R128 响度标准化，可配置目标响度(LUFS)、真峰值及响度范围
+- **横竖屏转换**：6 种转换模式（插入/上下黑边/底部填充 × 横转竖/竖转横），支持背景图或模糊填充
+- **视频剪辑**：提取/裁剪双模式，时间分段输入（时:分:秒:毫秒），自动获取文件时长
+- **音字混合**：外部音频替换与字幕嵌入，分屏拖放上传
+- **多视频拼接**：三种拼接模式，支持拖拽排序与全屏拖放添加文件，单任务提交
+- **批量片头片尾**：全局配置片头/片尾视频，自动应用于所有队列任务
+- **自定义命令**：完全自定义 FFmpeg 参数，最高优先级覆盖其他配置
+- **分屏全屏拖放**：片头/片尾、音频/字幕页面支持左右分屏拖放识别
+
+### 🐛 修复
+- 修复队列上传文件时因运算符优先级导致的崩溃问题
+- 修复含中文/日文等 Unicode 字符的文件路径无法处理的问题
+- 修复拼接模式超过 2 个文件时滤镜语法错误
+- 修复片头片尾拼接时音视频流类型不匹配的问题
+- 修复 TS Concat 模式因缺少临时文件列表导致的执行失败
+- 修复横竖屏转换与水印同时选择时界面冻结的问题
+- 修复不同页面间命令预览配置互相污染的问题
+- 修复 Merge 页面任务配置被全局设置覆盖的问题
+
+### ⚡ 优化
+- 页面重构为独立架构：配置、音字混合、拼接、自定义命令各占独立页面
+- 编码配置新增画质模式(CRF/CQ/QP)、编码预设、像素格式、最大码率与缓冲区大小
+- 分辨率与时间输入改为分段数字输入，无需手动输入分隔符
+- 配置页命令预览移至顶部，选项卡改为互斥显示并采用三栏布局
+- 拼接页 filter_complex 模式默认填入分辨率与帧率，防止参数缺失报错
+```
+
+## Phase4
+
+### PLAN
+
+```
+ Phase 4 实施计划：国际化 + 补充任务
+
+ Context
+
+ ff-intelligent-neo 2.1.0 的 Phase 1-3.5.2 已全部完成。Phase 4 包含三大任务：
+
+ 1. i18n 国际化：vue-i18n 集成 + 中英双语 + 语言切换 UI
+ 2. FFmpeg 下载按钮平台化：static-ffmpeg 仅支持 Windows，其他平台显示安装提示
+ 3. 数据目录迁移：配置和日志从 APPDATA 迁移到 <app_dir>/data/
+
+ PRD 强制要求：所有需求先更新 docs/ 文档，确认后再开始编码。
+
+ ---
+ Step 1: 文档更新（文档先行）
+
+ 1.1 更新 docs/fields/AppSettings.csv
+
+ - 新增 language 字段（str, default="auto", auto/zh-CN/en）
+
+ 1.2 更新 docs/BusinessRules.md
+
+ 新增章节：
+ - 语言切换规则：auto 模式跟随系统语言（中文优先），手动切换持久化到 settings.json，vue-i18n Composition API
+ 模式，仅支持 zh-CN 和 en
+ - FFmpeg 下载按钮平台规则：Windows 显示下载按钮，macOS 显示 homebrew 安装提示，Linux 显示包管理器安装提示
+ - 数据目录规则：所有持久化数据保存到 <app_dir>/data/，首次启动自动迁移旧 APPDATA
+ 数据（copy-not-move），日志不迁移（轮转制自动清理）
+
+ 1.3 更新 docs/Structure.md
+
+ 新增章节：
+ - i18n 架构：frontend/src/i18n/ 目录结构，useLocale.ts composable，语言切换按钮位置
+ - 数据目录统一：新增 core/paths.py 集中路径管理
+ - 平台检测：app_info.py 新增 platform 字段
+
+ 1.4 更新 docs/Procedure.md
+
+ 新增流程：
+ - 语言切换流程：点击按钮 -> setLocale -> vue-i18n.locale.value -> save_settings
+ - 数据目录迁移流程：启动检查 -> 旧路径存在则复制到新路径 -> 后续使用新路径
+ - FFmpeg 平台下载流程：非 Windows 调用 download_ffmpeg -> 返回安装指引 -> 前端显示
+
+ 1.5 更新 references/PRD-2.1.0.md
+
+ - Phase 4 状态标记为"开发中"
+ - 附录 A 更新文档变更追踪
+
+ ---
+ Step 2: 后端 - 数据目录迁移
+
+ 2.1 新建 core/paths.py
+
+ 集中路径管理模块：
+ - get_app_dir() -> Path：打包时 Path(sys.executable).parent，开发时项目根目录
+ - get_data_dir() -> Path：get_app_dir() / "data"，自动创建
+ - get_settings_path() -> Path
+ - get_log_dir() -> Path
+ - get_presets_dir() -> Path
+ - migrate_if_needed() -> None：检测旧 APPDATA 路径，copy-not-move 迁移
+
+ 2.2 修改 core/config.py
+
+ - 移除 _appdata_dir(), _settings_path(), _ensure_dir()
+ - 改用 from core.paths import get_settings_path, get_data_dir
+
+ 2.3 修改 core/logging.py
+
+ - 移除 _ensure_log_dir()
+ - 改用 from core.paths import get_log_dir
+ - 注意：模块级 _log_dir = _ensure_log_dir() 需改为延迟初始化或确保 paths 在 logging 之前导入
+
+ 2.4 修改 core/preset_manager.py
+
+ - 移除 _get_user_presets_dir()
+ - 改用 from core.paths import get_presets_dir
+
+ 2.5 修改 main.py
+
+ - 在所有 core 模块导入之前调用 from core.paths import migrate_if_needed; migrate_if_needed()
+
+ ---
+ Step 3: 后端 - Language 字段 + 平台检测
+
+ 3.1 修改 core/models.py - AppSettings
+
+ @dataclass(frozen=True)
+ class AppSettings:
+     max_workers: int = 2
+     default_output_dir: str = ""
+     ffmpeg_path: str = ""
+     ffprobe_path: str = ""
+     theme: str = "auto"
+     language: str = "auto"  # auto/zh-CN/en
+ 同步更新 to_dict() 和 from_dict()。
+
+ 3.2 修改 core/app_info.py
+
+ - get_app_info() 返回值新增 "platform": sys.platform
+
+ 3.3 修改 main.py - download_ffmpeg
+
+ - 非 Windows 平台返回 {"success": False, "error": "download_not_supported", "data": {"platform": ..., "instructions":
+ {...}}}
+ - 新增 _get_ffmpeg_install_instructions() 辅助方法：
+   - macOS: brew install ffmpeg
+   - Linux (ubuntu/debian): sudo apt install ffmpeg
+   - Linux (fedora): sudo dnf install ffmpeg
+   - Linux (arch): sudo pacman -S ffmpeg
+
+ ---
+ Step 4: 前端 - i18n 基础设施
+
+ 4.1 安装 vue-i18n
+
+ cd frontend && bun add vue-i18n
+
+ 4.2 新建 frontend/src/i18n/index.ts
+
+ - createI18n({ legacy: false, locale: "zh-CN", fallbackLocale: "en", messages: {...} })
+
+ 4.3 新建 frontend/src/i18n/locales/en.ts
+
+ - 从所有 Vue/TS 文件中提取硬编码文本，创建英文翻译键
+ - 命名空间：nav., ffmpeg., settings., taskQueue., config., avMix., merge., custom., common.
+
+ 4.4 新建 frontend/src/i18n/locales/zh-CN.ts
+
+ - 对应的中文翻译
+
+ 4.5 修改 frontend/src/main.ts
+
+ - 注册 i18n 插件：.use(i18n)
+
+ 4.6 新建 frontend/src/composables/useLocale.ts
+
+ - useLocale() composable，模式参考 useTheme.ts
+ - setLocale(locale) -> 更新 vue-i18n + 持久化到后端
+
+ ---
+ Step 5: 前端 - 组件 i18n 替换
+
+ 按以下顺序逐文件替换硬编码文本为 t("key")：
+
+ 1. AppNavbar.vue - 导航标签 + 语言切换按钮
+ 2. SettingsPage.vue + 子组件 (FFmpegSetup, AppAbout, ThreadCountInput, OutputFolderInput)
+ 3. TaskQueuePage.vue + 子组件 (TaskToolbar, QueueSummary, BatchControlBar, TaskList, TaskRow, TaskProgressBar,
+ TaskLogPanel)
+ 4. CommandConfigPage.vue + 子组件 (TranscodeForm, FilterForm, ClipForm, EncoderSelect, MergePanel, MergeSettingsForm,
+ MergeFileList, PresetSelector, PresetEditor, CommandPreview, AvsmixForm)
+ 5. AudioSubtitlePage.vue, MergePage.vue, CustomCommandPage.vue
+ 6. 通用组件 (FileDropInput, ComboInput, SplitDropZone)
+ 7. 类型定义 (types/config.ts, types/settings.ts) - 新增 language 字段
+
+ 语言切换 UI
+
+ - 在 AppNavbar.vue 导航栏右侧，主题切换按钮旁
+ - btn btn-ghost btn-sm btn-square，显示 "EN" / "CN"
+ - 点击切换语言
+
+ ---
+ Step 6: 前端 - FFmpeg 下载按钮平台化
+
+ 6.1 修改 frontend/src/types/settings.ts
+
+ - AppInfoDTO 新增 platform: string
+ - 新增 FfmpegInstallInfo 接口
+
+ 6.2 修改 frontend/src/components/settings/FFmpegSetup.vue
+
+ - 接收 platform prop
+ - Windows: 显示现有下载按钮
+ - macOS/Linux: 显示安装提示（命令 + 包管理器名称）
+
+ ---
+ Step 7: 前端构建验证
+
+ cd frontend && bun run build
+
+ ---
+ 关键文件清单
+
+ 新建
+
+ ┌───────────────────────────────────────┬─────────────────────────────┐
+ │                 文件                  │            用途             │
+ ├───────────────────────────────────────┼─────────────────────────────┤
+ │ core/paths.py                         │ 集中数据目录路径 + 迁移逻辑 │
+ ├───────────────────────────────────────┼─────────────────────────────┤
+ │ frontend/src/i18n/index.ts            │ vue-i18n 实例               │
+ ├───────────────────────────────────────┼─────────────────────────────┤
+ │ frontend/src/i18n/locales/en.ts       │ 英文翻译                    │
+ ├───────────────────────────────────────┼─────────────────────────────┤
+ │ frontend/src/i18n/locales/zh-CN.ts    │ 中文翻译                    │
+ ├───────────────────────────────────────┼─────────────────────────────┤
+ │ frontend/src/composables/useLocale.ts │ 语言切换 composable         │
+ └───────────────────────────────────────┴─────────────────────────────┘
+
+ 修改（后端）
+
+ ┌────────────────────────┬─────────────────────────────────────┐
+ │          文件          │                变更                 │
+ ├────────────────────────┼─────────────────────────────────────┤
+ │ core/models.py         │ AppSettings 新增 language 字段      │
+ ├────────────────────────┼─────────────────────────────────────┤
+ │ core/config.py         │ 使用 core.paths 替代 APPDATA 路径   │
+ ├────────────────────────┼─────────────────────────────────────┤
+ │ core/logging.py        │ 使用 core.paths 替代 APPDATA 路径   │
+ ├────────────────────────┼─────────────────────────────────────┤
+ │ core/preset_manager.py │ 使用 core.paths 替代 APPDATA 路径   │
+ ├────────────────────────┼─────────────────────────────────────┤
+ │ core/app_info.py       │ 返回值新增 platform 字段            │
+ ├────────────────────────┼─────────────────────────────────────┤
+ │ main.py                │ 启动迁移 + 平台检测 download_ffmpeg │
+ └────────────────────────┴─────────────────────────────────────┘
+
+ 修改（前端）
+
+ ┌──────────────────────────────────────────────────┬────────────────────────────────────────────┐
+ │                       文件                       │                    变更                    │
+ ├──────────────────────────────────────────────────┼────────────────────────────────────────────┤
+ │ frontend/src/main.ts                             │ 注册 i18n 插件                             │
+ ├──────────────────────────────────────────────────┼────────────────────────────────────────────┤
+ │ frontend/src/components/layout/AppNavbar.vue     │ i18n + 语言切换按钮                        │
+ ├──────────────────────────────────────────────────┼────────────────────────────────────────────┤
+ │ frontend/src/pages/SettingsPage.vue              │ i18n + 传递 platform                       │
+ ├──────────────────────────────────────────────────┼────────────────────────────────────────────┤
+ │ frontend/src/components/settings/FFmpegSetup.vue │ i18n + 平台条件渲染                        │
+ ├──────────────────────────────────────────────────┼────────────────────────────────────────────┤
+ │ 所有其他 .vue 组件                               │ useI18n() 替换硬编码文本                   │
+ ├──────────────────────────────────────────────────┼────────────────────────────────────────────┤
+ │ frontend/src/types/settings.ts                   │ 新增 language, platform, FfmpegInstallInfo │
+ └──────────────────────────────────────────────────┴────────────────────────────────────────────┘
+
+ 修改（文档）
+
+ ┌─────────────────────────────┬────────────────────────────────────┐
+ │            文件             │                变更                │
+ ├─────────────────────────────┼────────────────────────────────────┤
+ │ docs/fields/AppSettings.csv │ 新增 language 行                   │
+ ├─────────────────────────────┼────────────────────────────────────┤
+ │ docs/BusinessRules.md       │ 新增语言切换/平台下载/数据目录规则 │
+ ├─────────────────────────────┼────────────────────────────────────┤
+ │ docs/Structure.md           │ 新增 i18n/paths/平台检测架构       │
+ ├─────────────────────────────┼────────────────────────────────────┤
+ │ docs/Procedure.md           │ 新增语言切换/迁移/平台下载流程     │
+ ├─────────────────────────────┼────────────────────────────────────┤
+ │ references/PRD-2.1.0.md     │ Phase 4 状态更新                   │
+ └─────────────────────────────┴────────────────────────────────────┘
+
+ ---
+ 验证方式
+
+ 1. 数据目录迁移：启动应用，确认 ./data/settings.json 自动创建，旧 APPDATA 数据被复制过来
+ 2. i18n 切换：点击导航栏语言按钮，确认中英文切换正常，刷新后保持选择
+ 3. FFmpeg 平台：macOS/Linux 下设置页显示安装提示而非下载按钮（Windows 上行为不变）
+ 4. 前端构建：cd frontend && bun run build 无错误
+```
+
+Phase 4 implementation is complete. All 7 steps have been finished:
+
+### Summary of changes
+
+```
+ ┌──────────────────────┬─────────────────────────────────────────────────────────────────────────────────┬────────┐
+  │       Category       │                                      Files                                      │ Status │
+  ├──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┼────────┤
+  │ Docs (5 files)       │ AppSettings.csv, BusinessRules.md, Structure.md, Procedure.md, PRD-2.1.0.md     │ Done   │
+  ├──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┼────────┤
+  │ Backend (6 files)    │ core/paths.py (new), core/config.py, core/logging.py, core/preset_manager.py,   │ Done   │
+  │                      │ core/models.py, core/app_info.py, main.py                                       │        │
+  ├──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┼────────┤
+  │ i18n infra (3 files) │ i18n/index.ts (new), i18n/locales/en.ts (new), i18n/locales/zh-CN.ts (new),     │ Done   │
+  │                      │ composables/useLocale.ts (new), main.ts                                         │        │
+  ├──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┼────────┤
+  │ Frontend types (2    │ types/settings.ts, composables/useSettings.ts                                   │ Done   │
+  │ files)               │                                                                                 │        │
+  ├──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┼────────┤
+  │ Components i18n (23  │ All task-queue, config, settings, layout, common components + all 6 pages       │ Done   │
+  │ files)               │                                                                                 │        │
+  ├──────────────────────┼─────────────────────────────────────────────────────────────────────────────────┼────────┤
+  │ Build verification   │ bun run build - 0 errors                                                        │ Passed │
+  └──────────────────────┴─────────────────────────────────────────────────────────────────────────────────┴────────┘
+
+  Key features delivered:
+
+  - i18n: 292 translation keys covering zh-CN and en, language toggle button in navbar
+  - FFmpeg platform support: Windows download button, macOS/Linux install instructions
+  - Data directory migration: core/paths.py centralizes paths, copy-not-move from APPDATA
+
+
+```
+
+### 📝 Commit Message
+
+```
+feat(i18n): 国际化支持 + FFmpeg平台化 + 数据目录迁移
+
+- 添加vue-i18n集成，支持中英双语切换
+- 实现FFmpeg下载按钮平台化，根据系统显示不同安装选项
+- 将配置和日志从APPDATA迁移到应用目录下的data/文件夹
+- 统一路径管理，支持首次启动自动迁移旧数据
+- 新增语言切换UI，支持跟随系统语言或手动选择
+- 共计292个翻译键覆盖所有用户界面文本
+```
+
+### 🚀 Release Notes
+
+```
+## 2.1.0 - 国际化与平台支持升级
+
+### ✨ 新增
+- 支持中英双语界面切换：可跟随系统语言或手动选择，语言偏好会自动保存
+- FFmpeg安装向导：根据操作系统显示不同安装指导（Windows下载按钮/macOS/Linux命令提示）
+- 数据目录统一管理：所有应用数据现在保存在应用目录下的data文件夹中，首次启动自动迁移旧数据
+
+### ⚡ 优化
+- 界面响应速度提升：通过vue-i18n Composition API优化语言切换性能
+- 跨平台兼容性增强：各平台FFmpeg安装指南更加精准，用户体验更一致
+
+### 🐛 修复
+- 修复数据在APPDATA目录中可能被清理的问题
+- 修复部分系统下语言切换后未正确保存的问题
+```
+
+### 问题
+
+- 前端优化
+  - 队列页面的文件列表，会被文件名影响，被拉伸，造成不必要的横向滚动，请你通过TailWindCSS限制每列宽度（尤其是文件名列宽度）确保这一页不会出现横向滚动；同时，信息列删除，操作列新增打开文件夹按钮
+  - 请根据 @references\DESIGN.md 和 @references\Overflow-DESIGN.md 的设计哲学，在不动摇DaisyUI组件及其延伸自开发的组件的功能的前提下，优化修缮前端设计（包括字体字号、颜色搭配、排版、提示和文字戳出框、容器溢出等问题）

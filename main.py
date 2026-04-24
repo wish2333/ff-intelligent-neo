@@ -12,6 +12,11 @@ import webview
 # Suppress pywebview deprecation warnings (FOLDER_DIALOG / OPEN_DIALOG)
 warnings.filterwarnings("ignore", message=".*deprecated.*", module="webview")
 
+# Data directory migration must run before any core module imports
+# (logging.py creates file sink at import time)
+from core.paths import migrate_if_needed
+migrate_if_needed()
+
 from pywebvue import App, Bridge, expose
 from core.logging import get_logger, setup_frontend_sink
 from core.ffmpeg_setup import ensure_ffmpeg, get_ffmpeg_path
@@ -631,8 +636,23 @@ class FFmpegApi(Bridge):
 
     @expose
     def download_ffmpeg(self) -> dict:
-        """Download FFmpeg using static_ffmpeg package and re-detect."""
+        """Download FFmpeg using static_ffmpeg package (Windows only).
+
+        On non-Windows platforms, returns install instructions instead.
+        """
         self._ensure_loguru()
+
+        # Non-Windows: return platform-specific install instructions
+        if sys.platform != "win32":
+            return {
+                "success": False,
+                "error": "download_not_supported",
+                "data": {
+                    "platform": sys.platform,
+                    "instructions": self._get_ffmpeg_install_instructions(),
+                },
+            }
+
         try:
             from core.ffmpeg_setup import is_frozen
 
@@ -642,7 +662,6 @@ class FFmpegApi(Bridge):
             import static_ffmpeg
             static_ffmpeg.add_paths()
 
-            # Use shutil.which directly to bypass stale user-override paths
             import shutil as _shutil
             ffmpeg_path = _shutil.which("ffmpeg")
             if ffmpeg_path:
@@ -651,6 +670,31 @@ class FFmpegApi(Bridge):
         except Exception as exc:
             logger.exception("download_ffmpeg failed: {}", exc)
             return {"success": False, "error": str(exc)}
+
+    @staticmethod
+    def _get_ffmpeg_install_instructions() -> dict:
+        """Return platform-specific FFmpeg installation instructions."""
+        if sys.platform == "darwin":
+            return {
+                "method": "homebrew",
+                "command": "brew install ffmpeg",
+                "url": "https://brew.sh",
+            }
+        if sys.platform.startswith("linux"):
+            try:
+                import platform as _platform
+                os_release = _platform.freedesktop_os_release()
+                distro_id = os_release.get("ID", "")
+            except (AttributeError, OSError):
+                distro_id = ""
+            if distro_id in ("ubuntu", "debian", "linuxmint", "pop"):
+                return {"method": "apt", "command": "sudo apt install ffmpeg"}
+            if distro_id in ("fedora", "rhel", "centos"):
+                return {"method": "dnf", "command": "sudo dnf install ffmpeg"}
+            if distro_id in ("arch", "manjaro", "endeavouros"):
+                return {"method": "pacman", "command": "sudo pacman -S ffmpeg"}
+            return {"method": "package_manager", "command": "sudo <package_manager> install ffmpeg"}
+        return {"method": "unknown", "command": ""}
 
     # ------------------------------------------------------------------
     # Cleanup

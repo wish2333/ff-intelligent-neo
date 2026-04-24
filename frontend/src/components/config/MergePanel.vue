@@ -7,18 +7,21 @@
  */
 
 import { computed } from "vue"
+import { useI18n } from "vue-i18n"
 import type { MergeConfigDTO } from "../../types/config"
 import MergeFileList from "./MergeFileList.vue"
+
+const { t } = useI18n()
 
 const props = defineProps<{
   config: MergeConfigDTO
 }>()
 
-const MERGE_MODES = [
-  { value: "concat_protocol", label: "Concat Protocol (fast, same container)" },
-  { value: "ts_concat", label: "TS Concat (demuxer, same codec)" },
-  { value: "filter_complex", label: "Filter Complex (re-encode, any format)" },
-]
+const MERGE_MODES = computed(() => [
+  { value: "concat_protocol", label: t("config.merge.modes.concatProtocol") },
+  { value: "ts_concat", label: t("config.merge.modes.tsConcat") },
+  { value: "filter_complex", label: t("config.merge.modes.filterComplex") },
+])
 
 const isFilterComplex = computed(() => props.config.merge_mode === "filter_complex")
 
@@ -53,15 +56,15 @@ const mergeHeight = computed({
 <template>
   <div class="card bg-base-200 shadow-sm">
     <div class="card-body p-4">
-      <h2 class="card-title text-sm font-semibold mb-3">Merge / Concatenate</h2>
+      <h2 class="card-title text-sm font-semibold mb-3">{{ t("config.merge.title") }}</h2>
       <p class="text-xs text-base-content/60 mb-3">
-        Combine multiple video files into one. Merge mode is independent of other settings.
+        {{ t("config.merge.description") }}
       </p>
 
       <!-- Merge Mode -->
       <div class="form-control mb-3">
         <label class="label py-1">
-          <span class="label-text text-xs">Merge Mode</span>
+          <span class="label-text text-xs">{{ t("config.merge.mergeMode") }}</span>
         </label>
         <select
           v-model="config.merge_mode"
@@ -77,7 +80,7 @@ const mergeHeight = computed({
         </select>
         <label class="label py-0.5">
           <span class="label-text-alt text-xs text-base-content/50">
-            TS Concat is fastest; Filter Complex works with any format but re-encodes
+            {{ t("config.merge.modeHint") }}
           </span>
         </label>
       </div>
@@ -85,7 +88,7 @@ const mergeHeight = computed({
       <!-- File List -->
       <div class="form-control mb-3">
         <label class="label py-1">
-          <span class="label-text text-xs">Files ({{ config.file_list.length }})</span>
+          <span class="label-text text-xs">{{ t("config.merge.files", { count: config.file_list.length }) }}</span>
         </label>
         <MergeFileList
           :model-value="config.file_list"
@@ -95,11 +98,11 @@ const mergeHeight = computed({
 
       <!-- Filter Complex Settings -->
       <template v-if="isFilterComplex">
-        <div class="divider my-2 text-xs">Filter Complex Settings</div>
+        <div class="divider my-2 text-xs">{{ t("config.merge.filterComplexSettings") }}</div>
 
         <div class="form-control mb-3">
           <label class="label py-1">
-            <span class="label-text text-xs">Target Resolution</span>
+            <span class="label-text text-xs">{{ t("config.merge.targetResolution") }}</span>
           </label>
           <div class="flex items-center gap-2">
             <input
@@ -122,18 +125,18 @@ const mergeHeight = computed({
 
         <div class="form-control">
           <label class="label py-1">
-            <span class="label-text text-xs">Target FPS</span>
+            <span class="label-text text-xs">{{ t("config.merge.targetFps") }}</span>
           </label>
           <input
             v-model.number="config.target_fps"
             type="number"
             min="0"
-            placeholder="30 (original if 0)"
+            :placeholder="t('config.merge.fpsPlaceholder')"
             class="input input-bordered input-sm w-full"
           />
           <label class="label py-0.5">
             <span class="label-text-alt text-xs text-base-content/50">
-              Normalizes all inputs to this framerate before concatenation
+              {{ t("config.merge.fpsHint") }}
             </span>
           </label>
         </div>

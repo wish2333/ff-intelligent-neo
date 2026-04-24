@@ -1,19 +1,15 @@
 <script setup lang="ts">
-/**
- * Page 3: Software Settings
- *
- * FFmpeg setup, thread count, output folder, and app info.
- * Settings are loaded async — page renders immediately, data fills in.
- */
 import { onMounted, computed } from "vue"
 import { waitForPyWebView } from "../bridge"
 import { useSettings } from "../composables/useSettings"
+import { useI18n } from "vue-i18n"
 
 import FFmpegSetup from "../components/settings/FFmpegSetup.vue"
 import ThreadCountInput from "../components/settings/ThreadCountInput.vue"
 import OutputFolderInput from "../components/settings/OutputFolderInput.vue"
 import AppAbout from "../components/settings/AppAbout.vue"
 
+const { t } = useI18n()
 const s = useSettings()
 
 const currentVersion = computed(() => {
@@ -24,9 +20,6 @@ const currentVersion = computed(() => {
 onMounted(async () => {
   try {
     await waitForPyWebView()
-    // Fire-and-forget: page is already visible, data fills in as it arrives.
-    // fetchSettings is lightweight (file read); the other two may spawn
-    // ffmpeg subprocesses so they run concurrently without blocking the UI.
     s.fetchSettings()
     s.fetchFfmpegVersions()
     s.fetchAppInfo()
@@ -46,16 +39,16 @@ async function handleOutputDirChange(value: string): Promise<void> {
 
 <template>
   <div class="flex flex-1 flex-col gap-4 p-4 overflow-auto">
-    <h1 class="text-2xl font-bold">Settings</h1>
+    <h1 class="text-2xl font-bold">{{ t("settings.title") }}</h1>
 
     <div class="grid gap-4 lg:grid-cols-2">
-      <!-- FFmpeg Setup -->
       <div class="card bg-base-200/50">
         <div class="card-body">
           <FFmpegSetup
             :versions="s.ffmpegVersions.value"
             :status="s.ffmpegStatus.value"
             :current-version="currentVersion"
+            :platform="s.appInfo.value?.platform ?? 'win32'"
             @detect="s.detectFfmpeg()"
             @select-binary="s.selectFfmpegBinary()"
             @switch="(path) => s.switchFfmpeg(path)"
@@ -64,7 +57,6 @@ async function handleOutputDirChange(value: string): Promise<void> {
         </div>
       </div>
 
-      <!-- Concurrency + Output -->
       <div class="space-y-4">
         <div class="card bg-base-200/50">
           <div class="card-body">
@@ -74,7 +66,6 @@ async function handleOutputDirChange(value: string): Promise<void> {
             />
           </div>
         </div>
-
         <div class="card bg-base-200/50">
           <div class="card-body">
             <OutputFolderInput
@@ -86,7 +77,6 @@ async function handleOutputDirChange(value: string): Promise<void> {
       </div>
     </div>
 
-    <!-- About -->
     <div class="card bg-base-200/50">
       <div class="card-body">
         <AppAbout :info="s.appInfo.value" />

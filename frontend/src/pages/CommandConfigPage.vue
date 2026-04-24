@@ -11,6 +11,7 @@
  */
 
 import { ref, computed, onMounted } from "vue"
+import { useI18n } from "vue-i18n"
 import { call } from "../bridge"
 import { useGlobalConfig } from "../composables/useGlobalConfig"
 import { useCommandPreview } from "../composables/useCommandPreview"
@@ -25,6 +26,8 @@ import CommandPreview from "../components/config/CommandPreview.vue"
 import PresetSelector from "../components/config/PresetSelector.vue"
 import PresetEditor from "../components/config/PresetEditor.vue"
 
+const { t } = useI18n()
+
 const {
   transcode, filters, clip, merge,
   activeMode, supportedEncoders,
@@ -37,12 +40,12 @@ const { commandText, errors, warnings, validating } = useCommandPreview(configRe
 const presetSelectorRef = ref<InstanceType<typeof PresetSelector> | null>(null)
 const showPresetEditor = ref(false)
 
-const TABS: { key: ActiveMode; label: string }[] = [
-  { key: "transcode", label: "Transcode" },
-  { key: "filters", label: "Filters" },
-  { key: "clip", label: "Clip" },
-  { key: "merge", label: "Merge" },
-]
+const TABS = computed<{ key: ActiveMode; label: string }[]>(() => [
+  { key: "transcode", label: t("config.tabs.transcode") },
+  { key: "filters", label: t("config.tabs.filters") },
+  { key: "clip", label: t("config.tabs.clip") },
+  { key: "merge", label: t("config.tabs.merge") },
+])
 
 function handleTabClick(key: ActiveMode) {
   activeMode.value = key
@@ -143,7 +146,7 @@ onMounted(async () => {
     <!-- Reset -->
     <div class="flex justify-end">
       <button class="btn btn-ghost btn-sm" @click="handleReset">
-        Reset All
+        {{ t("config.resetAll") }}
       </button>
     </div>
 

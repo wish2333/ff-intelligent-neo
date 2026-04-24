@@ -4,9 +4,13 @@
  *
  * Displays file info, state badge, progress, and action buttons.
  */
+import { computed } from "vue"
+import { useI18n } from "vue-i18n"
 import type { TaskDTO, TaskProgressDTO } from "../../types/task"
 import { formatDuration, formatFileSize } from "../../utils/format"
 import TaskProgressBar from "./TaskProgressBar.vue"
+
+const { t } = useI18n()
 
 defineProps<{
   task: TaskDTO
@@ -38,14 +42,14 @@ const stateBadgeClass: Record<string, string> = {
   cancelled: "badge-ghost opacity-50",
 }
 
-const stateLabel: Record<string, string> = {
-  pending: "Pending",
-  running: "Running",
-  paused: "Paused",
-  completed: "Done",
-  failed: "Failed",
-  cancelled: "Cancelled",
-}
+const stateLabel = computed<Record<string, string>>(() => ({
+  pending: t("taskQueue.state.pending"),
+  running: t("taskQueue.state.running"),
+  paused: t("taskQueue.state.paused"),
+  completed: t("taskQueue.state.completed"),
+  failed: t("taskQueue.state.failed"),
+  cancelled: t("taskQueue.state.cancelled"),
+}))
 </script>
 
 <template>
@@ -123,12 +127,12 @@ const stateLabel: Record<string, string> = {
             class="btn btn-xs btn-primary"
             @click="emit('start', task.id)"
           >
-            Start
+            {{ t("taskQueue.actions.start") }}
           </button>
           <button
             class="btn btn-xs btn-ghost btn-square"
             :disabled="isFirst"
-            title="Move up"
+            :title="t('taskQueue.actions.moveUp')"
             @click="emit('moveUp', task.id)"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -138,7 +142,7 @@ const stateLabel: Record<string, string> = {
           <button
             class="btn btn-xs btn-ghost btn-square"
             :disabled="isLast"
-            title="Move down"
+            :title="t('taskQueue.actions.moveDown')"
             @click="emit('moveDown', task.id)"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -153,7 +157,7 @@ const stateLabel: Record<string, string> = {
           class="btn btn-xs btn-warning"
           @click="emit('retry', task.id)"
         >
-          Retry
+          {{ t("taskQueue.actions.retry") }}
         </button>
 
         <!-- Completed/Cancelled: Reset -->
@@ -162,7 +166,7 @@ const stateLabel: Record<string, string> = {
           class="btn btn-xs btn-info"
           @click="emit('reset', task.id)"
         >
-          Reset
+          {{ t("taskQueue.actions.reset") }}
         </button>
 
         <!-- Running: Pause + Stop -->
@@ -171,13 +175,13 @@ const stateLabel: Record<string, string> = {
             class="btn btn-xs btn-warning btn-outline"
             @click="emit('pause', task.id)"
           >
-            Pause
+            {{ t("taskQueue.actions.pause") }}
           </button>
           <button
             class="btn btn-xs btn-error btn-outline"
             @click="emit('stop', task.id)"
           >
-            Stop
+            {{ t("taskQueue.actions.stop") }}
           </button>
         </template>
 
@@ -187,13 +191,13 @@ const stateLabel: Record<string, string> = {
             class="btn btn-xs btn-info btn-outline"
             @click="emit('resume', task.id)"
           >
-            Resume
+            {{ t("taskQueue.actions.resume") }}
           </button>
           <button
             class="btn btn-xs btn-error btn-outline"
             @click="emit('stop', task.id)"
           >
-            Stop
+            {{ t("taskQueue.actions.stop") }}
           </button>
         </template>
 
@@ -203,7 +207,7 @@ const stateLabel: Record<string, string> = {
           class="btn btn-xs btn-ghost"
           @click="emit('showLog', task.id)"
         >
-          Log
+          {{ t("taskQueue.actions.log") }}
         </button>
       </div>
     </td>

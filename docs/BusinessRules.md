@@ -325,3 +325,45 @@
 | 统一入口 | 所有模式（转码、剪辑、拼接、音频字幕混合）均通过 build_command 生成预览 |
 | 参数同步 | 预览使用的配置与实际执行时传入的配置完全一致 |
 | 实时更新 | 配置变更时命令预览自动更新（已有 300ms debounce） |
+
+<!-- v2.1.0-CHANGE: Phase 4 新增规则 -->
+
+## Phase 4: 国际化与平台化业务规则
+
+### 语言切换规则
+
+| 规则 | 说明 |
+|------|------|
+| 支持语言 | zh-CN（简体中文）、en（英文） |
+| 默认语言 | auto（跟随系统语言，中文优先） |
+| 切换方式 | 导航栏语言切换按钮（EN/CN 标签，点击切换） |
+| 持久化 | save_settings({ language: "zh-CN" \| "en" })，持久化到 settings.json |
+| auto 模式 | 跟随 navigator.language，优先匹配 zh-CN，其余回退到 en |
+| 框架 | vue-i18n v9+，Composition API 模式（legacy: false） |
+| 翻译键 | 扁平点分隔命名空间：nav., ffmpeg., settings., taskQueue., config., avMix., merge., custom., common. |
+
+### FFmpeg 下载按钮平台规则
+
+| 平台 | 行为 | 说明 |
+|------|------|------|
+| Windows (win32) | 显示 "Download FFmpeg" 按钮 | 使用 static_ffmpeg 包下载预编译二进制 |
+| macOS (darwin) | 显示 homebrew 安装提示 | "brew install ffmpeg"，附带 brew.sh 链接 |
+| Linux (ubuntu/debian) | 显示 apt 安装提示 | "sudo apt install ffmpeg" |
+| Linux (fedora) | 显示 dnf 安装提示 | "sudo dnf install ffmpeg" |
+| Linux (arch/manjaro) | 显示 pacman 安装提示 | "sudo pacman -S ffmpeg" |
+| Linux (其他) | 显示通用提示 | "Install ffmpeg via your package manager" |
+| 打包环境 | 所有平台禁用下载 | is_frozen() 时 static_ffmpeg 不可用 |
+| 后端守卫 | download_ffmpeg() 检查 sys.platform | 非 Windows 返回 download_not_supported 错误 + 安装指引 |
+
+### 数据目录规则
+
+| 规则 | 说明 |
+|------|------|
+| 统一目录 | 所有持久化数据保存到 `<app_dir>/data/` |
+| app_dir 定义 | PyInstaller 打包时为 exe 所在目录，开发时为项目根目录 |
+| 子目录 | `data/settings.json`（配置）、`data/logs/`（日志）、`data/presets/`（预设） |
+| 迁移策略 | copy-not-move：从旧 APPDATA 路径复制到新路径，保留旧文件作为备份 |
+| 迁移时机 | 首次启动时检测新路径不存在且旧路径存在时执行，一次性迁移 |
+| 日志迁移 | 日志不迁移（7天轮转自动清理，无长期价值） |
+| 集中管理 | 新增 `core/paths.py` 模块，所有路径通过该模块获取 |
+| 初始化顺序 | `main.py` 在所有 core 模块导入之前调用 `paths.migrate_if_needed()` |

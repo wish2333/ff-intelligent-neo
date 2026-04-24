@@ -8,8 +8,17 @@
  */
 
 import { ref, computed } from "vue"
+import { useI18n } from "vue-i18n"
 import type { EncoderConfigDTO } from "../../types/config"
 import { VIDEO_ENCODERS, AUDIO_ENCODERS, PRIORITY_LABELS } from "../../data/encoders"
+
+const { t } = useI18n()
+
+const PRIORITY_I18N_KEYS: Record<string, string> = {
+  P0: "config.encoder.priorityLabels.recommended",
+  P1: "config.encoder.priorityLabels.alternative",
+  P2: "config.encoder.priorityLabels.hardwareSpecific",
+}
 
 const OTHER_KEY = "__other__"
 
@@ -43,7 +52,7 @@ const groups = computed(() => {
     })
     .map((e: EncoderConfigDTO) => ({
       priority: e.priority,
-      label: PRIORITY_LABELS[e.priority] || e.priority,
+      label: t(PRIORITY_I18N_KEYS[e.priority] || "") || PRIORITY_LABELS[e.priority] || e.priority,
       encoders: list.filter((enc: EncoderConfigDTO) => enc.priority === e.priority),
     }))
     .sort((a: { priority: string }, b: { priority: string }) => a.priority.localeCompare(b.priority))
@@ -89,7 +98,7 @@ function handleCustomInput(value: string) {
       class="select select-bordered select-sm w-full"
       @change="(e) => handleSelect((e.target as HTMLSelectElement).value)"
     >
-      <option value="" disabled>Select encoder...</option>
+      <option value="" disabled>{{ t("config.encoder.selectEncoder") }}</option>
       <optgroup
         v-for="group in groups"
         :key="group.priority"
@@ -100,12 +109,12 @@ function handleCustomInput(value: string) {
           :key="enc.name"
           :value="enc.name"
           :disabled="!isSupported(enc)"
-          :title="!isSupported(enc) ? 'Hardware encoder not detected' : `${enc.description} (recommended: ${enc.recommendedQuality ?? 'auto'})`"
+          :title="!isSupported(enc) ? t('config.encoder.hwNotDetected') : `${enc.description} (recommended: ${enc.recommendedQuality ?? 'auto'})`"
         >
           {{ enc.displayName }} ({{ enc.name }})
         </option>
       </optgroup>
-      <option :value="OTHER_KEY">Other (custom name)...</option>
+      <option :value="OTHER_KEY">{{ t("config.encoder.other") }}</option>
     </select>
 
     <!-- Custom encoder text input -->
@@ -113,7 +122,7 @@ function handleCustomInput(value: string) {
       v-if="modelValue === '' && customName === ''"
       v-model="customName"
       type="text"
-      placeholder="Enter FFmpeg encoder name (e.g. libx265)"
+      :placeholder="t('config.encoder.customPlaceholder')"
       class="input input-bordered input-sm w-full mt-1"
       @input="handleCustomInput(($event.target as HTMLInputElement).value)"
     />

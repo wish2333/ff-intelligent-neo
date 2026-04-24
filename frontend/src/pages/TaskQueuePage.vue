@@ -6,6 +6,7 @@
  * real-time progress, drag-and-drop, and log viewing.
  */
 import { onMounted, ref, computed } from "vue"
+import { useI18n } from "vue-i18n"
 import { call, waitForPyWebView } from "../bridge"
 import { useTaskQueue } from "../composables/useTaskQueue"
 import { useTaskControl } from "../composables/useTaskControl"
@@ -18,6 +19,8 @@ import QueueSummary from "../components/task-queue/QueueSummary.vue"
 import BatchControlBar from "../components/task-queue/BatchControlBar.vue"
 import TaskList from "../components/task-queue/TaskList.vue"
 import TaskLogPanel from "../components/task-queue/TaskLogPanel.vue"
+
+const { t } = useI18n()
 
 const queue = useTaskQueue()
 const control = useTaskControl()
@@ -142,7 +145,7 @@ async function handleMoveDown(taskId: string): Promise<void> {
           <polyline points="17 8 12 3 7 8" />
           <line x1="12" y1="3" x2="12" y2="15" />
         </svg>
-        <p class="text-lg font-semibold text-primary">Drop files here</p>
+        <p class="text-lg font-semibold text-primary">{{ t("taskQueue.dropFilesHere") }}</p>
       </div>
     </div>
 
