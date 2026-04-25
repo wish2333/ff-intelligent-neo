@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 
 from loguru import logger
+from core.paths import get_log_dir
 
 # Remove default handler to avoid duplicate output
 logger.remove()
@@ -15,6 +16,19 @@ logger.add(
     format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
     level="DEBUG",
 )
+
+
+try:
+    _log_dir = get_log_dir()
+    _file_sink_id = logger.add(
+        str(_log_dir / "app_{time:YYYY-MM-DD}.log"),
+        rotation="10 MB",
+        retention="7 days",
+        level="DEBUG",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+    )
+except Exception:
+    pass  # File logging is best-effort; console still works
 
 # Frontend sink placeholder - will be added when bridge is ready
 _frontend_sink_id: int | None = None

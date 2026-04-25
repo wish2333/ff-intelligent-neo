@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -28,6 +29,16 @@ def probe_file(file_path: str) -> dict:
         }
 
     try:
+        run_kw: dict = {
+            "capture_output": True,
+            "text": True,
+            "timeout": 30,
+            "encoding": "utf-8",
+            "errors": "replace",
+        }
+        if sys.platform == "win32":
+            run_kw["creationflags"] = subprocess.CREATE_NO_WINDOW
+
         result = subprocess.run(
             [
                 ffprobe,
@@ -37,11 +48,7 @@ def probe_file(file_path: str) -> dict:
                 "-show_streams",
                 file_path,
             ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            encoding="utf-8",
-            errors="replace",
+            **run_kw,
         )
         if result.returncode != 0:
             return {

@@ -25,6 +25,7 @@ export interface AppInfoDTO {
   ffprobe_path: string
   ffprobe_version: string | null
   is_packaged: boolean
+  platform: string
 }
 
 export function useSettings() {
@@ -33,6 +34,8 @@ export function useSettings() {
     default_output_dir: "",
     ffmpeg_path: "",
     ffprobe_path: "",
+    theme: "auto",
+    language: "auto",
   })
 
   const ffmpegVersions = ref<FfmpegVersionDTO[]>([])

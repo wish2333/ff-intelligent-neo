@@ -1,7 +1,6 @@
 <script setup lang="ts">
-/**
- * Max concurrent workers setting.
- */
+import { useI18n } from "vue-i18n"
+
 defineProps<{
   value: number
 }>()
@@ -9,6 +8,8 @@ defineProps<{
 const emit = defineEmits<{
   change: [value: number]
 }>()
+
+const { t } = useI18n()
 
 function handleInput(event: Event): void {
   const target = event.target as HTMLInputElement
@@ -21,10 +22,10 @@ function handleInput(event: Event): void {
 
 <template>
   <div class="space-y-3">
-    <h3 class="text-lg font-semibold">Concurrency</h3>
+    <h3 class="text-lg font-semibold">{{ t("settings.concurrency.title") }}</h3>
 
     <div class="flex items-center gap-3">
-      <label class="text-sm">Max workers:</label>
+      <label class="text-sm">{{ t("settings.concurrency.maxWorkers") }}</label>
       <input
         type="number"
         :value="value"
@@ -35,7 +36,6 @@ function handleInput(event: Event): void {
       />
     </div>
 
-    <!-- Quick select buttons -->
     <div class="flex gap-2">
       <button
         v-for="n in [1, 2, 3, 4]"
@@ -49,7 +49,7 @@ function handleInput(event: Event): void {
     </div>
 
     <p class="text-xs opacity-50">
-      Maximum number of tasks running simultaneously. Recommend not exceeding CPU core count.
+      {{ t("settings.concurrency.description") }}
     </p>
   </div>
 </template>

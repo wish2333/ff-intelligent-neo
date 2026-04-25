@@ -1,17 +1,14 @@
 <script setup lang="ts">
-/**
- * FFmpeg status display and version management.
- *
- * Shows current FFmpeg status, version list for switching,
- * auto-detect and manual select buttons.
- */
-import { computed } from "vue"
+import { ref, computed } from "vue"
 import type { FfmpegVersionDTO } from "../../composables/useSettings"
+import type { FfmpegInstallInfo } from "../../types/settings"
+import { useI18n } from "vue-i18n"
 
 const props = defineProps<{
   versions: FfmpegVersionDTO[]
   status: "ready" | "not_found" | "detecting"
   currentVersion: string | null
+  platform: string
 }>()
 
 const emit = defineEmits<{
@@ -21,21 +18,47 @@ const emit = defineEmits<{
   download: []
 }>()
 
+const { t } = useI18n()
+const showConfirm = ref(false)
+const isDownloading = ref(false)
+
 const statusBadge = computed(() => {
   switch (props.status) {
     case "ready":
-      return { class: "badge-success", text: "Ready" }
+      return { class: "badge-success", text: t("ffmpeg.ready") }
     case "not_found":
-      return { class: "badge-error", text: "Not Found" }
+      return { class: "badge-error", text: t("ffmpeg.notFound") }
     case "detecting":
-      return { class: "badge-warning", text: "Detecting..." }
+      return { class: "badge-warning", text: t("ffmpeg.detecting") }
   }
 })
+
+const isWindows = computed(() => props.platform === "win32")
+const installInfo = ref<FfmpegInstallInfo | null>(null)
+
+async function handleDownload(): Promise<void> {
+  if (!isWindows.value) {
+    const res = await (await import("../../bridge")).call<{ platform: string; instructions: FfmpegInstallInfo }>("download_ffmpeg")
+    if (res.success && res.data?.instructions) {
+      installInfo.value = res.data.instructions
+    }
+    return
+  }
+  showConfirm.value = false
+  isDownloading.value = true
+  try {
+    emit("download")
+  } finally {
+    setTimeout(() => {
+      isDownloading.value = false
+    }, 5000)
+  }
+}
 </script>
 
 <template>
   <div class="space-y-3">
-    <h3 class="text-lg font-semibold">FFmpeg</h3>
+    <h3 class="text-lg font-semibold">{{ t("ffmpeg.title") }}</h3>
 
     <!-- Status bar -->
     <div class="flex items-center gap-3">
@@ -54,26 +77,53 @@ const statusBadge = computed(() => {
         :disabled="status === 'detecting'"
         @click="emit('detect')"
       >
-        Auto Detect
+        {{ t("ffmpeg.autoDetect") }}
       </button>
       <button
         class="btn btn-xs btn-outline"
         @click="emit('selectBinary')"
       >
-        Select...
+        {{ t("ffmpeg.select") }}
       </button>
+
+      <!-- Windows: Download button -->
       <button
-        v-if="versions.length === 0 && status !== 'detecting'"
+        v-if="isWindows"
         class="btn btn-xs btn-accent btn-outline"
-        @click="emit('download')"
+        :disabled="status === 'detecting' || isDownloading"
+        @click="showConfirm = true"
       >
-        Download FFmpeg
+        <span v-if="isDownloading" class="loading loading-spinner loading-xs" />
+        {{ t("ffmpeg.downloadFfmpeg") }}
       </button>
+
+      <!-- Non-Windows: Platform install info -->
+      <button
+        v-else
+        class="btn btn-xs btn-accent btn-outline"
+        :disabled="status === 'detecting'"
+        @click="handleDownload"
+      >
+        {{ t("ffmpeg.downloadFfmpeg") }}
+      </button>
+    </div>
+
+    <!-- Platform install instructions -->
+    <div v-if="installInfo" class="text-xs space-y-1 mt-2">
+      <p>{{ t("ffmpeg.notAvailable") }}</p>
+      <code class="block mt-1 px-2 py-1 bg-base-300 rounded text-sm">{{ installInfo.command }}</code>
+      <a
+        v-if="installInfo.url"
+        :href="installInfo.url"
+        target="_blank"
+        rel="noopener"
+        class="link text-xs"
+      >{{ installInfo.method }}</a>
     </div>
 
     <!-- Version list -->
     <div v-if="versions.length > 0" class="space-y-1">
-      <p class="text-xs font-medium opacity-60">Available versions:</p>
+      <p class="text-xs font-medium opacity-60">{{ t("ffmpeg.availableVersions") }}</p>
       <div
         v-for="ver in versions"
         :key="ver.path"
@@ -81,22 +131,19 @@ const statusBadge = computed(() => {
         :class="ver.active ? 'bg-primary/10 border border-primary/30' : 'hover:bg-base-200'"
         @click="emit('switch', ver.path)"
       >
-        <!-- Radio indicator -->
         <div
           class="h-4 w-4 rounded-full border-2 flex items-center justify-center"
           :class="ver.active ? 'border-primary bg-primary' : 'border-base-content/30'"
         >
           <div v-if="ver.active" class="h-1.5 w-1.5 rounded-full bg-base-100" />
         </div>
-
-        <!-- Info -->
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
             <span class="badge badge-xs" :class="ver.active ? 'badge-primary' : 'badge-ghost'">
               {{ ver.source }}
             </span>
             <span class="text-sm font-medium">
-              FFmpeg {{ ver.version }}
+              FFmpeg <template v-if="ver.version">v{{ ver.version }}</template>
             </span>
           </div>
           <p class="text-xs opacity-50 truncate" :title="ver.path">
@@ -107,7 +154,22 @@ const statusBadge = computed(() => {
     </div>
 
     <p v-else-if="status !== 'detecting'" class="text-xs opacity-40">
-      No FFmpeg versions found. Click "Auto Detect" or "Select..." to set up FFmpeg.
+      {{ t("ffmpeg.noVersionsFound") }}
     </p>
+
+    <!-- Download confirmation modal -->
+    <dialog class="modal" :class="{ 'modal-open': showConfirm }">
+      <div class="modal-box">
+        <h3 class="text-lg font-bold">{{ t("ffmpeg.confirmDownload") }}</h3>
+        <p class="py-4">{{ t("ffmpeg.confirmDownloadDesc") }}</p>
+        <div class="modal-action">
+          <button class="btn btn-sm btn-ghost" @click="showConfirm = false">{{ t("common.cancel") }}</button>
+          <button class="btn btn-sm btn-accent" @click="handleDownload">{{ t("common.confirm") }}</button>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button @click="showConfirm = false">close</button>
+      </form>
+    </dialog>
   </div>
 </template>

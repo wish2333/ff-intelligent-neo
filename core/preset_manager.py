@@ -7,11 +7,11 @@ not the old command_template format.
 from __future__ import annotations
 
 import json
-import os
 import uuid
 from pathlib import Path
 
 from core.models import Preset
+from core.paths import get_presets_dir
 
 
 def _get_default_presets_dir() -> Path:
@@ -22,21 +22,6 @@ def _get_default_presets_dir() -> Path:
     if getattr(__import__("sys"), "frozen", False) and hasattr(__import__("sys"), "_MEIPASS"):
         return Path(__import__("sys")._MEIPASS) / "presets"
     return Path(__file__).parent.parent / "presets"
-
-
-def _get_user_presets_dir() -> Path:
-    """User-writable directory for custom presets.
-
-    On Windows: %APPDATA%/ff-intelligent-neo/presets/
-    On macOS/Linux: ~/.config/ff-intelligent-neo/presets/
-    """
-    if os.name == "nt":
-        base = os.environ.get("APPDATA", os.path.expanduser("~"))
-    else:
-        base = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
-    d = Path(base) / "ff-intelligent-neo" / "presets"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
 
 
 class PresetManager:
@@ -68,7 +53,7 @@ class PresetManager:
             self._default_presets = []
 
     def _load_user_presets(self) -> None:
-        user_dir = _get_user_presets_dir()
+        user_dir = get_presets_dir()
         if not user_dir.exists():
             return
         for fp in user_dir.glob("*.json"):
@@ -133,7 +118,7 @@ class PresetManager:
             self._user_presets.append(preset)
 
         # Persist to disk
-        user_dir = _get_user_presets_dir()
+        user_dir = get_presets_dir()
         fp = user_dir / f"{preset_id}.json"
         with open(fp, "w", encoding="utf-8") as f:
             json.dump(preset.to_dict(), f, ensure_ascii=False, indent=2)
@@ -160,7 +145,7 @@ class PresetManager:
 
         self._user_presets.pop(idx)
 
-        user_dir = _get_user_presets_dir()
+        user_dir = get_presets_dir()
         fp = user_dir / f"{preset_id}.json"
         if fp.exists():
             fp.unlink()

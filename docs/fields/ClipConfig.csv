@@ -1,0 +1,6 @@
+Field Name,Type,Default,Required,Description,Validation Rules
+clip_mode,enum,"extract",Yes,"Video clipping mode","Values: extract (remove head/tail by duration), cut (precise start-end range)"
+start_time,str,"",No,Start time of clip,"Format: 'H:MM:SS.mmm'. UI uses 4 separate number inputs (H, MM, SS, ms). Leave empty to skip."
+end_time_or_duration,str,"",No,"End time (cut mode) or tail duration (extract mode),"Format: 'H:MM:SS.mmm'. UI uses 4 separate number inputs. Leave empty to skip."
+use_copy_codec,bool,True,No,"Use -c copy for lossless fast clipping,"True = no re-encode (fast, requires same codec), False = re-encode with current transcode settings"
+file_duration,float,"",No,"Source file total duration in seconds,"Retrieved via ffprobe. Used in extract mode to display file length"

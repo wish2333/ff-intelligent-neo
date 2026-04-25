@@ -2,6 +2,10 @@
 /**
  * Task toolbar with add/remove/clear actions and select-all checkbox.
  */
+import { useI18n } from "vue-i18n"
+
+const { t } = useI18n()
+
 defineProps<{
   selectedCount: number
   totalCount: number
@@ -25,7 +29,7 @@ const emit = defineEmits<{
         <polyline points="17 8 12 3 7 8" />
         <line x1="12" y1="3" x2="12" y2="15" />
       </svg>
-      Add Files
+      {{ t("taskQueue.toolbar.addFiles") }}
     </button>
 
     <div class="divider divider-horizontal m-0" />
@@ -35,21 +39,21 @@ const emit = defineEmits<{
       :disabled="selectedCount === 0"
       @click="emit('removeSelected')"
     >
-      Remove ({{ selectedCount }})
+      {{ t("taskQueue.toolbar.removeSelected", { count: selectedCount }) }}
     </button>
 
     <button
       class="btn btn-sm btn-ghost"
       @click="emit('clearCompleted')"
     >
-      Clear Done
+      {{ t("taskQueue.toolbar.clearDone") }}
     </button>
 
     <button
       class="btn btn-sm btn-ghost text-error"
       @click="emit('clearAll')"
     >
-      Clear All
+      {{ t("taskQueue.toolbar.clearAll") }}
     </button>
 
     <div class="divider divider-horizontal m-0" />
@@ -62,7 +66,7 @@ const emit = defineEmits<{
         :disabled="totalCount === 0"
         @change="emit('toggleSelectAll')"
       />
-      Select All
+      {{ t("taskQueue.toolbar.selectAll") }}
     </label>
   </div>
 </template>

@@ -1,281 +1,676 @@
 # 业务流程
 
-## 1. 应用启动流程
+## FFmpeg 版本切换流程
+
+<!-- v2.1.0-CHANGE: 行3-行25 新增版本切换与实时更新流程 -->
 
 ```mermaid
-flowchart TD
-    A[启动 main.py] --> B[创建 FFmpegApi 实例]
-    B --> C[创建 PyWebVue App]
-    C --> D{开发模式?}
-    D -->|是| E[连接 Vite 开发服务器]
-    D -->|否| F[加载 frontend_dist 静态文件]
-    E --> G[创建 pywebview 窗口]
-    F --> G
-    G --> H[注册 Bridge API]
-    H --> I[注册拖拽事件处理]
-    I --> J[启动 tick 定时器 50ms]
-    J --> K[启动事件循环]
-    K --> L[前端 Vue 应用挂载]
-    L --> M[useSettings 加载设置]
-    M --> N[useTaskQueue 加载队列]
-    N --> O[TaskQueue.load_state]
-    O --> P{queue_state.json 存在?}
-    P -->|是| Q[恢复队列状态]
-    P -->|否| R[初始化空队列]
-    Q --> S[running 任务标记为 failed]
-    S --> T[paused 任务标记为 failed]
-    T --> U[裁剪终端任务保留最近50条]
-    U --> V[应用就绪]
-    R --> V
+sequenceDiagram
+    participant User as 用户
+    participant Settings as Settings 页面
+    participant Main as main.py
+    participant Setup as ffmpeg_setup.py
+    participant Navbar as AppNavbar.vue
+
+    User->>Settings: 选择 FFmpeg 版本
+    Settings->>Main: switch_ffmpeg(path)
+    Main->>Setup: switch_ffmpeg(path)
+    Setup-->>Main: 返回版本信息 {version, path}
+    Main->>Main: _emit("ffmpeg_version_changed", {...})
+    Main-->>Settings: 返回成功
+    Note over Navbar: 监听到 ffmpeg_version_changed 事件
+    Navbar->>Navbar: 更新 ffmpegReady, ffmpegVersion, ffmpegError
+    Navbar->>Navbar: 重新渲染状态徽标
 ```
 
-## 2. 任务添加流程
+### 流程说明
+
+1. 用户在 Settings 页面的 FFmpeg 面板中选择一个版本
+2. 前端调用 `switch_ffmpeg(path)` Bridge API
+3. 后端执行 FFmpeg 版本切换，验证路径有效性
+4. 后端通过 `_emit("ffmpeg_version_changed")` 广播事件
+5. AppNavbar 监听事件并实时更新 FFmpeg 状态徽标
+
+## 任务 Reset 流程
+
+<!-- v2.1.0-CHANGE: 行30-行55 新增 Reset 流程 -->
 
 ```mermaid
-flowchart TD
-    A[用户操作: 点击添加文件 / 拖拽文件] --> B{操作类型}
-    B -->|选择文件| C[前端调用 select_files]
-    B -->|拖拽文件| D[pywebview 拖拽事件]
-    C --> E[原生文件选择对话框]
-    D --> F[获取拖拽文件路径]
-    E --> G[返回文件路径列表]
-    F --> G
-    G --> H[前端调用 add_tasks paths, config]
-    H --> I[后端: 遍历文件路径]
-    I --> J[file_info.probe 获取文件信息]
-    J --> K{探测成功?}
-    K -->|是| L[创建 Task 对象]
-    K -->|否| M[跳过该文件]
-    L --> N[TaskQueue.add_task]
-    N --> O[触发 _notify 回调]
-    O --> P[发射 queue_changed 事件]
-    P --> Q[发射 task_added 事件]
-    Q --> R[防抖保存队列状态]
-    R --> S[前端: 更新任务列表 UI]
+sequenceDiagram
+    participant User as 用户
+    participant TaskRow as TaskRow.vue
+    participant Control as useTaskControl
+    participant Main as main.py
+    participant Runner as task_runner.py
+    participant Model as models.py
+
+    User->>TaskRow: 点击 Reset 按钮
+    TaskRow->>TaskRow: emit("reset", taskId)
+    TaskRow->>Control: resetTask(taskId)
+    Control->>Main: reset_task(taskId)
+    Main->>Runner: reset_task(taskId)
+    Runner->>Runner: 校验状态 (completed/cancelled)
+    Runner->>Model: 清空 error, progress, output_path, log_lines, timestamps
+    Runner->>Model: transition_task(id, "pending")
+    Runner->>Runner: _emit("task_state_changed")
+    Runner->>Runner: _emit("queue_changed")
+    Runner-->>Main: True
+    Main-->>Control: {success: true}
+    Control-->>TaskRow: true
 ```
 
-## 3. 任务执行流程
+### 流程说明
+
+1. 用户在 completed/cancelled 任务的 Action 列点击 Reset 按钮
+2. TaskRow 发射 `reset` 事件，TaskQueuePage 调用 `useTaskControl.resetTask(id)`
+3. composable 调用后端 `reset_task(id)` Bridge API
+4. `task_runner.reset_task` 执行：
+   - 校验任务状态为 completed 或 cancelled
+   - 清空所有运行时数据（error, progress, output_path, log_lines, started_at, completed_at）
+   - 调用 `transition_task` 将状态转为 pending
+   - 广播 `task_state_changed` 和 `queue_changed` 事件
+5. 前端通过事件更新 UI，任务回到 pending 状态
+
+## Download FFmpeg 流程
+
+<!-- v2.1.0-CHANGE: 行60-行82 新增下载确认流程 -->
 
 ```mermaid
-flowchart TD
-    A[用户点击 Start] --> B[前端: start_task task_id]
-    B --> C[TaskRunner.start_task]
-    C --> D{任务状态为 pending?}
-    D -->|否| E[返回失败]
-    D -->|是| F[状态转移: pending -> running]
-    F --> G[command_builder.build_command]
-    G --> H[command_builder.build_output_path]
-    H --> I[获取 ffmpeg/ffprobe 路径]
-    I --> J[提交到 ThreadPoolExecutor]
-    J --> K[ffmpeg_runner.run_single]
-    K --> L[创建 subprocess.Popen]
-    L --> M[启动 stderr 读取线程]
-    M --> N[循环解析 stderr 输出]
-    N --> O{匹配 time/speed/fps?}
-    O -->|是| P[计算进度百分比]
-    P --> Q[创建 TaskProgress 快照]
-    Q --> R[回调: 发射 task_progress 事件]
-    O -->|否| S[检查是否为日志行]
-    S -->|是| T[追加到 task.log_lines]
-    T --> U[回调: 发射 task_log 事件]
-    S -->|否| N
-    R --> V{进程结束?}
-    U --> V
-    V -->|否| W{cancel_event 被触发?}
-    W -->|是| X[kill_process_tree]
-    X --> Y[状态转移: running -> cancelled]
-    W -->|否| N
-    V -->|是| Z{退出码为 0?}
-    Z -->|是| AA[状态转移: running -> completed]
-    Z -->|否| AB[状态转移: running -> failed]
-    AB --> AC[记录错误信息]
-    AA --> AD[保存队列状态]
-    AC --> AD
-    AD --> AE[发射 task_state_changed 事件]
-    Y --> AD
+sequenceDiagram
+    participant User as 用户
+    participant FFmpegSetup as FFmpegSetup.vue
+    participant Parent as SettingsPage
+    participant Main as main.py
+
+    User->>FFmpegSetup: 点击 "Download FFmpeg"
+    FFmpegSetup->>FFmpegSetup: showConfirm = true（弹出 modal）
+    alt 用户取消
+        User->>FFmpegSetup: 点击 Cancel 或背景
+        FFmpegSetup->>FFmpegSetup: showConfirm = false
+    else 用户确认
+        User->>FFmpegSetup: 点击 Confirm
+        FFmpegSetup->>FFmpegSetup: isDownloading = true, showConfirm = false
+        FFmpegSetup->>Parent: emit("download")
+        Parent->>Main: download_ffmpeg()
+        Main-->>Parent: 下载结果
+        Note over FFmpegSetup: 5 秒后 isDownloading 自动恢复
+    end
 ```
 
-## 4. 任务暂停/恢复流程
+### 流程说明
 
-### 暂停
+1. Download FFmpeg 按钮始终可见（不受 FFmpeg 当前状态影响）
+2. 点击后弹出 DaisyUI modal 确认对话框
+3. 用户确认后：设置 loading 状态 -> 触发 download 事件 -> 父组件处理后端调用
+4. 下载过程中按钮禁用并显示 spinner
+5. detecting 状态时按钮也禁用
+
+## 主题切换流程
+
+<!-- v2.1.0-CHANGE: 行87-行105 新增主题切换流程 -->
 
 ```mermaid
-flowchart TD
-    A[用户点击 Pause] --> B[前端: pause_task task_id]
-    B --> C[TaskRunner.pause_task]
-    C --> D{任务状态为 running?}
-    D -->|否| E[返回失败]
-    D -->|是| F[获取 ffmpeg 进程 PID]
-    F --> G{操作系统}
-    G -->|Windows| H[ctypes NtSuspendProcess]
-    G -->|Linux/macOS| I[os.kill SIGSTOP]
-    H --> J{暂停成功?}
-    I --> J
-    J -->|是| K[状态转移: running -> paused]
-    J -->|否| L[记录警告日志]
-    K --> M[保存队列状态]
-    M --> N[发射 task_state_changed 事件]
-    L --> N
+sequenceDiagram
+    participant User as 用户
+    participant Navbar as AppNavbar.vue
+    participant Theme as useTheme.ts
+    participant DOM as document.documentElement
+    participant Backend as main.py
+
+    User->>Navbar: 点击太阳/月亮图标
+    Navbar->>Theme: toggleTheme()
+    Theme->>Theme: resolveTheme(current) -> light/dark
+    Theme->>Theme: next = current === "dark" ? "light" : "dark"
+    Theme->>DOM: setAttribute("data-theme", next)
+    Theme->>Backend: save_settings({ theme: next })
 ```
 
-### 恢复
+### 流程说明
+
+1. 用户点击导航栏的主题切换按钮
+2. `toggleTheme()` 解析当前实际主题，切换到相反主题
+3. 通过修改 `data-theme` 属性切换 DaisyUI 主题
+4. 异步保存到后端 settings.json（失败不影响本地主题）
+5. auto 模式下监听系统主题变化事件自动更新
+
+---
+
+## Phase 3: 命令构建功能流程
+
+<!-- v2.1.0-CHANGE: Phase 3 新增命令构建相关流程 -->
+
+### 硬件编码器检测流程
 
 ```mermaid
-flowchart TD
-    A[用户点击 Resume] --> B[前端: resume_task task_id]
-    B --> C[TaskRunner.resume_task]
-    C --> D{任务状态为 paused?}
-    D -->|否| E[返回失败]
-    D -->|是| F[获取 ffmpeg 进程 PID]
-    F --> G{操作系统}
-    G -->|Windows| H[ctypes NtResumeProcess]
-    G -->|Linux/macOS| I[os.kill SIGCONT]
-    H --> J{恢复成功?}
-    I --> J
-    J -->|是| K[状态转移: paused -> running]
-    J -->|否| L[记录警告日志]
-    K --> M[保存队列状态]
-    M --> N[发射 task_state_changed 事件]
-    L --> N
+sequenceDiagram
+    participant App as CommandConfigPage
+    participant Main as main.py
+    participant FFmpeg as FFmpeg binary
+
+    App->>App: onMounted()
+    App->>Main: check_hw_encoders()
+    Main->>FFmpeg: ffmpeg -encoders (subprocess)
+    FFmpeg-->>Main: 编码器列表输出
+    Main->>Main: 解析支持的编码器名称
+    Main-->>App: { encoders: ["libx264", "libx265", ...] }
+    App->>App: 比对注册表，标记不可用硬件编码器
 ```
 
-## 5. 任务停止流程
+### 流程说明
+
+1. 命令配置页面加载时调用 `check_hw_encoders()` Bridge API
+2. 后端执行 `ffmpeg -encoders` 获取所有可用编码器
+3. 解析输出文本中的编码器名称列表
+4. 前端将检测结果与编码器注册表比对
+5. 不在支持列表中的硬件编码器在 UI 中灰显
+
+---
+
+### 视频剪辑流程
 
 ```mermaid
-flowchart TD
-    A[用户点击 Stop] --> B[前端: stop_task task_id]
-    B --> C[TaskRunner.stop_task]
-    C --> D{当前状态}
-    D -->|pending| E[状态转移: pending -> cancelled]
-    D -->|running| F[设置 cancel_event]
-    F --> G[kill_process_tree PID]
-    G --> H[状态转移: running -> cancelled]
-    D -->|paused| I[设置 cancel_event]
-    I --> J[kill_process_tree PID]
-    J --> K[状态转移: paused -> cancelled]
-    D -->|completed/failed/cancelled| L[返回失败: 终态不可变更]
-    E --> M[保存队列状态]
-    H --> M
-    K --> M
-    M --> N[发射 task_state_changed 事件]
+sequenceDiagram
+    participant User as 用户
+    participant ClipForm as ClipForm.vue
+    participant Preview as CommandPreview
+    participant Main as main.py
+
+    User->>ClipForm: 选择剪辑模式 (extract/cut)
+    alt extract 模式
+        User->>ClipForm: 输入开始时间 + 片尾时长
+        ClipForm->>Main: get_file_duration(file_path)
+        Main-->>ClipForm: { duration: 3600.5 }
+        Note over ClipForm: end_time = duration - tail_duration
+    else cut 模式
+        User->>ClipForm: 输入开始时间 + 结束时间
+    end
+    ClipForm->>Preview: 更新配置
+    Preview->>Main: build_command(config)
+    Main-->>Preview: ffmpeg -hide_banner -y -ss START -to END -accurate_seek -i "input" [-c copy] "output"
 ```
 
-## 6. 批量操作流程
+### 流程说明
+
+1. 用户在命令配置页的"剪辑"选项卡中操作
+2. 选择 extract 模式：输入开始时间和片尾时长，后端自动获取文件时长并计算结束时间
+3. 选择 cut 模式：直接输入开始和结束时间戳
+4. 时间格式转换：UI 的 `H:mm:ss.fff` 转换为 FFmpeg 的 `HH:MM:SS.mmm`（第8个冒号替换为点号）
+5. 默认使用 `-c copy` 无损快速剪辑，禁用时使用当前 TranscodeConfig 重新编码
+6. 命令预览实时更新
+
+---
+
+### 多视频拼接流程
 
 ```mermaid
-flowchart TD
-    A[用户点击批量操作] --> B{操作类型}
-    B -->|Stop All| C[stop_all]
-    B -->|Pause All| D[pause_all]
-    B -->|Resume All| E[resume_all]
+sequenceDiagram
+    participant User as 用户
+    participant Merge as MergePanel.vue
+    participant FileList as MergeFileList.vue
+    participant Main as main.py
 
-    C --> C1[遍历所有非终态任务]
-    C1 --> C2[pending -> cancelled]
-    C2 --> C3[running: cancel_event + kill_process_tree -> cancelled]
-    C3 --> C4[paused: cancel_event + kill_process_tree -> cancelled]
-    C4 --> C5[保存队列状态]
-    C5 --> C6[返回停止数量]
+    User->>FileList: 添加视频文件（多个）
+    User->>FileList: 拖拽排序调整顺序
+    User->>Merge: 选择拼接方式
+    alt ts_concat / concat_protocol
+        Note over Merge: 快速模式，要求编码参数一致
+    else filter_complex
+        User->>Merge: 配置目标分辨率、帧率、编码器
+        Note over Merge: 重编码模式，支持不同编码参数
+    end
+    Merge->>Main: build_command(config)
+    Main-->>Merge: FFmpeg 命令预览
 
-    D --> D1[遍历所有 running 任务]
-    D1 --> D2[suspend_process PID]
-    D2 --> D3[状态转移: running -> paused]
-    D3 --> D4[保存队列状态]
-    D4 --> D5[返回暂停数量]
-
-    E --> E1[遍历所有 paused 任务]
-    E1 --> E2[resume_process PID]
-    E2 --> E3[状态转移: paused -> running]
-    E3 --> E4[保存队列状态]
-    E4 --> E5[返回恢复数量]
+    User->>Merge: 点击"开始拼接"
+    Merge->>Main: add_tasks(merge_config)
+    Main->>Main: 根据 merge_mode 生成拼接命令
+    Note over Main: ts_concat: -f concat -safe 0 -i list.txt -c copy
+    Note over Main: filter_complex: -filter_complex "concat=n=N:v=1:a=1"
 ```
 
-## 7. 预设管理流程
+### 流程说明
+
+1. 用户通过文件列表组件添加 2 个或以上视频文件
+2. 支持拖拽排序调整拼接顺序
+3. 选择拼接方式：默认 ts_concat（最快）
+4. filter_complex 模式可配置目标分辨率、帧率和编码器进行标准化
+5. 命令预览实时显示生成的 FFmpeg 命令
+6. 开始拼接后作为任务添加到任务队列执行
+
+---
+
+### 音频字幕混合流程
 
 ```mermaid
-flowchart TD
-    A[打开命令配置页] --> B[前端: get_presets]
-    B --> C[PresetManager.get_all_presets]
-    C --> D[加载内置预设 presets/*.json]
-    D --> E[加载用户预设 APPDATA/presets/*.json]
-    E --> F[合并预设列表]
-    F --> G[返回预设数组]
+sequenceDiagram
+    participant User as 用户
+    participant Avsmix as AvsmixForm.vue
+    participant Preview as CommandPreview
+    participant Main as main.py
 
-    H[用户操作] --> I{操作类型}
-    I -->|选择预设| J[应用预设配置到表单]
-    I -->|保存预设| K[save_preset]
-    I -->|删除预设| L[delete_preset]
-
-    K --> K1{预设已存在?}
-    K1 -->|是| K2[更新用户预设]
-    K1 -->|否| K3[创建新用户预设]
-    K2 --> K4[写入 APPDATA/presets/xxx.json]
-    K3 --> K4
-    K4 --> K5[返回成功]
-
-    L --> L1{预设类型}
-    L1 -->|内置预设| L2[返回失败: 不可删除]
-    L1 -->|用户预设| L3[删除 APPDATA/presets/xxx.json]
-    L3 --> L4[返回成功]
+    User->>Avsmix: 选择外部音频文件（FileDropInput）
+    User->>Avsmix: 选择字幕文件（FileDropInput）
+    User->>Avsmix: 输入字幕语言代码
+    Avsmix->>Preview: 更新配置
+    Preview->>Main: build_command(config)
+    Main-->>Preview: ffmpeg -i "video.mp4" -i "audio.mp3" -i "subs.srt" -map 0:v -map 1:a [-map 2:s -c:s mov_text -metadata:s:s:0 language=eng] "output.mp4"
 ```
 
-## 8. 命令预览流程
+### 流程说明
+
+1. 用户在"音频/字幕"选项卡中操作
+2. 通过 FileDropInput 组件拖拽或选择外部音频/字幕文件
+3. 可选输入字幕语言代码（如 `chi`, `eng`）
+4. 命令通过额外的 `-i` 输入和 `-map` 流映射实现混合
+5. 字幕使用 mov_text 编码器嵌入 MP4 容器
+6. 此功能与转码/滤镜配置可叠加使用
+
+---
+
+### 横竖屏转换流程
 
 ```mermaid
-flowchart TD
-    A[用户修改配置参数] --> B[Composable: scheduleUpdate]
-    B --> C[防抖延迟 300ms]
-    C --> D[build_command config]
-    D --> E[构建 FFmpeg 命令行]
-    E --> F[validate_config config]
-    F --> G{验证结果}
-    G -->|无问题| H[显示命令预览]
-    G -->|有警告| I[显示警告信息 + 命令预览]
-    G -->|有错误| J[显示错误信息]
-    I --> H
+sequenceDiagram
+    participant User as 用户
+    participant Filter as FilterForm.vue
+    participant Preview as CommandPreview
+    participant Main as main.py
+
+    User->>Filter: 选择横竖屏转换模式
+    alt I 模式（背景图片）
+        User->>Filter: 选择背景图片（FileDropInput）
+    end
+    User->>Filter: 设置目标分辨率（默认 1080x1920）
+    Filter->>Preview: 更新配置
+    Preview->>Main: build_command(config)
+
+    alt H2V-I（横转竖+图片背景）
+        Note over Main: -filter_complex "[1:v]scale=W:H,setsar=1,loop=-1:size=duration[bg];[0:v]scale=W:-2,setsar=1[v];[bg][v]overlay=(W-w)/2:(H-h)/2:shortest=1[vout]"
+    else H2V-T（横转竖+模糊视频背景）
+        Note over Main: -filter_complex "split=2[v_main][v_bg];scale,boxblur,scale[bg_blurred];overlay"
+    else H2V-B（横转竖+黑色填充）
+        Note over Main: scale + pad
+    end
 ```
 
-## 9. 应用关闭流程
+### 流程说明
+
+1. 用户在滤镜配置中选择 aspect_convert 模式
+2. I 模式（H2V-I/V2H-I）需额外提供背景图片
+3. T 模式（H2V-T/V2H-T）使用视频自身模糊作为背景
+4. B 模式（H2V-B/V2H-B）使用黑色填充（最简单）
+5. 所有模式均使用 `-filter_complex`，需要处理多输入流
+6. 启用横竖屏转换时，基础滤镜（crop/rotate/watermark）应被禁用
+
+---
+
+## Phase 3.5: 命令构建改进流程
+
+<!-- v2.1.0-CHANGE: Phase 3.5 新增质量参数自动填充、自定义命令、片头片尾等流程 -->
+
+### 编码器质量自动填充流程
 
 ```mermaid
-flowchart TD
-    A[用户关闭窗口] --> B[pywebview closed 事件]
-    B --> C[触发 on_closing 回调]
-    C --> D[_cleanup 方法]
-    D --> E{_cleanup_guard 防重入检查}
-    E --> F{首次调用?}
-    F -->|否| G[直接返回]
-    F -->|是| H[TaskRunner.force_kill_all]
-    H --> I[遍历所有运行中进程]
-    I --> J[kill_process_tree 终止进程树]
-    J --> K[清除 _cancel_events]
-    K --> L[TaskQueue.save_state 保存队列]
-    L --> M[应用退出]
+sequenceDiagram
+    participant User as 用户
+    participant EncoderSelect as EncoderSelect.vue
+    participant TranscodeForm as TranscodeForm.vue
+    participant Config as useGlobalConfig
+
+    User->>EncoderSelect: 选择编码器 (e.g. libx264)
+    EncoderSelect->>EncoderSelect: handleSelect("libx264")
+    EncoderSelect->>EncoderSelect: 查找编码器注册表
+    alt 预设编码器（有推荐质量）
+        EncoderSelect->>TranscodeForm: emit("qualityChange", { quality: 23, mode: "crf" })
+        TranscodeForm->>Config: transcode.quality_mode = "crf"
+        TranscodeForm->>Config: transcode.quality_value = 23
+    else 自定义编码器（"Other..." 选项）
+        EncoderSelect->>EncoderSelect: 显示文本输入框
+        User->>EncoderSelect: 输入编码器名称
+        EncoderSelect->>TranscodeForm: emit("qualityChange", null)
+        Note over TranscodeForm: 不自动填充，用户手动设置
+    end
+    alt video_codec 切换为 copy 或 none
+        TranscodeForm->>Config: 清空 quality_mode, quality_value, preset, pixel_format, max_bitrate
+    end
 ```
 
-## 10. 队列恢复流程
+### 流程说明
+
+1. 用户从 EncoderSelect 下拉列表选择预设编码器
+2. 组件查找编码器注册表中的 `recommendedQuality` 和 `qualityMode`
+3. 通过 `qualityChange` 事件传递给 TranscodeForm，自动填充质量参数
+4. 选择 "Other (custom name)..." 选项时，显示文本输入框
+5. 自定义编码器不触发自动填充（`qualityChange` 返回 null）
+6. 当 video_codec 切换为 copy 或 none 时，清空所有质量相关字段
+
+---
+
+### 自定义命令流程
 
 ```mermaid
-flowchart TD
-    A[TaskQueue.load_state] --> B{queue_state.json 存在?}
-    B -->|否| C[返回空队列]
-    B -->|是| D[读取 JSON 文件]
-    D --> E{JSON 解析成功?}
-    E -->|否| F[记录错误日志, 返回空队列]
-    E -->|是| G[遍历任务数据]
-    G --> H[Task.from_dict 反序列化]
-    H --> I{任务状态}
-    I -->|running| J[标记为 failed]
-    I -->|paused| K[标记为 failed]
-    I -->|pending| L[保留原状态]
-    I -->|completed/failed/cancelled| M[保留原状态]
-    J --> N[收集所有任务]
-    K --> N
-    L --> N
-    M --> N
-    N --> O{终态任务超过 50 条?}
-    O -->|是| P[按完成时间排序, 保留最近 50 条]
-    O -->|否| Q[保留全部]
-    P --> R[重建队列]
-    Q --> R
-    R --> S[返回恢复后的队列]
+sequenceDiagram
+    participant User as 用户
+    participant Page as CustomCommandPage.vue
+    participant Config as useGlobalConfig
+    participant Preview as Preview display
+
+    User->>Page: 进入 /custom-command 页面
+    Page->>Config: activeMode = "custom"
+    User->>Page: 输入 FFmpeg 参数 (textarea)
+    User->>Page: 选择输出扩展名
+    Note over Preview: 实时预览: ffmpeg -hide_banner -y -i "input" {args} -y "output{ext}"
+    User->>Config: toTaskConfig() 包含 custom_command 配置
+    Config->>Config: 优先使用 custom_command，跳过其他模式
 ```
+
+### 流程说明
+
+1. 用户通过导航栏或路由进入自定义命令页面
+2. 页面设置 `activeMode = "custom"`
+3. 用户在 textarea 中输入原始 FFmpeg 参数
+4. 可选择输出文件扩展名（默认 .mp4）
+5. 页面实时显示完整命令预览（不调用 build_command）
+6. `toTaskConfig()` 在 activeMode 为 custom 时优先生成 custom_command 配置
+7. 实际执行时直接拼接用户参数，不经过常规命令构建流程
+
+---
+
+### 片头片尾拼接流程
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant Config as CommandConfigPage
+    participant Merge as MergePage
+    participant Main as main.py
+
+    User->>Config: 进入 Merge 选项卡
+    User->>Config: SplitDropZone 左右分屏拖入 intro/outro (可选)
+    Note over Config: intro/outro 有值时 toTaskConfig 自动包含 merge 配置
+    Config->>Main: build_command_preview(config)
+    Main-->>Config: 使用占位文件生成片头片尾预览
+
+    User->>Merge: 进入 Merge 页面
+    User->>Merge: 添加内容视频文件列表 (2+)
+    User->>Merge: 点击 "Add to Queue"
+    Merge->>Main: addTasks(merge.file_list, toTaskConfig())
+    Main->>Main: 为文件列表创建合并任务（含 intro/outro）
+    Main-->>Merge: 返回任务列表
+    Note over User: 任务出现在 Queue 页面中
+```
+
+### 流程说明
+
+<!-- v2.1.0-CHANGE: Phase 3.5.2 更新 Intro/Outro 流程 -->
+
+1. Intro/Outro 从 Merge 页面移至 Config 页面的 Merge 选项卡
+2. 使用 SplitDropZone 实现左右分屏拖拽上传
+3. 当 intro_path 或 outro_path 有值时，`toTaskConfig()` 自动包含 merge 配置（无论当前 activeMode）
+4. Config 页面的命令预览使用占位文件显示 intro/outro 命令
+5. Merge 页面仅保留文件列表、合并模式和 Add to Queue 按钮
+6. 提交后为每个内容视频生成独立的合并任务（含 intro/outro）
+
+---
+
+### 剪辑条件包含流程
+
+```mermaid
+sequenceDiagram
+    participant Config as useGlobalConfig
+    participant Preview as CommandPreview
+    participant Builder as command_builder.py
+
+    Config->>Config: toTaskConfig() 检查 clip 配置
+    alt start_time 或 end_time_or_duration 非空
+        Config->>Config: 包含 clip 配置
+        Preview->>Builder: build_command(config) 包含 clip 参数
+        Builder-->>Preview: ffmpeg -ss START -to END ...
+    else start_time 和 end_time_or_duration 均为空
+        Config->>Config: 不包含 clip 配置 (clip = null)
+        Preview->>Builder: build_command(config) 无 clip 参数
+        Builder-->>Preview: 标准 FFmpeg 命令（无剪辑参数）
+    end
+```
+
+### 流程说明
+
+1. `toTaskConfig()` 检查 clip 的 start_time 和 end_time_or_duration 是否有值
+2. 均为空时，`clip` 字段设为 `null`，不传递给 `build_command`
+3. `build_command` 仅在 `config.clip` 非空时才调用 `build_clip_command()`
+
+---
+
+### 滤镜互斥清理流程 (Phase 3.5.1)
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant FilterForm as FilterForm.vue
+    participant Config as useGlobalConfig
+
+    alt 用户选择 aspect_convert
+        User->>FilterForm: 选择 H2V-I
+        FilterForm->>Config: watch 触发
+        Config->>Config: config.aspect_convert = "H2V-I"
+        FilterForm->>Config: watch 清空 rotate
+        Config->>Config: config.rotate = ""
+        Note over FilterForm: Rotate 下拉恢复可选
+    else 用户选择 rotate
+        User->>FilterForm: 选择 Clockwise 90
+        FilterForm->>Config: watch 触发
+        Config->>Config: config.rotate = "transpose=1"
+        FilterForm->>Config: watch 清空 aspect_convert
+        Config->>Config: config.aspect_convert = ""
+        Note over FilterForm: Aspect Convert 下拉恢复可选
+    end
+```
+
+### 流程说明
+
+1. FilterForm 通过 `watch` 监听 `aspect_convert` 和 `rotate` 的变化
+2. 选择 aspect_convert 时自动清空 rotate，选择 rotate 时自动清空 aspect_convert
+3. 修复了此前两个选项可能同时被 disabled 导致的"冻结"问题
+
+---
+
+### Merge 独立提交流程 (Phase 3.5.2-fixes)
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant MergePage as MergePage.vue（本地 mergeConfig）
+    participant Queue as useTaskQueue
+    participant Main as main.py
+
+    User->>MergePage: 配置合并参数 + 添加文件
+    MergePage->>MergePage: 实时命令预览（使用本地 mergeConfig，非全局共享）
+    User->>MergePage: 点击 "Add to Queue"
+    MergePage->>MergePage: 构建纯净 config（transcode/filters 来自全局，merge 来自本地）
+    MergePage->>Queue: addTasks([file_list[0]], taskCfg)
+    Queue->>Main: add_tasks([path], config)
+    Main->>Main: 检测 merge.file_list >= 2 -> 创建 ONE 合并任务
+    Main-->>Queue: 返回 1 个任务
+    MergePage->>MergePage: router.push("/task-queue")
+    Note over User: 自动跳转到 Queue 页面，可见 1 个合并任务
+```
+
+### 流程说明
+
+1. 用户在 Merge 页面配置合并参数并添加文件
+2. 命令预览使用本地 `mergeConfig`（不引用全局 merge 单例，避免与 Config 页面 intro/outro 冲突）
+3. 点击 "Add to Queue" 时构建纯净配置：仅继承全局 `transcode` + `filters`，merge 使用本地配置
+4. 后端检测到 config 包含 `merge.file_list >= 2` 时创建 ONE 任务（给 merge.file_list 第一个文件路径）
+5. 添加完成后自动跳转到 Queue 页面 (`router.push("/task-queue")`)
+
+---
+
+### Concat 列表文件创建流程 (Phase 3.5.2-fixes)
+
+```mermaid
+sequenceDiagram
+    participant TaskRunner as task_runner.py
+    participant Builder as command_builder.py
+    participant TempFile as tempfile
+    participant FFmpeg as FFmpeg Process
+
+    TaskRunner->>Builder: build_command(config, ...)
+    Builder-->>TaskRunner: args = ["-f", "concat", "-safe", "0", "-i", "list.txt", "-c", "copy", ...]
+    TaskRunner->>TempFile: tempfile.NamedTemporaryFile(suffix=".txt")
+    TaskRunner->>TempFile: 写入 file 'path1'\nfile 'path2'
+    TaskRunner->>TaskRunner: 替换 args 中的 "list.txt" 为实际路径
+    TaskRunner->>FFmpeg: subprocess.Popen([ffmpeg, ...args])
+    Note over FFmpeg: FFmpeg 使用真实路径读取列表文件
+    TaskRunner->>TempFile: try/finally: os.unlink(temp_path)
+```
+
+### 流程说明
+
+1. `build_merge_command` 返回 `list.txt` 作为占位符（预览和执行用同一函数）
+2. `start_task` 在构建完命令后检查是否为 concat demuxer 模式
+3. 创建临时列表文件，内容为 `file 'path1'\nfile 'path2'`
+4. 替换 args 中的占位符为临时文件真实路径
+5. 提交到线程池执行
+6. `_run_task` 通过 `try/finally` 确保临时文件被清理
+
+---
+
+### Intro/Outro 全局应用流程 (Phase 3.5.2-fixes)
+
+```mermaid
+sequenceDiagram
+    participant Config as CommandConfigPage
+    participant GlobalConfig as useGlobalConfig
+    participant Queue as TaskQueuePage
+    participant Backend as main.py + task_runner.py
+
+    Config->>Config: 设置 intro_path（或 outro_path）
+    Config->>GlobalConfig: merge.intro_path = path
+    GlobalConfig->>GlobalConfig: watch: auto-set merge_mode = "filter_complex"
+    Note over GlobalConfig: configRef 始终包含 merge（intro/outro 有值时）
+
+    Queue->>Backend: addTasks(paths, toTaskConfig())
+    Note over Backend: 每个文件创建一个任务，config 包含 merge.intro_path/outro_path
+
+    Queue->>Backend: startTask(id, toTaskConfig())
+    Backend->>Backend: build_command(task.config, input, output)
+    Note over Backend: 检测 config.merge.intro_path/outro_path -> build_merge_intro_outro_command
+    Backend->>Backend: 命令: -i intro -i content -i outro -filter_complex "concat=n=3:v=1:a=1"
+```
+
+### 流程说明
+
+1. Config 页面设置 intro/outro → 全局 reactive merge 更新 → watch 自动设 merge_mode 为 filter_complex
+2. `toTaskConfig()` 在 intro/outro 有值时始终包含 merge 配置（无论当前 activeMode）
+3. Queue 页面添加任务时，每个任务都包含 intro/outro 配置
+4. 任务启动时 `build_command` 检测 intro/outro → 调度到 `build_merge_intro_outro_command`
+5. Merge 页面任务不受影响：`start_task` 保留任务已有的 merge 配置
+
+<!-- v2.1.0-CHANGE: Phase 4 新增流程 -->
+
+## Phase 4: 国际化与平台化流程
+
+### 语言切换流程
+
+```
+用户 -> AppNavbar.vue: 点击语言切换按钮 (CN/EN)
+-> useLocale.setLocale("en" | "zh-CN")
+-> vue-i18n: i18n.locale.value = "en"
+-> 页面所有 t("key") 立即响应切换
+-> save_settings({ language: "en" })
+-> core/config.py: 持久化到 data/settings.json
+```
+
+**auto 模式解析**:
+1. 启动时读取 settings.language，若为 "auto" 则读取 navigator.language
+2. 匹配优先级：zh-CN > zh > en > fallback "zh-CN"
+
+### 数据目录迁移流程
+
+```
+main.py 启动
+-> from core.paths import migrate_if_needed
+-> migrate_if_needed()
+-> 检查 get_data_dir()/settings.json 是否存在
+  -> 存在: 跳过，已迁移
+  -> 不存在: 检查旧 APPDATA 路径
+    -> 旧路径存在: 复制 settings.json 到 data/
+    -> 旧路径存在: 复制 presets/ 到 data/presets/
+    -> 日志不迁移（轮转制自动清理）
+    -> 打印一次性迁移日志
+-> 后续所有模块使用 core.paths 获取路径
+```
+
+**初始化顺序**:
+1. `main.py` 顶层调用 `migrate_if_needed()`（在任何 core 模块导入之前）
+2. `core/config.py` 导入时使用 `core.paths.get_settings_path()`
+3. `core/logging.py` 导入时使用 `core.paths.get_log_dir()`
+4. `core/preset_manager.py` 导入时使用 `core.paths.get_presets_dir()`
+
+### FFmpeg 平台下载流程
+
+```
+用户 -> SettingsPage -> FFmpegSetup.vue: 点击按钮
+-> if platform === "win32":
+  -> 弹出 DaisyUI modal 确认对话框
+  -> 确认 -> call("download_ffmpeg")
+  -> main.py: static_ffmpeg.add_paths() 下载
+  -> 成功 -> ffmpeg_version_changed 事件
+-> else:
+  -> 显示平台安装提示 (非按钮，静态文本)
+  -> macOS: "brew install ffmpeg" + brew.sh 链接
+  -> Linux: 对应包管理器命令
+```
+
+**非 Windows 调用 download_ffmpeg**:
+```
+main.py: download_ffmpeg()
+-> sys.platform != "win32"
+-> 返回 {"success": False, "error": "download_not_supported", "data": {"platform": "darwin", "instructions": {"method": "homebrew", "command": "brew install ffmpeg", "url": "https://brew.sh"}}}
+```
+
+---
+
+## Phase 5: 第二阶段用户体验优化流程
+
+<!-- v2.1.0-CHANGE: Phase 5 新增打开文件夹流程、任务状态变更重新获取流程 -->
+
+### 打开文件夹流程
+
+```
+用户 -> TaskRow.vue: 看到 completed 任务的"打开文件夹"按钮
+-> 点击按钮 -> call("open_folder", task.output_path)
+-> main.py: open_folder(path)
+  -> folder = os.path.dirname(path) if os.path.isfile(path) else path
+  -> if sys.platform == "win32": os.startfile(folder)
+  -> elif sys.platform == "darwin": subprocess.Popen(["open", folder])
+  -> else: subprocess.Popen(["xdg-open", folder])
+  -> return {success: True}
+-> TaskRow.vue: 无需额外处理（调用静默失败）
+```
+
+**流程说明**:
+1. 任务完成后，后端设置 `output_path`，前端通过重新获取任务列表获得该字段
+2. TaskRow 条件渲染：`task.state === 'completed' && task.output_path` 时显示按钮
+3. 点击后调用 `open_folder` Bridge API，后端根据平台选择打开方式
+4. 失败时前端静默处理（不弹错误提示），避免干扰用户操作
+
+### 任务状态变更重新获取流程
+
+```
+后端: task_runner._run_task() 完成
+-> _emit("task_state_changed", {task_id, old_state, new_state: "completed"})
+-> useTaskQueue.ts: on("task_state_changed", handler)
+-> handler: 局部更新 task.state (乐观更新)
+-> handler: 检查 new_state === "completed" || new_state === "failed"
+  -> 是: 调用 fetchTasks() 完整重新获取
+  -> 否: 仅使用局部更新
+-> fetchTasks(): call("get_tasks") -> tasks.value = res.data
+-> TaskRow.vue: output_path 已填充 -> 显示"打开文件夹"按钮
+```
+
+**流程说明**:
+1. 后端任务完成/失败时广播 `task_state_changed` 事件，事件仅包含 `{task_id, old_state, new_state}`
+2. 前端先做乐观更新（局部修改 task.state），立即反映状态变化
+3. 对于终态（completed/failed），额外调用 `fetchTasks()` 获取完整数据（包括 output_path、error 等）
+4. 这样无需用户手动刷新页面，completed 任务立即显示"打开文件夹"按钮

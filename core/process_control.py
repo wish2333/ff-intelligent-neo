@@ -27,7 +27,9 @@ def kill_process_tree(pid: int) -> None:
     """Kill a process and all its children.
 
     On Windows: uses ``taskkill /F /T /PID`` for reliable tree termination.
-    On Unix: sends SIGKILL to the process group (falls back to direct kill).
+    On Unix: tries to get the process group ID via ``os.getpgid`` (since
+    ``start_new_session=True`` puts the child in its own session/group),
+    then sends SIGKILL to the entire group.  Falls back to direct kill.
     """
     try:
         if sys.platform == "win32":
@@ -35,12 +37,19 @@ def kill_process_tree(pid: int) -> None:
                 ["taskkill", "/F", "/T", "/PID", str(pid)],
                 capture_output=True,
                 timeout=10,
+                creationflags=subprocess.CREATE_NO_WINDOW,
             )
         else:
             try:
-                os.killpg(pid, signal.SIGKILL)
+                # When start_new_session=True was used, the child's
+                # PGID equals its own PID, so getpgid(pid) == pid.
+                pgid = os.getpgid(pid)
+                os.killpg(pgid, signal.SIGKILL)
             except (ProcessLookupError, PermissionError, OSError):
-                os.kill(pid, signal.SIGKILL)
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except (ProcessLookupError, PermissionError, OSError):
+                    pass
     except Exception as exc:
         logger.debug("kill_process_tree pid={}: {}", pid, exc)
 
@@ -125,11 +134,34 @@ if sys.platform == "win32":
 else:
 
     def suspend_process(pid: int) -> None:
-        """Suspend a process via SIGSTOP."""
-        os.kill(pid, signal.SIGSTOP)
-        logger.debug("Suspended process pid={} (SIGSTOP)", pid)
+        """Suspend a process group via SIGSTOP.
+
+        Sends SIGSTOP to the entire process group (PGID) so that child
+        processes spawned by FFmpeg (e.g. multi-pass workers) are also
+        frozen.  ``start_new_session=True`` in the Popen call ensures
+        the child is the leader of its own group.
+
+        Raises OSError if the process cannot be suspended.
+        """
+        try:
+            pgid = os.getpgid(pid)
+            os.killpg(pgid, signal.SIGSTOP)
+            logger.debug("Suspended process group pgid={} (SIGSTOP)", pgid)
+        except (PermissionError, ProcessLookupError, OSError) as exc:
+            raise OSError(
+                f"Cannot suspend pid {pid}: {exc}"
+            ) from exc
 
     def resume_process(pid: int) -> None:
-        """Resume a process via SIGCONT."""
-        os.kill(pid, signal.SIGCONT)
-        logger.debug("Resumed process pid={} (SIGCONT)", pid)
+        """Resume a suspended process group via SIGCONT.
+
+        Raises OSError if the process cannot be resumed.
+        """
+        try:
+            pgid = os.getpgid(pid)
+            os.killpg(pgid, signal.SIGCONT)
+            logger.debug("Resumed process group pgid={} (SIGCONT)", pgid)
+        except (PermissionError, ProcessLookupError, OSError) as exc:
+            raise OSError(
+                f"Cannot resume pid {pid}: {exc}"
+            ) from exc

@@ -174,6 +174,10 @@ export function useTaskQueue() {
       updated[idx] = { ...updated[idx], state: new_state }
       tasks.value = updated
     }
+    // Re-fetch to get output_path and other fields set by the backend
+    if (new_state === "completed" || new_state === "failed") {
+      fetchTasks()
+    }
   })
 
   on("queue_changed", (detail: unknown) => {

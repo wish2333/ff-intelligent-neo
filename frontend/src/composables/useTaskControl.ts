@@ -5,10 +5,11 @@
  */
 
 import { call } from "../bridge"
+import type { TaskConfigDTO } from "../types/config"
 
 export function useTaskControl() {
-  async function startTask(taskId: string): Promise<boolean> {
-    const res = await call<null>("start_task", taskId)
+  async function startTask(taskId: string, config?: TaskConfigDTO): Promise<boolean> {
+    const res = await call<null>("start_task", taskId, config ?? null)
     return res.success
   }
 
@@ -27,8 +28,13 @@ export function useTaskControl() {
     return res.success
   }
 
-  async function retryTask(taskId: string): Promise<boolean> {
-    const res = await call<null>("retry_task", taskId)
+  async function retryTask(taskId: string, config?: TaskConfigDTO): Promise<boolean> {
+    const res = await call<null>("retry_task", taskId, config ?? null)
+    return res.success
+  }
+
+  async function resetTask(taskId: string): Promise<boolean> {
+    const res = await call<null>("reset_task", taskId)
     return res.success
   }
 
@@ -53,6 +59,7 @@ export function useTaskControl() {
     pauseTask,
     resumeTask,
     retryTask,
+    resetTask,
     stopAll,
     pauseAll,
     resumeAll,

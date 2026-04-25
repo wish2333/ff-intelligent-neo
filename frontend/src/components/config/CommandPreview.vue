@@ -6,6 +6,10 @@
  * and displays any validation errors/warnings below it.
  */
 
+import { useI18n } from "vue-i18n"
+
+const { t } = useI18n()
+
 defineProps<{
   commandText: string
   errors: string[]
@@ -24,16 +28,16 @@ function copyCommand() {
 </script>
 
 <template>
-  <div class="card bg-base-200 shadow-sm">
+  <div class="card bg-base-200 shadow-sm border border-base-300">
     <div class="card-body p-4">
       <div class="flex items-center justify-between mb-2">
-        <h2 class="card-title text-sm font-semibold">Command Preview</h2>
+        <h2 class="card-title text-sm font-semibold">{{ t("config.commandPreview.title") }}</h2>
         <button
           class="btn btn-ghost btn-xs"
           @click="copyCommand"
           :disabled="!commandText"
         >
-          Copy
+          {{ t("config.commandPreview.copy") }}
         </button>
       </div>
 
@@ -42,10 +46,10 @@ function copyCommand() {
         class="relative rounded bg-base-300 p-3 font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all min-h-[3rem]"
       >
         <span v-if="validating" class="loading loading-spinner loading-xs mr-2"></span>
-        <span v-if="validating" class="text-base-content/50">Updating...</span>
+        <span v-if="validating" class="text-base-content/50">{{ t("config.commandPreview.updating") }}</span>
         <span v-else-if="commandText" id="command-preview-text">{{ commandText }}</span>
         <span v-else class="text-base-content/50">
-          Configure transcoding settings above to see the FFmpeg command
+          {{ t("config.commandPreview.noConfig") }}
         </span>
       </div>
 
@@ -75,7 +79,7 @@ function copyCommand() {
         v-else-if="commandText && !validating"
         class="text-xs text-success mt-1"
       >
-        0 errors, 0 warnings
+        {{ t("config.commandPreview.validationOk") }}
       </div>
     </div>
   </div>

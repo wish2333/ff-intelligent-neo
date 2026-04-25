@@ -11,20 +11,20 @@ defineProps<{
 </script>
 
 <template>
-  <div v-if="progress && progress.percent > 0" class="flex items-center gap-3 text-xs opacity-80">
+  <div v-if="progress && progress.percent > 0" class="flex items-center gap-2 text-xs opacity-80 min-w-0 overflow-hidden">
     <progress
-      class="progress progress-primary h-2 flex-1"
+      class="progress progress-primary h-2 shrink-0 w-20"
       :value="progress.percent"
       max="100"
     />
-    <span class="w-10 text-right font-mono">{{ Math.round(progress.percent) }}%</span>
-    <span v-if="progress.total_seconds > 0" class="font-mono">
+    <span class="shrink-0 w-9 text-right font-mono tabular-nums">{{ Math.round(progress.percent) }}%</span>
+    <span v-if="progress.total_seconds > 0" class="shrink-0 font-mono tabular-nums truncate">
       {{ formatDuration(progress.current_seconds) }}/{{ formatDuration(progress.total_seconds) }}
     </span>
-    <span v-if="progress.estimated_remaining" class="font-mono text-info">
+    <span v-if="progress.estimated_remaining" class="shrink-0 font-mono text-info tabular-nums">
       ~{{ progress.estimated_remaining }}
     </span>
-    <span v-if="progress.speed" class="font-mono">{{ progress.speed }}x</span>
-    <span v-if="progress.fps" class="font-mono">{{ progress.fps }} fps</span>
+    <span v-if="progress.speed" class="shrink-0 font-mono tabular-nums">{{ progress.speed }}x</span>
+    <span v-if="progress.fps" class="shrink-0 font-mono tabular-nums">{{ progress.fps }}fps</span>
   </div>
 </template>

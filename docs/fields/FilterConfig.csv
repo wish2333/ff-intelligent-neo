@@ -1,8 +1,17 @@
 Field Name,Type,Default,Required,Description,Validation Rules
 rotate,str,"",No,Rotation angle,"Values: '90', '180', '270'. Empty = no rotation"
 crop,str,"",No,Crop area specification,"Format: 'W:H:X:Y'. Empty = no crop"
-watermark_path,str,"",No,Watermark image file path,Must be valid image file path if set
+watermark_path,str,"",No,Watermark image file path,"Must be valid image file path if set; input via FileDropInput.vue component (drag-drop or click). Fullscreen drop target is context-dependent: watermark when no aspect_convert, bg_image when aspect_convert I-mode, disabled when aspect_convert T/B-mode"
 watermark_position,str,"bottom-right",No,Watermark position,"Values: top-left, top-right, bottom-left, bottom-right"
 watermark_margin,int,10,No,Watermark margin in pixels,>= 0
 volume,str,"",No,Audio volume adjustment,"Format: '<number>', e.g. '0.5' (half), '2.0' (double). Empty = original"
-speed,str,"",No,Playback speed adjustment,"Range: 0.25-4.0 recommended. Empty = original. Values outside range trigger warning"
+<!-- v2.1.0-CHANGE: Phase 3.5.1 更新 speed 验证范围为 0.25-4 -->
+speed,str,"",No,Playback speed adjustment,"Range: 0.25-4.0 (hard limit). Values outside 0.5-2.0 may cause audio-video desync. Empty = original"
+<!-- v2.1.0-CHANGE: Phase 3 新增音频归一化与横竖屏转换字段 -->
+audio_normalize,bool,False,No,"Enable EBU R128 loudness normalization","Applies FFmpeg loudnorm filter to audio stream. Exclusive with simple volume adjustment"
+target_loudness,int,-16,No,"Target integrated loudness in LUFS","Range: -70 to -5. Default -16 follows EBU R128 standard"
+true_peak,int,-1,No,"True peak limit in dBTP","Range: -9 to 0. Default -1.5 prevents clipping"
+lra,int,11,No,"Loudness range target in LU","Range: 1 to 20. Default 11 for normal content"
+aspect_convert,str,"",No,"Aspect ratio conversion mode","Values: H2V-I (horizontal-to-vertical with image bg), H2V-T (with blurred video bg), H2V-B (black padding), V2H-I, V2H-T, V2H-B. Empty = no conversion"
+target_resolution,str,"1080x1920",No,"Target resolution for aspect conversion,"Format: 'WxH', e.g. '1080x1920', '1920x1080'. UI uses 'x', FFmpeg uses ':' internally. Required when aspect_convert is set"
+bg_image_path,str,"",No,"Background image path for I-mode aspect conversion,"Required for H2V-I and V2H-I modes. Input via FileDropInput component (drag-drop or click). Accepts: .png, .jpg, .jpeg, .bmp, .webp"

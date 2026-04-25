@@ -16,8 +16,8 @@ VALID_TRANSITIONS: dict[TaskState, set[TaskState]] = {
     "running": {"paused", "completed", "failed", "cancelled"},
     "paused": {"running", "cancelled"},
     "failed": {"pending"},
-    "completed": set(),
-    "cancelled": set(),
+    "completed": {"pending"},
+    "cancelled": {"pending"},
 }
 
 
@@ -37,6 +37,13 @@ class TranscodeConfig:
     resolution: str = ""
     framerate: str = ""
     output_extension: str = ".mp4"
+    # Phase 3.5: quality parameters
+    quality_mode: str = ""       # "crf", "cq", "qp"
+    quality_value: int = 0       # CRF/CQ/QP numeric value
+    preset: str = ""             # encoding speed preset
+    pixel_format: str = ""       # "yuv420p", "yuv420p10le"
+    max_bitrate: str = ""        # e.g. "8M"
+    bufsize: str = ""            # e.g. "2M"
 
     def to_dict(self) -> dict:
         return {
@@ -47,6 +54,12 @@ class TranscodeConfig:
             "resolution": self.resolution,
             "framerate": self.framerate,
             "output_extension": self.output_extension,
+            "quality_mode": self.quality_mode,
+            "quality_value": self.quality_value,
+            "preset": self.preset,
+            "pixel_format": self.pixel_format,
+            "max_bitrate": self.max_bitrate,
+            "bufsize": self.bufsize,
         }
 
     @classmethod
@@ -59,6 +72,12 @@ class TranscodeConfig:
             resolution=data.get("resolution", ""),
             framerate=data.get("framerate", ""),
             output_extension=data.get("output_extension", ".mp4"),
+            quality_mode=data.get("quality_mode", ""),
+            quality_value=data.get("quality_value", 0),
+            preset=data.get("preset", ""),
+            pixel_format=data.get("pixel_format", ""),
+            max_bitrate=data.get("max_bitrate", ""),
+            bufsize=data.get("bufsize", ""),
         )
 
 
@@ -78,6 +97,15 @@ class FilterConfig:
     watermark_margin: int = 10
     volume: str = ""
     speed: str = ""
+    # Phase 3: audio normalization
+    audio_normalize: bool = False
+    target_loudness: int = -16
+    true_peak: int = -1
+    lra: int = 11
+    # Phase 3: aspect ratio conversion
+    aspect_convert: str = ""        # H2V-I, H2V-T, H2V-B, V2H-I, V2H-T, V2H-B
+    target_resolution: str = ""     # e.g. "1080x1920"
+    bg_image_path: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -88,6 +116,13 @@ class FilterConfig:
             "watermark_margin": self.watermark_margin,
             "volume": self.volume,
             "speed": self.speed,
+            "audio_normalize": self.audio_normalize,
+            "target_loudness": self.target_loudness,
+            "true_peak": self.true_peak,
+            "lra": self.lra,
+            "aspect_convert": self.aspect_convert,
+            "target_resolution": self.target_resolution,
+            "bg_image_path": self.bg_image_path,
         }
 
     @classmethod
@@ -100,6 +135,116 @@ class FilterConfig:
             watermark_margin=data.get("watermark_margin", 10),
             volume=data.get("volume", ""),
             speed=data.get("speed", ""),
+            audio_normalize=data.get("audio_normalize", False),
+            target_loudness=data.get("target_loudness", -16),
+            true_peak=data.get("true_peak", -1),
+            lra=data.get("lra", 11),
+            aspect_convert=data.get("aspect_convert", ""),
+            target_resolution=data.get("target_resolution", ""),
+            bg_image_path=data.get("bg_image_path", ""),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Clip configuration (Phase 3)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ClipConfig:
+    """Video clipping parameters."""
+
+    clip_mode: str = "extract"          # extract / cut
+    start_time: str = ""               # H:mm:ss.fff format
+    end_time_or_duration: str = ""     # H:mm:ss.fff format
+    use_copy_codec: bool = True
+
+    def to_dict(self) -> dict:
+        return {
+            "clip_mode": self.clip_mode,
+            "start_time": self.start_time,
+            "end_time_or_duration": self.end_time_or_duration,
+            "use_copy_codec": self.use_copy_codec,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ClipConfig:
+        return cls(
+            clip_mode=data.get("clip_mode", "extract"),
+            start_time=data.get("start_time", ""),
+            end_time_or_duration=data.get("end_time_or_duration", ""),
+            use_copy_codec=data.get("use_copy_codec", True),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Merge configuration (Phase 3)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class MergeConfig:
+    """Multi-video concatenation parameters."""
+
+    merge_mode: str = "ts_concat"       # ts_concat / concat_protocol / filter_complex
+    target_resolution: str = "1920x1080" # e.g. "1920x1080" (filter_complex only)
+    target_fps: int = 30                 # filter_complex only
+    file_list: tuple = ()               # tuple of file paths
+    # Phase 3.5: intro/outro
+    intro_path: str = ""                # intro video for batch prepend
+    outro_path: str = ""                # outro video for batch append
+
+    def to_dict(self) -> dict:
+        return {
+            "merge_mode": self.merge_mode,
+            "target_resolution": self.target_resolution,
+            "target_fps": self.target_fps,
+            "file_list": list(self.file_list),
+            "intro_path": self.intro_path,
+            "outro_path": self.outro_path,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> MergeConfig:
+        return cls(
+            merge_mode=data.get("merge_mode", "ts_concat"),
+            target_resolution=data.get("target_resolution", "1920x1080"),
+            target_fps=data.get("target_fps", 30),
+            file_list=tuple(data.get("file_list", [])),
+            intro_path=data.get("intro_path", ""),
+            outro_path=data.get("outro_path", ""),
+        )
+
+
+# ---------------------------------------------------------------------------
+# Audio/Subtitle mixing configuration (Phase 3)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class AudioSubtitleConfig:
+    """External audio and subtitle mixing parameters."""
+
+    external_audio_path: str = ""
+    subtitle_path: str = ""
+    subtitle_language: str = ""
+    replace_audio: bool = True
+
+    def to_dict(self) -> dict:
+        return {
+            "external_audio_path": self.external_audio_path,
+            "subtitle_path": self.subtitle_path,
+            "subtitle_language": self.subtitle_language,
+            "replace_audio": self.replace_audio,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AudioSubtitleConfig:
+        return cls(
+            external_audio_path=data.get("external_audio_path", ""),
+            subtitle_path=data.get("subtitle_path", ""),
+            subtitle_language=data.get("subtitle_language", ""),
+            replace_audio=data.get("replace_audio", True),
         )
 
 
@@ -108,18 +253,48 @@ class FilterConfig:
 # ---------------------------------------------------------------------------
 
 
+# Phase 3.5: Custom command config
+@dataclass(frozen=True)
+class CustomCommandConfig:
+    """Raw FFmpeg command parameters entered by the user."""
+
+    raw_args: str = ""
+    output_extension: str = ".mp4"
+
+    def to_dict(self) -> dict:
+        return {
+            "raw_args": self.raw_args,
+            "output_extension": self.output_extension,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> CustomCommandConfig:
+        return cls(
+            raw_args=data.get("raw_args", ""),
+            output_extension=data.get("output_extension", ".mp4"),
+        )
+
+
 @dataclass(frozen=True)
 class TaskConfig:
     """Complete configuration for a single conversion task."""
 
     transcode: TranscodeConfig = field(default_factory=TranscodeConfig)
     filters: FilterConfig = field(default_factory=FilterConfig)
+    clip: ClipConfig | None = None
+    merge: MergeConfig | None = None
+    avsmix: AudioSubtitleConfig | None = None
+    custom_command: CustomCommandConfig | None = None
     output_dir: str = ""
 
     def to_dict(self) -> dict:
         return {
             "transcode": self.transcode.to_dict(),
             "filters": self.filters.to_dict(),
+            "clip": self.clip.to_dict() if self.clip else None,
+            "merge": self.merge.to_dict() if self.merge else None,
+            "avsmix": self.avsmix.to_dict() if self.avsmix else None,
+            "custom_command": self.custom_command.to_dict() if self.custom_command else None,
             "output_dir": self.output_dir,
         }
 
@@ -130,6 +305,10 @@ class TaskConfig:
         return cls(
             transcode=TranscodeConfig.from_dict(tc),
             filters=FilterConfig.from_dict(fc),
+            clip=ClipConfig.from_dict(data["clip"]) if data.get("clip") else None,
+            merge=MergeConfig.from_dict(data["merge"]) if data.get("merge") else None,
+            avsmix=AudioSubtitleConfig.from_dict(data["avsmix"]) if data.get("avsmix") else None,
+            custom_command=CustomCommandConfig.from_dict(data["custom_command"]) if data.get("custom_command") else None,
             output_dir=data.get("output_dir", ""),
         )
 
@@ -316,6 +495,8 @@ class AppSettings:
     default_output_dir: str = ""
     ffmpeg_path: str = ""
     ffprobe_path: str = ""
+    theme: str = "auto"
+    language: str = "auto"
 
     def to_dict(self) -> dict:
         return {
@@ -323,6 +504,8 @@ class AppSettings:
             "default_output_dir": self.default_output_dir,
             "ffmpeg_path": self.ffmpeg_path,
             "ffprobe_path": self.ffprobe_path,
+            "theme": self.theme,
+            "language": self.language,
         }
 
     @classmethod
@@ -332,4 +515,6 @@ class AppSettings:
             default_output_dir=data.get("default_output_dir", ""),
             ffmpeg_path=data.get("ffmpeg_path", ""),
             ffprobe_path=data.get("ffprobe_path", ""),
+            theme=data.get("theme", "auto"),
+            language=data.get("language", "auto"),
         )

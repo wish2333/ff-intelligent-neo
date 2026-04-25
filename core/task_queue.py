@@ -9,20 +9,13 @@ from pathlib import Path
 from typing import Callable
 
 from core.models import Task, TaskState, VALID_TRANSITIONS
+from core.paths import get_data_dir
 
 _SAVE_DEBOUNCE_SECONDS = 0.5
 
 
-def _appdata_dir() -> Path:
-    import os
-    base = os.environ.get("APPDATA", "")
-    if not base:
-        base = os.path.expanduser("~")
-    return Path(base) / "ff-intelligent-neo"
-
-
 def _queue_path() -> Path:
-    return _appdata_dir() / "queue_state.json"
+    return get_data_dir() / "queue_state.json"
 
 
 class TaskQueue:

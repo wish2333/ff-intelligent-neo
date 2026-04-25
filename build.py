@@ -5,8 +5,10 @@ PyWebVue build script - auto-detect platform and build accordingly.
 Usage
 ============================================================
 
-    uv run build.py              Desktop build (onedir)
-    uv run build.py --onefile    Desktop build (single executable)
+    uv run build.py              Desktop build (onedir, no FFmpeg)
+    uv run build.py --with-ffmpeg Desktop build (onedir, bundle FFmpeg)
+    uv run build.py --onefile    Desktop build (single executable, no FFmpeg)
+    uv run build.py --onefile --with-ffmpeg Desktop build (single exe, bundle FFmpeg)
     uv run build.py --android    Android APK build (macOS / Linux)
     uv run build.py --clean      Remove all build artifacts
 
@@ -45,6 +47,7 @@ Android build details
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -95,8 +98,8 @@ def _run(cmd: list[str], cwd: Path | None = None) -> None:
 # ========== clean ==========
 
 def _clean() -> None:
-    """Remove build artifacts (build/, dist/, temp spec files)."""
-    for name in ("build", "dist"):
+    """Remove build artifacts (build/, dist/, ffmpeg_binaries/, temp spec files)."""
+    for name in ("build", "dist", "ffmpeg_binaries"):
         p = PROJECT_ROOT / name
         if p.exists():
             shutil.rmtree(p)
@@ -107,6 +110,14 @@ def _clean() -> None:
         _info(f"Removed {spec.name}")
 
     _info("Clean complete")
+
+
+def _clean_ffmpeg_binaries() -> None:
+    """Remove ffmpeg_binaries/ directory to prevent stale binaries from being bundled."""
+    ffmpeg_dir = PROJECT_ROOT / "ffmpeg_binaries"
+    if ffmpeg_dir.exists():
+        shutil.rmtree(ffmpeg_dir)
+        _info(f"Removed {ffmpeg_dir.name}/ to prevent bundling stale FFmpeg binaries")
 
 
 # ========== desktop: onedir ==========
@@ -129,13 +140,20 @@ def _pre_download_ffmpeg() -> None:
         _error("FFmpeg pre-download failed. Check network and try again.")
 
 
-def _build_onedir() -> None:
+def _build_onedir(with_ffmpeg: bool = False) -> None:
     """Build desktop app as a directory (uses app.spec directly)."""
     uv = _find_cmd("uv")
     if uv is None:
         _error("uv not found.")
 
-    _pre_download_ffmpeg()
+    if with_ffmpeg:
+        _pre_download_ffmpeg()
+    else:
+        _clean_ffmpeg_binaries()
+
+    # Pass flag to app.spec via environment variable
+    os.environ["BUNDLE_FFMPEG"] = "1" if with_ffmpeg else "0"
+    env = os.environ.copy()
 
     spec = PROJECT_ROOT / "app.spec"
     if not spec.exists():
@@ -147,7 +165,7 @@ def _build_onedir() -> None:
     cmd = [uv, "run", "--", "pyinstaller", "--clean", "--noconfirm", str(spec)]
     _info(f"Running: {' '.join(cmd)}")
 
-    result = subprocess.run(cmd, cwd=str(PROJECT_ROOT))
+    result = subprocess.run(cmd, cwd=str(PROJECT_ROOT), env=env)
     if result.returncode != 0:
         _error("PyInstaller build failed")
 
@@ -156,7 +174,7 @@ def _build_onedir() -> None:
 
 # ========== desktop: onefile ==========
 
-def _build_onefile() -> None:
+def _build_onefile(with_ffmpeg: bool = False) -> None:
     """Build desktop app as a single executable.
 
     Generates a temporary onefile spec based on app.spec config,
@@ -166,7 +184,14 @@ def _build_onefile() -> None:
     if uv is None:
         _error("uv not found.")
 
-    _pre_download_ffmpeg()
+    if with_ffmpeg:
+        _pre_download_ffmpeg()
+    else:
+        _clean_ffmpeg_binaries()
+
+    # Pass flag to spec via environment variable
+    os.environ["BUNDLE_FFMPEG"] = "1" if with_ffmpeg else "0"
+    env = os.environ.copy()
 
     spec_content = _generate_onefile_spec()
     tmp_spec = PROJECT_ROOT / "_build_onefile.spec"
@@ -175,7 +200,7 @@ def _build_onefile() -> None:
     cmd = [uv, "run", "--", "pyinstaller", "--clean", "--noconfirm", str(tmp_spec)]
     _info(f"Running: {' '.join(cmd)}")
 
-    result = subprocess.run(cmd, cwd=str(PROJECT_ROOT))
+    result = subprocess.run(cmd, cwd=str(PROJECT_ROOT), env=env)
 
     tmp_spec.unlink(missing_ok=True)
 
@@ -218,14 +243,16 @@ def _generate_onefile_spec() -> str:
     if presets_dir.is_dir():
         datas_lines += f'        (r"{presets_dir}", "presets"),\n'
 
-    # FFmpeg binaries
+    # FFmpeg binaries (only bundle if BUNDLE_FFMPEG env var is set)
+    bundle_ffmpeg = os.environ.get("BUNDLE_FFMPEG", "0") == "1"
     ffmpeg_bin_dir = project_root / "ffmpeg_binaries"
     ffmpeg_suffix = ".exe" if sys.platform == "win32" else ""
     binaries_lines = ""
-    for bin_name in ("ffmpeg", "ffprobe"):
-        bin_path = ffmpeg_bin_dir / f"{bin_name}{ffmpeg_suffix}"
-        if bin_path.exists():
-            binaries_lines += f'        (r"{bin_path}", "."),\n'
+    if bundle_ffmpeg:
+        for bin_name in ("ffmpeg", "ffprobe"):
+            bin_path = ffmpeg_bin_dir / f"{bin_name}{ffmpeg_suffix}"
+            if bin_path.exists():
+                binaries_lines += f'        (r"{bin_path}", "."),\n'
 
     icon_line = f'    icon=r"{icon}",' if icon else "    icon=None,"
 
@@ -413,10 +440,12 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 examples:
-    uv run build.py              Desktop build (onedir)
-    uv run build.py --onefile    Desktop build (single exe)
-    uv run build.py --android    Android APK (macOS / Linux)
-    uv run build.py --clean      Remove build artifacts
+    uv run build.py                      Desktop build (onedir, no FFmpeg)
+    uv run build.py --with-ffmpeg        Desktop build (onedir, bundle FFmpeg)
+    uv run build.py --onefile            Desktop build (single exe, no FFmpeg)
+    uv run build.py --onefile --with-ffmpeg  Desktop build (single exe, bundle FFmpeg)
+    uv run build.py --android            Android APK (macOS / Linux)
+    uv run build.py --clean              Remove build artifacts
 
 configuration:
     Desktop: edit app.spec
@@ -430,6 +459,8 @@ configuration:
                         help="Build Android APK (requires macOS or Linux)")
     parser.add_argument("--clean", action="store_true",
                         help="Remove build/ and dist/ artifacts")
+    parser.add_argument("--with-ffmpeg", action="store_true",
+                        help="Download and bundle FFmpeg binaries into the package")
     args = parser.parse_args()
 
     if args.clean:
@@ -443,7 +474,7 @@ configuration:
         return
 
     _build_frontend()
-    _build_desktop(onefile=args.onefile)
+    _build_desktop(onefile=args.onefile, with_ffmpeg=args.with_ffmpeg)
 
 
 # ========== frontend build ==========
@@ -475,11 +506,11 @@ def _build_frontend() -> None:
 
 # ========== desktop ==========
 
-def _build_desktop(onefile: bool = False) -> None:
+def _build_desktop(onefile: bool = False, with_ffmpeg: bool = False) -> None:
     if onefile:
-        _build_onefile()
+        _build_onefile(with_ffmpeg=with_ffmpeg)
     else:
-        _build_onedir()
+        _build_onedir(with_ffmpeg=with_ffmpeg)
 
 
 if __name__ == "__main__":

@@ -7,6 +7,9 @@
  */
 
 import { ref, watch } from "vue"
+import { useI18n } from "vue-i18n"
+
+const { t } = useI18n()
 
 const props = defineProps<{
   open: boolean
@@ -51,17 +54,17 @@ function handleClose() {
     @close="handleClose"
   >
     <div class="modal-box">
-      <h3 class="font-bold text-lg mb-4">Save Preset</h3>
+      <h3 class="font-bold text-lg mb-4">{{ t("config.presetEditor.title") }}</h3>
 
       <!-- Name -->
       <div class="form-control mb-4">
         <label class="label">
-          <span class="label-text">Preset Name</span>
+          <span class="label-text">{{ t("config.presetEditor.name") }}</span>
         </label>
         <input
           v-model="name"
           type="text"
-          placeholder="e.g. My Custom H.264"
+          :placeholder="t('config.presetEditor.namePlaceholder')"
           class="input input-bordered w-full"
           @keydown.enter="handleSave"
         />
@@ -70,29 +73,29 @@ function handleClose() {
       <!-- Description -->
       <div class="form-control mb-4">
         <label class="label">
-          <span class="label-text">Description (optional)</span>
+          <span class="label-text">{{ t("config.presetEditor.description") }}</span>
         </label>
         <textarea
           v-model="description"
           class="textarea textarea-bordered w-full h-20"
-          placeholder="Brief description of this preset..."
+          :placeholder="t('config.presetEditor.descriptionPlaceholder')"
         ></textarea>
       </div>
 
       <!-- Actions -->
       <div class="modal-action">
-        <button class="btn btn-ghost" @click="handleClose">Cancel</button>
+        <button class="btn btn-ghost" @click="handleClose">{{ t("common.cancel") }}</button>
         <button
           class="btn btn-primary"
           :disabled="!name.trim()"
           @click="handleSave"
         >
-          Save
+          {{ t("common.save") }}
         </button>
       </div>
     </div>
     <form method="dialog" class="modal-backdrop">
-      <button>close</button>
+      <button>{{ t("common.close") }}</button>
     </form>
   </dialog>
 </template>

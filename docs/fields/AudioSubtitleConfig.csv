@@ -1,0 +1,5 @@
+Field Name,Type,Default,Required,Description,Validation Rules
+external_audio_path,str,"",No,"External audio file path to mix into video,"Must be valid audio file. Input via FileDropInput component (drag-drop or click). Accepts: .mp3, .aac, .flac, .wav, .ogg, .opus, .m4a"
+subtitle_path,str,"",No,"External subtitle file path to embed into video,"Must be valid subtitle file (.srt, .ass, .ssa). Input via FileDropInput component"
+subtitle_language,str,"",No,"Subtitle language code for metadata,"e.g. 'chi', 'eng', 'jpn'. Written to subtitle track metadata via -metadata:s:s:0 language=xxx"
+replace_audio,bool,True,No,"Whether to replace original audio track","True = replace original audio with external audio (-map 0:v -map 1:a), False = keep original audio (subtitle-only mode)"

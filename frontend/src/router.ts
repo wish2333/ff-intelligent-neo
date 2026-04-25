@@ -17,9 +17,24 @@ const router = createRouter({
       component: () => import("./pages/TaskQueuePage.vue"),
     },
     {
-      path: "/command-config",
+      path: "/config",
       name: "CommandConfig",
       component: () => import("./pages/CommandConfigPage.vue"),
+    },
+    {
+      path: "/audio-subtitle",
+      name: "AudioSubtitle",
+      component: () => import("./pages/AudioSubtitlePage.vue"),
+    },
+    {
+      path: "/merge",
+      name: "Merge",
+      component: () => import("./pages/MergePage.vue"),
+    },
+    {
+      path: "/custom-command",
+      name: "CustomCommand",
+      component: () => import("./pages/CustomCommandPage.vue"),
     },
     {
       path: "/settings",

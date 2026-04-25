@@ -6,7 +6,9 @@ Phase 4: pause / resume / retry via OS-level process suspension.
 
 from __future__ import annotations
 
+import os
 import subprocess
+import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable
@@ -76,12 +78,17 @@ class TaskRunner:
     # Single-task control
     # ------------------------------------------------------------------
 
-    def start_task(self, task_id: str) -> bool:
+    def start_task(self, task_id: str, config: dict | None = None) -> bool:
         """Submit a pending task for execution.
+
+        If *config* is provided, it updates ``task.config`` before building
+        the command so the latest UI settings are always used.
 
         Returns ``True`` if the task was submitted, ``False`` otherwise
         (e.g. wrong state, not found).
         """
+        from core.models import TaskConfig
+
         task = self._queue.get_task(task_id)
         if task is None:
             logger.warning("start_task: task {} not found", task_id)
@@ -91,6 +98,24 @@ class TaskRunner:
                 "start_task: invalid transition {} -> running", task.state
             )
             return False
+
+        # Apply latest config from frontend if provided
+        if config is not None:
+            incoming = TaskConfig.from_dict(config)
+            current = task.config
+            # Preserve the task's sub-configs (merge, avsmix, clip, custom_command)
+            # so that a merge task added from MergePage keeps its own merge config
+            # rather than being overwritten by the global config (which may only
+            # have intro/outro from the Config page).
+            task.config = TaskConfig(
+                transcode=incoming.transcode,
+                filters=incoming.filters,
+                clip=current.clip or incoming.clip,
+                merge=current.merge or incoming.merge,
+                avsmix=current.avsmix or incoming.avsmix,
+                custom_command=current.custom_command or incoming.custom_command,
+                output_dir=incoming.output_dir or current.output_dir,
+            )
 
         ffmpeg_path = get_ffmpeg_path()
         ffprobe_path = get_ffprobe_path()
@@ -127,10 +152,25 @@ class TaskRunner:
         # Build FFmpeg args
         args = build_command(task.config, task.file_path, output_path)
 
-        # Submit to thread pool
+        # For concat_protocol and ts_concat merge modes, create a temp list file
+        temp_list_path: str | None = None
+        if task.config.merge and task.config.merge.merge_mode in ("concat_protocol", "ts_concat"):
+            list_content = "\n".join(
+                f"file '{path}'" for path in task.config.merge.file_list
+            )
+            tmp = tempfile.NamedTemporaryFile(
+                mode="w", suffix=".txt", delete=False, encoding="utf-8"
+            )
+            tmp.write(list_content)
+            tmp.close()
+            temp_list_path = tmp.name
+            args = [temp_list_path if a == "list.txt" else a for a in args]
+
+        # Submit to thread pool (pass temp_list_path for cleanup)
         assert self._executor is not None
         self._executor.submit(
-            self._run_task, task, ffmpeg_path, ffprobe_path, args, cancel_event
+            self._run_task, task, ffmpeg_path, ffprobe_path, args, cancel_event,
+            temp_list_path,
         )
         return True
 
@@ -168,7 +208,12 @@ class TaskRunner:
         return True
 
     def pause_task(self, task_id: str) -> bool:
-        """Suspend a running task's FFmpeg process."""
+        """Suspend a running task's FFmpeg process.
+
+        If OS-level suspension fails (e.g. permission denied), falls back
+        to killing the process and marking the task as failed with the
+        current progress preserved so the user can retry.
+        """
         task = self._queue.get_task(task_id)
         if task is None or task.state != "running":
             return False
@@ -191,8 +236,32 @@ class TaskRunner:
                 suspend_process(proc.pid)
             except OSError as exc:
                 logger.warning(
-                    "pause_task: suspend failed (task {}): {}", task_id, exc
+                    "pause_task: suspend failed (task {}): {}, "
+                    "falling back to kill + preserve progress",
+                    task_id, exc,
                 )
+                # Degradation: kill the process and mark as failed
+                # Progress is preserved in the task for potential retry
+                kill_process_tree(proc.pid)
+                try:
+                    proc.wait(timeout=5)
+                except Exception:
+                    pass
+                self._running_procs.pop(task_id, None)
+                cancel_event = self._cancel_events.get(task_id)
+                if cancel_event:
+                    cancel_event.set()
+                with self._lock:
+                    self._cancel_events.pop(task_id, None)
+
+                old_state = self._queue.transition_task(task_id, "failed")
+                task.error = f"Suspend failed: {exc}"
+                self._emit("task_state_changed", {
+                    "task_id": task_id,
+                    "old_state": old_state or "running",
+                    "new_state": "failed",
+                })
+                self._emit("queue_changed", self._queue.get_summary())
                 return False
 
         old_state = self._queue.transition_task(task_id, "paused")
@@ -249,13 +318,16 @@ class TaskRunner:
         logger.info("Task {} resumed", task_id)
         return True
 
-    def retry_task(self, task_id: str) -> bool:
-        """Reset a failed task to pending and re-execute it."""
+    def retry_task(self, task_id: str, config: dict | None = None) -> bool:
+        """Reset a failed task to pending and re-execute it.
+
+        Keeps log_lines intact so the user can review previous failure logs.
+        """
         task = self._queue.get_task(task_id)
         if task is None or task.state != "failed":
             return False
 
-        # Clear error and reset progress
+        # Clear error and reset progress but keep log_lines
         task.error = ""
         task.progress = TaskProgress()
         task.output_path = ""
@@ -270,8 +342,35 @@ class TaskRunner:
         })
         self._emit("queue_changed", self._queue.get_summary())
 
-        # Re-submit for execution
-        return self.start_task(task_id)
+        # Re-submit for execution with latest config
+        return self.start_task(task_id, config=config)
+
+    def reset_task(self, task_id: str) -> bool:
+        """Reset a completed or cancelled task to pending for re-execution.
+
+        Clears log_lines, output_path, error, progress, and timestamps.
+        Does NOT auto-start the task.
+        """
+        task = self._queue.get_task(task_id)
+        if task is None or task.state not in ("completed", "cancelled"):
+            return False
+
+        # Clear all runtime data
+        task.error = ""
+        task.progress = TaskProgress()
+        task.output_path = ""
+        task.log_lines = []
+        task.started_at = ""
+        task.completed_at = ""
+
+        old_state = self._queue.transition_task(task_id, "pending")
+        self._emit("task_state_changed", {
+            "task_id": task_id,
+            "old_state": old_state or task.state,
+            "new_state": "pending",
+        })
+        self._emit("queue_changed", self._queue.get_summary())
+        return True
 
     # ------------------------------------------------------------------
     # Bulk control
@@ -324,8 +423,32 @@ class TaskRunner:
         ffprobe_path: str,
         args: list[str],
         cancel_event: threading.Event,
+        temp_list_path: str | None = None,
     ) -> None:
         """Execute a single task in a worker thread."""
+        task_id = task.id
+
+        try:
+            self._run_task_inner(
+                task, ffmpeg_path, ffprobe_path, args, cancel_event,
+            )
+        finally:
+            # Clean up temp list file for ts_concat
+            if temp_list_path:
+                try:
+                    os.unlink(temp_list_path)
+                except OSError:
+                    pass
+
+    def _run_task_inner(
+        self,
+        task: Task,
+        ffmpeg_path: str,
+        ffprobe_path: str,
+        args: list[str],
+        cancel_event: threading.Event,
+    ) -> None:
+        """Inner task execution (separated for cleanup)."""
         task_id = task.id
 
         def _on_progress(progress: TaskProgress) -> None:

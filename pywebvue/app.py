@@ -134,6 +134,14 @@ class App:
             handler = DOMEventHandler(self._bridge._on_drop, prevent_default=True)
             doc.on("drop", handler)
 
+            # Prevent default browser behavior for drag events in JS
+            # (using Python DOMEventHandler for high-freq events causes
+            #  severe UI lag due to IPC overhead per event)
+            window.evaluate_js(
+                "document.addEventListener('dragover', function(e){e.preventDefault()});"
+                "document.addEventListener('dragenter', function(e){e.preventDefault()});"
+            )
+
             # --- periodic tick (event flush + main-thread tasks) ---
             interval_ms = self._tick_interval
             window.evaluate_js(

@@ -1,8 +1,17 @@
 Field Name,Type,Default,Required,Description,Validation Rules
-video_codec,str,"libx264",Yes,Video codec name,"Common values: libx264, libx265, copy, none"
-audio_codec,str,"aac",Yes,Audio codec name,"Common values: aac, mp3, copy, none"
+<!-- v2.1.0-CHANGE: Phase 3 扩展编码器列表 -->
+video_codec,str,"libx264",Yes,Video codec name,"Expanded: libx264 (H.264), libx265 (H.265), libsvtavav1 (AV1), av1_nvenc (NVIDIA AV1), hevc_nvenc (NVIDIA HEVC), h264_nvenc (NVIDIA H.264), libvpx-vp9 (VP9), h264_amf (AMD), hevc_amf (AMD), h264_qsv (Intel), hevc_qsv (Intel), copy, none. Hardware encoders require detection check"
+audio_codec,str,"aac",Yes,Audio codec name,"Expanded: aac (default 192k), opus (128k), flac (lossless), libmp3lame (320k), alac (lossless), copy, none"
 video_bitrate,str,"",No,Video bitrate string,"Format: '<number><unit>', e.g. '5M', '2000k'. Empty = default"
-audio_bitrate,str,"",No,Audio bitrate string,"Format: '<number><unit>', e.g. '128k'. Empty = default"
+audio_bitrate,str,"128k",No,Audio bitrate string,"Format: '<number><unit>', e.g. '128k', '320k'. Default 128k. Empty = default"
 resolution,str,"",No,Output resolution,"Format: 'WxH', e.g. '1920x1080'. Empty = original"
 framerate,str,"",No,Output framerate,"Format: '<number>', e.g. '30', '60'. Empty = original"
 output_extension,str,".mp4",Yes,Output file extension,"Must include dot prefix, e.g. '.mp4', '.mkv'"
+<!-- v2.1.0-CHANGE: Phase 3.5 新增质量参数字段 -->
+quality_mode,str,"",No,"Quality parameter mode","Values: crf (Constant Rate Factor), cq (Constant Quality), qp (Constant Quantization). Maps to FFmpeg -crf/-cq/-qp flag. Auto-filled when selecting preset encoder"
+quality_value,int,0,No,"Quality numeric value","CRF/CQ/QP numeric value, varies by encoder. Range: 0-51. 0 = disabled. Auto-filled when selecting preset encoder. Lower = better quality for CRF/CQ, higher = better quality for QP"
+preset,str,"",No,"Encoding speed preset","Values: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow. Maps to FFmpeg -preset flag. Only applies when video_codec is not copy/none"
+pixel_format,str,"",No,"Output pixel format","Values: yuv420p (broad compatibility), yuv420p10le (HDR/10-bit), yuv422p, yuv444p. Maps to FFmpeg -pix_fmt flag. Only applies when video_codec is not copy/none"
+max_bitrate,str,"",No,Maximum video bitrate,"Format: '<number><unit>', e.g. '8M'. Maps to FFmpeg -maxrate flag. Requires bufsize. Only applies when video_codec is not copy/none"
+<!-- v2.1.0-CHANGE: Phase 3.5.1 新增 bufsize 字段 -->
+bufsize,str,"",No,Buffer size for rate control,"Format: '<number><unit>', e.g. '2M'. Maps to FFmpeg -bufsize flag. Default 2M when max_bitrate is set but bufsize is empty. Only applies when video_codec is not copy/none"

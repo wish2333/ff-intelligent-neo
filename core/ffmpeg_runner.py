@@ -35,6 +35,16 @@ def _parse_time_to_seconds(match: re.Match) -> float:
 def _get_duration_seconds(ffprobe: str, file_path: str) -> float:
     """Get the duration of a media file using ffprobe."""
     try:
+        run_kw: dict = {
+            "capture_output": True,
+            "text": True,
+            "timeout": 30,
+            "encoding": "utf-8",
+            "errors": "replace",
+        }
+        if sys.platform == "win32":
+            run_kw["creationflags"] = subprocess.CREATE_NO_WINDOW
+
         result = subprocess.run(
             [
                 ffprobe,
@@ -43,11 +53,7 @@ def _get_duration_seconds(ffprobe: str, file_path: str) -> float:
                 "-show_format",
                 file_path,
             ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            encoding="utf-8",
-            errors="replace",
+            **run_kw,
         )
         if result.returncode != 0:
             return 0.0
@@ -98,7 +104,11 @@ def run_single(
         "errors": "replace",
     }
     if sys.platform == "win32":
-        popen_kw["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        popen_kw["creationflags"] = (
+            subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+        )
+    else:
+        popen_kw["start_new_session"] = True
 
     try:
         proc = subprocess.Popen(cmd, **popen_kw)

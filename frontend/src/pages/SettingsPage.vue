@@ -1,20 +1,16 @@
 <script setup lang="ts">
-/**
- * Page 3: Software Settings
- *
- * FFmpeg setup, thread count, output folder, and app info.
- */
-import { onMounted, ref, computed } from "vue"
+import { onMounted, computed } from "vue"
 import { waitForPyWebView } from "../bridge"
 import { useSettings } from "../composables/useSettings"
+import { useI18n } from "vue-i18n"
 
 import FFmpegSetup from "../components/settings/FFmpegSetup.vue"
 import ThreadCountInput from "../components/settings/ThreadCountInput.vue"
 import OutputFolderInput from "../components/settings/OutputFolderInput.vue"
 import AppAbout from "../components/settings/AppAbout.vue"
 
+const { t } = useI18n()
 const s = useSettings()
-const isReady = ref(false)
 
 const currentVersion = computed(() => {
   const active = s.ffmpegVersions.value.find((v) => v.active)
@@ -24,15 +20,11 @@ const currentVersion = computed(() => {
 onMounted(async () => {
   try {
     await waitForPyWebView()
-    await Promise.all([
-      s.fetchSettings(),
-      s.fetchFfmpegVersions(),
-      s.fetchAppInfo(),
-    ])
+    s.fetchSettings()
+    s.fetchFfmpegVersions()
+    s.fetchAppInfo()
   } catch (err) {
     console.error("[SettingsPage] mount failed:", err)
-  } finally {
-    isReady.value = true
   }
 })
 
@@ -47,22 +39,16 @@ async function handleOutputDirChange(value: string): Promise<void> {
 
 <template>
   <div class="flex flex-1 flex-col gap-4 p-4 overflow-auto">
-    <!-- Loading state -->
-    <div v-if="!isReady" class="flex flex-1 items-center justify-center">
-      <span class="loading loading-spinner loading-lg text-primary" />
-    </div>
-
-    <template v-else>
-    <h1 class="text-2xl font-bold">Settings</h1>
+    <h1 class="text-xl font-bold tracking-tight">{{ t("settings.title") }}</h1>
 
     <div class="grid gap-4 lg:grid-cols-2">
-      <!-- FFmpeg Setup -->
-      <div class="card bg-base-200/50">
+      <div class="card bg-base-200 shadow-sm border border-base-300">
         <div class="card-body">
           <FFmpegSetup
             :versions="s.ffmpegVersions.value"
             :status="s.ffmpegStatus.value"
             :current-version="currentVersion"
+            :platform="s.appInfo.value?.platform ?? 'win32'"
             @detect="s.detectFfmpeg()"
             @select-binary="s.selectFfmpegBinary()"
             @switch="(path) => s.switchFfmpeg(path)"
@@ -71,9 +57,8 @@ async function handleOutputDirChange(value: string): Promise<void> {
         </div>
       </div>
 
-      <!-- Concurrency + Output -->
       <div class="space-y-4">
-        <div class="card bg-base-200/50">
+        <div class="card bg-base-200 shadow-sm border border-base-300">
           <div class="card-body">
             <ThreadCountInput
               :value="s.settings.max_workers"
@@ -81,8 +66,7 @@ async function handleOutputDirChange(value: string): Promise<void> {
             />
           </div>
         </div>
-
-        <div class="card bg-base-200/50">
+        <div class="card bg-base-200 shadow-sm border border-base-300">
           <div class="card-body">
             <OutputFolderInput
               :value="s.settings.default_output_dir"
@@ -93,12 +77,10 @@ async function handleOutputDirChange(value: string): Promise<void> {
       </div>
     </div>
 
-    <!-- About -->
-    <div class="card bg-base-200/50">
+    <div class="card bg-base-200 shadow-sm border border-base-300">
       <div class="card-body">
         <AppAbout :info="s.appInfo.value" />
       </div>
     </div>
-    </template>
   </div>
 </template>

@@ -3,6 +3,7 @@
 # PyInstaller spec for FF Intelligent Neo
 # ============================================================
 
+import os
 import sys
 from pathlib import Path
 
@@ -27,13 +28,16 @@ datas.append((str(_presets_dir), "presets"))
 
 
 # ========== FFmpeg binaries ==========
+# Only bundle FFmpeg when BUNDLE_FFMPEG env var is set (set by build.py --with-ffmpeg)
+_bundle_ffmpeg = os.environ.get("BUNDLE_FFMPEG", "0") == "1"
 _ffmpeg_bin_dir = project_root / "ffmpeg_binaries"
 _ffmpeg_suffix = ".exe" if sys.platform == "win32" else ""
 binaries = []
-for _bin_name in ("ffmpeg", "ffprobe"):
-    _bin_path = _ffmpeg_bin_dir / f"{_bin_name}{_ffmpeg_suffix}"
-    if _bin_path.exists():
-        binaries.append((str(_bin_path), "."))
+if _bundle_ffmpeg:
+    for _bin_name in ("ffmpeg", "ffprobe"):
+        _bin_path = _ffmpeg_bin_dir / f"{_bin_name}{_ffmpeg_suffix}"
+        if _bin_path.exists():
+            binaries.append((str(_bin_path), "."))
 
 
 # ========== [MODIFY] Icon ==========

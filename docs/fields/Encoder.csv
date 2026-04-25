@@ -1,0 +1,14 @@
+Field Name,Type,Default,Required,Description,Validation Rules
+name,str,"",Yes,FFmpeg encoder name,"Must be valid FFmpeg encoder name, e.g. libx264, av1_nvenc"
+display_name,str,"",Yes,User-friendly display name,"e.g. 'H.264/AVC', 'H.265/HEVC (NVIDIA)'"
+category,enum,"video",Yes,"Encoder category","Values: video, audio"
+hardware_type,enum,"",No,"Hardware acceleration type","Values: cpu, nvidia, amd, intel. Empty = CPU software encoder"
+recommended_quality,int,"",No,"Recommended quality value,"CRF/CQ/QP value, varies by encoder. 0 = not applicable (e.g. copy, none, lossless)"
+quality_mode,enum,"",No,"Quality parameter mode","Values: crf, cq, qp. Matches encoder's quality parameter type"
+description,str,"",Yes,Usage description and recommendations,"Brief description of encoder characteristics and recommended scenarios"
+priority,enum,"P1",Yes,"Display priority in UI","Values: P0 (primary recommendation), P1 (secondary), P2 (conditional)"
+<!-- v2.1.0-CHANGE: Phase 3.5 EncoderSelect 支持自定义编码器输入 -->
+<!-- UI provides 'Other (custom name)...' option at bottom of dropdown -->
+<!-- When selected, reveals text input for arbitrary FFmpeg encoder name -->
+<!-- Custom encoders bypass supportedEncoders detection check -->
+<!-- Custom encoders do not auto-fill quality parameters -->
