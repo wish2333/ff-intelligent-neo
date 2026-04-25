@@ -2,16 +2,22 @@
   {
     "id": "mp4-h264",
     "name": "MP4 H.264",
-    "description": "Standard H.264 video with AAC audio, good quality-to-size ratio",
+    "description": "Standard H.264 video with AAC audio, best compatibility",
     "config": {
       "transcode": {
         "video_codec": "libx264",
         "audio_codec": "aac",
-        "video_bitrate": "5M",
+        "video_bitrate": "",
         "audio_bitrate": "192k",
         "resolution": "",
         "framerate": "",
-        "output_extension": ".mp4"
+        "output_extension": ".mp4",
+        "quality_mode": "crf",
+        "quality_value": 20,
+        "preset": "medium",
+        "pixel_format": "yuv420p",
+        "max_bitrate": "",
+        "bufsize": ""
       },
       "filters": {
         "rotate": "",
@@ -20,7 +26,14 @@
         "watermark_position": "bottom-right",
         "watermark_margin": 10,
         "volume": "",
-        "speed": ""
+        "speed": "",
+        "audio_normalize": false,
+        "target_loudness": -16,
+        "true_peak": -1,
+        "lra": 11,
+        "aspect_convert": "",
+        "target_resolution": "",
+        "bg_image_path": ""
       },
       "output_dir": ""
     },
@@ -34,11 +47,17 @@
       "transcode": {
         "video_codec": "libx265",
         "audio_codec": "aac",
-        "video_bitrate": "3M",
+        "video_bitrate": "",
         "audio_bitrate": "192k",
         "resolution": "",
         "framerate": "",
-        "output_extension": ".mp4"
+        "output_extension": ".mp4",
+        "quality_mode": "crf",
+        "quality_value": 22,
+        "preset": "medium",
+        "pixel_format": "yuv420p",
+        "max_bitrate": "",
+        "bufsize": ""
       },
       "filters": {
         "rotate": "",
@@ -47,7 +66,14 @@
         "watermark_position": "bottom-right",
         "watermark_margin": 10,
         "volume": "",
-        "speed": ""
+        "speed": "",
+        "audio_normalize": false,
+        "target_loudness": -16,
+        "true_peak": -1,
+        "lra": 11,
+        "aspect_convert": "",
+        "target_resolution": "",
+        "bg_image_path": ""
       },
       "output_dir": ""
     },
@@ -61,11 +87,17 @@
       "transcode": {
         "video_codec": "libx264",
         "audio_codec": "aac",
-        "video_bitrate": "2M",
+        "video_bitrate": "",
         "audio_bitrate": "128k",
         "resolution": "1280x720",
         "framerate": "",
-        "output_extension": ".mp4"
+        "output_extension": ".mp4",
+        "quality_mode": "crf",
+        "quality_value": 20,
+        "preset": "medium",
+        "pixel_format": "yuv420p",
+        "max_bitrate": "",
+        "bufsize": ""
       },
       "filters": {
         "rotate": "",
@@ -74,7 +106,14 @@
         "watermark_position": "bottom-right",
         "watermark_margin": 10,
         "volume": "",
-        "speed": ""
+        "speed": "",
+        "audio_normalize": false,
+        "target_loudness": -16,
+        "true_peak": -1,
+        "lra": 11,
+        "aspect_convert": "",
+        "target_resolution": "",
+        "bg_image_path": ""
       },
       "output_dir": ""
     },
@@ -92,7 +131,13 @@
         "audio_bitrate": "320k",
         "resolution": "",
         "framerate": "",
-        "output_extension": ".mp3"
+        "output_extension": ".mp3",
+        "quality_mode": "",
+        "quality_value": 0,
+        "preset": "",
+        "pixel_format": "",
+        "max_bitrate": "",
+        "bufsize": ""
       },
       "filters": {
         "rotate": "",
@@ -101,7 +146,14 @@
         "watermark_position": "bottom-right",
         "watermark_margin": 10,
         "volume": "",
-        "speed": ""
+        "speed": "",
+        "audio_normalize": false,
+        "target_loudness": -16,
+        "true_peak": -1,
+        "lra": 11,
+        "aspect_convert": "",
+        "target_resolution": "",
+        "bg_image_path": ""
       },
       "output_dir": ""
     },
@@ -119,7 +171,13 @@
         "audio_bitrate": "256k",
         "resolution": "",
         "framerate": "",
-        "output_extension": ".m4a"
+        "output_extension": ".m4a",
+        "quality_mode": "",
+        "quality_value": 0,
+        "preset": "",
+        "pixel_format": "",
+        "max_bitrate": "",
+        "bufsize": ""
       },
       "filters": {
         "rotate": "",
@@ -128,7 +186,14 @@
         "watermark_position": "bottom-right",
         "watermark_margin": 10,
         "volume": "",
-        "speed": ""
+        "speed": "",
+        "audio_normalize": false,
+        "target_loudness": -16,
+        "true_peak": -1,
+        "lra": 11,
+        "aspect_convert": "",
+        "target_resolution": "",
+        "bg_image_path": ""
       },
       "output_dir": ""
     },
@@ -146,7 +211,13 @@
         "audio_bitrate": "",
         "resolution": "",
         "framerate": "",
-        "output_extension": ".mp4"
+        "output_extension": ".mp4",
+        "quality_mode": "",
+        "quality_value": 0,
+        "preset": "",
+        "pixel_format": "",
+        "max_bitrate": "",
+        "bufsize": ""
       },
       "filters": {
         "rotate": "",
@@ -155,7 +226,14 @@
         "watermark_position": "bottom-right",
         "watermark_margin": 10,
         "volume": "",
-        "speed": ""
+        "speed": "",
+        "audio_normalize": false,
+        "target_loudness": -16,
+        "true_peak": -1,
+        "lra": 11,
+        "aspect_convert": "",
+        "target_resolution": "",
+        "bg_image_path": ""
       },
       "output_dir": ""
     },
@@ -164,16 +242,22 @@
   {
     "id": "extract-wav",
     "name": "Extract Audio (WAV)",
-    "description": "Extract audio to uncompressed WAV",
+    "description": "Extract audio to uncompressed WAV (PCM 16-bit)",
     "config": {
       "transcode": {
         "video_codec": "none",
-        "audio_codec": "aac",
+        "audio_codec": "pcm_s16le",
         "video_bitrate": "",
         "audio_bitrate": "",
         "resolution": "",
         "framerate": "",
-        "output_extension": ".wav"
+        "output_extension": ".wav",
+        "quality_mode": "",
+        "quality_value": 0,
+        "preset": "",
+        "pixel_format": "",
+        "max_bitrate": "",
+        "bufsize": ""
       },
       "filters": {
         "rotate": "",
@@ -182,7 +266,14 @@
         "watermark_position": "bottom-right",
         "watermark_margin": 10,
         "volume": "",
-        "speed": ""
+        "speed": "",
+        "audio_normalize": false,
+        "target_loudness": -16,
+        "true_peak": -1,
+        "lra": 11,
+        "aspect_convert": "",
+        "target_resolution": "",
+        "bg_image_path": ""
       },
       "output_dir": ""
     },

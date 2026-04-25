@@ -153,6 +153,7 @@ export default {
       placeholders: {
         resolutionW: "1920",
         resolutionH: "1080",
+        resolutionPreset: "Resolution presets",
         framerate: "e.g. 30, 60 (original if empty)",
         audioBitrate: "e.g. 128k, 320k",
         qualityValue: "0-51 (auto-filled by encoder)",

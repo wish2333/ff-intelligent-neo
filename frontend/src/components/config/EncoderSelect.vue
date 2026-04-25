@@ -63,6 +63,7 @@ function isPresetEncoder(name: string): boolean {
 }
 
 function isSupported(encoder: EncoderConfigDTO): boolean {
+  if (encoder.name === "copy" || encoder.name === "none") return true
   if (!props.supportedEncoders?.length) return true
   return props.supportedEncoders.includes(encoder.name)
 }
@@ -119,7 +120,7 @@ function handleCustomInput(value: string) {
 
     <!-- Custom encoder text input -->
     <input
-      v-if="modelValue === '' && customName === ''"
+      v-if="modelValue === '' || isCustomMode"
       v-model="customName"
       type="text"
       :placeholder="t('config.encoder.customPlaceholder')"

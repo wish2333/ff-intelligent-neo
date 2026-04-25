@@ -153,6 +153,7 @@ export default {
       placeholders: {
         resolutionW: "1920",
         resolutionH: "1080",
+        resolutionPreset: "常用分辨率",
         framerate: "例如 30, 60（留空则保持原值）",
         audioBitrate: "例如 128k, 320k",
         qualityValue: "0-51（由编码器自动填充）",

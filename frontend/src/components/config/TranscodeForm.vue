@@ -47,6 +47,18 @@ const PIXEL_FORMAT_SUGGESTIONS = [
 const isVideoReencode = () =>
   props.config.video_codec !== "copy" && props.config.video_codec !== "none"
 
+const RESOLUTION_PRESETS = [
+  { label: "4K (2160p)", value: "3840x2160" },
+  { label: "2K (1440p)", value: "2560x1440" },
+  { label: "1080p", value: "1920x1080" },
+  { label: "720p", value: "1280x720" },
+  { label: "480p", value: "854x480" },
+  { label: "360p", value: "640x360" },
+  { label: "1080x1920 (vertical)", value: "1080x1920" },
+  { label: "720x1280 (vertical)", value: "720x1280" },
+  { label: "1080x1080 (square)", value: "1080x1080" },
+]
+
 // Split resolution "WxH" into two number inputs
 const resWidth = computed({
   get: () => {
@@ -131,6 +143,22 @@ function handleQualityChange(payload: { quality: number; mode: string } | null) 
           <label class="label py-1">
             <span class="label-text text-xs">{{ t("config.transcode.resolution") }}</span>
           </label>
+          <select
+            :value="config.resolution ? '__custom__' : ''"
+            class="select select-bordered select-sm w-full mb-1"
+            @change="(e) => {
+              const v = (e.target as HTMLSelectElement).value
+              if (v && v !== '__custom__') props.config.resolution = v
+            }"
+          >
+            <option value="" disabled>{{ t("config.transcode.placeholders.resolutionPreset") }}</option>
+            <option v-for="rp in RESOLUTION_PRESETS" :key="rp.value" :value="rp.value">
+              {{ rp.label }} ({{ rp.value }})
+            </option>
+            <option v-if="config.resolution" value="__custom__" disabled>
+              {{ config.resolution }}
+            </option>
+          </select>
           <div class="flex items-center gap-2">
             <input
               v-model.number="resWidth"

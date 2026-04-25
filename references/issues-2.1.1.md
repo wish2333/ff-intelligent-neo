@@ -275,3 +275,81 @@ Phase 5 - 细节打磨:
 - 参数校验失败时精确提示出错字段及原因
 - 全面补全中英文翻译，消除硬编码文案
 ```
+
+## 修复
+
+fix1：视频编码器copy和none不能选被冻结了
+
+fix2：@presets\default_presets.json 格式过时了，而且h264那几个的参数也不符合推荐的参数
+
+feat：前端-配置页-编码配置-分辨率应该提供一些常用的横竖屏分辨率预设可供选择
+
+fix3：视频和音频编码器的自定义输入了一个字符之后就不见了，应该是选择自定义就一直显示，选了其他才消失
+
+```
+  Changes Made
+
+  fix1: EncoderSelect.vue -- Added special case in isSupported() (line 65) so "copy" and "none" always return true,
+  bypassing hardware detection which correctly excludes non-real encoders.
+
+  fix2: default_presets.json -- Updated all 7 presets:
+  - H.264/H.265 now use CRF mode (crf=20 / crf=22, preset=medium, pixel_format=yuv420p) instead of bitrate
+  - Added all Phase 3.5 quality fields (quality_mode, quality_value, preset, pixel_format, max_bitrate, bufsize)
+  - Added Phase 3 filter fields (audio_normalize, target_loudness, true_peak, lra, aspect_convert, target_resolution,
+  bg_image_path)
+  - Fixed "Extract Audio (WAV)": audio_codec changed from aac to pcm_s16le
+
+  feat: TranscodeForm.vue -- Added resolution preset dropdown above the W/H number inputs with 9 common presets: 4K, 2K,
+   1080p, 720p, 480p, 360p (horizontal), 1080x1920, 720x1280 (vertical), 1080x1080 (square). Selecting a preset fills
+  both W and H fields; manual edits show "custom" state in dropdown.
+
+  Manual Test Checklist
+
+  1. Encoder select: verify "Copy (no re-encode)" and "No Video" / "No Audio" are selectable (not grayed out)
+  2. Presets: load "MP4 H.264" preset, verify quality_mode=crf, quality_value=20, preset=medium appear
+  3. Presets: load "Extract Audio (WAV)", verify audio_codec=pcm_s16le
+  4. Resolution: in transcode form, verify preset dropdown shows 9 options; selecting one fills W/H inputs; editing W/H
+  manually shows custom state
+  逻辑：modelValue === ''（刚选了"其他"还没输入）或
+  isCustomMode（已输入自定义名称且不是预设编码器）时显示输入框。选择预设编码器后 isCustomMode=false 且 modelValue
+  不为空，输入框隐藏。
+```
+
+### CC-Mem
+
+    Legend: session-request | 🔴 bugfix | 🟣 feature | 🔄 refactor | ✅ change | 🔵 discovery | ⚖️ decision   
+       #2296            🟣  Resolution presets constant array added to TranscodeForm.vue
+       #2297            🟣  Resolution preset dropdown added to TranscodeForm.vue template above manual number inputs
+     presets/default_presets.json
+       #2298  11:25 PM  🔵  default_presets.json validation confirms Phase 3.5 quality parameters correctly set
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\config\EncoderSelect.vue
+       #2299  11:30 PM  🔴  Fixed encoder custom input field disappearing on first character typed
+     General
+       #2300            🔴  Build verification passed for encoder custom input fix
+
+### 📝 Commit Message
+
+```
+fix(encode): 修复编码选项异常与预设配置
+
+- 修复"直通"和"禁用"编码器因硬件检测被错误冻结的问题
+- 修复自定义编码器输入框输入首字符后自动隐藏的逻辑缺陷
+- 更新默认预设：H.264/H.265 切换为 CRF 模式，补充质量与滤镜字段
+- 修正"提取音频(WAV)"预设的音频编码器配置
+- 新增分辨率预设下拉菜单（含横竖屏等 9 种规格），支持手动输入回退
+```
+
+### 🚀 Release Notes
+
+```
+## 2026-04-25 - 编码配置体验优化与预设升级
+
+### ✨ 新增
+- 编码配置新增常用分辨率快捷选项，涵盖 4K、1080p 等横竖屏及方形共 9 种规格，一键填充宽高
+
+### 🐛 修复
+- 修复"直通"和"无视频/无音频"编码选项被错误置灰无法选择的问题
+- 修复自定义编码器输入框在输入时突然消失的问题
+- 修复内置 H.264/H.265 预设参数不符合推荐标准的问题（已升级为质量优先模式）
+- 修复"提取音频 (WAV)"预设无法正确输出 WAV 格式的问题
+```
