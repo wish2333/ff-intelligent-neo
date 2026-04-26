@@ -85,8 +85,12 @@ async function openFolder(path: string): Promise<void> {
           <polyline points="14 2 14 8 20 8" />
         </svg>
         <div class="min-w-0 flex-1">
-          <div class="truncate font-medium text-sm" :title="task.file_path">
-            {{ task.file_name }}
+          <div class="flex items-center gap-1.5 truncate text-sm" :title="task.file_path">
+            <span
+              v-if="task.task_type === 'auto_editor'"
+              class="badge badge-xs badge-info shrink-0"
+            >{{ t("taskQueue.taskType.autoEditor") }}</span>
+            <span class="truncate font-medium">{{ task.file_name }}</span>
           </div>
           <div class="truncate text-xs opacity-50">
             <span v-if="task.duration_seconds > 0">{{ formatDuration(task.duration_seconds) }}</span>

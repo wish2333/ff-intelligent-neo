@@ -371,6 +371,7 @@ class AutoEditorApi:
                 file_path=str(validated_path),
                 file_name=validated_path.name,
                 file_size_bytes=validated_path.stat().st_size,
+                task_type="auto_editor",
             )
             task.output_path = str(output_path)
             task.config = TaskConfig(output_dir=output_dir)

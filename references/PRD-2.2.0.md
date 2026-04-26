@@ -618,3 +618,142 @@ auto_editor_path,str,"",No,Custom auto-editor binary path,"If empty, auto-cut fe
 <!-- v2.2.0-CHANGE: 无需修改 -->
 - Phase 2 无状态机变更，通用状态机已覆盖 auto-editor 任务
 
+## Phase 3 文档变更
+
+### docs/Structure.md
+
+<!-- v2.2.0-CHANGE: 版本索引新增 Phase 3 条目，新增 BasicTab.vue 组件文档 -->
+
+1. 版本变更索引新增 3 条 Phase 3 条目:
+   - `| v2.2.0 / Phase 3 | BasicTab 组件 | 新建 BasicTab.vue，包含编辑方法/阈值/动作值/动态显隐，从 AutoCutPage 提取 |`
+   - `| v2.2.0 / Phase 3 | useAutoEditor 扩展 | 新增 speedValue/volumeValue ref，更新 buildParams |`
+   - `| v2.2.0 / Phase 3 | i18n 扩展 | en.ts/zh-CN.ts 新增 speed/volume 翻译键 |`
+
+2. 新增 `BasicTab.vue` 配置组件文档（控件表 + 动态行为说明）
+
+### docs/BusinessRules.md
+
+<!-- v2.2.0-CHANGE: auto-editor 前端页面规则新增 action 值输入规则 -->
+
+1. 命令预览规则表新增:
+   - action 值输入: speed:X / volume:X 时显示对应值输入框
+
+### docs/Procedure.md
+
+<!-- v2.2.0-CHANGE: 版本索引新增 Phase 3 条目，新增 action 值动态更新流程 -->
+
+1. 版本变更索引新增 1 条 Phase 3 流程条目
+2. 新增 `Auto-Editor Action 值动态更新流程`（speed/volume 动态显隐 + 参数构建）
+
+### docs/StateMachine.md
+
+<!-- v2.2.0-CHANGE: 无需修改 -->
+- Phase 3 无状态机变更
+
+## Phase 4 文档变更
+
+### docs/Structure.md
+
+<!-- v2.2.0-CHANGE: 版本索引新增 Phase 4 条目，目录树新增 AdvancedTab.vue，新增 AdvancedTab 组件文档 -->
+
+1. 版本变更索引新增 3 条 Phase 4 条目:
+   - `| v2.2.0 / Phase 4 | AdvancedTab 组件 | 新建 AdvancedTab.vue，6 个功能分区，编码器动态查询，范围列表动态增删 |`
+   - `| v2.2.0 / Phase 4 | useAutoEditor 扩展 | 新增 encoderLists ref、编码器查询逻辑 |`
+   - `| v2.2.0 / Phase 4 | i18n 扩展 | en.ts/zh-CN.ts 新增 AdvancedTab 翻译键 |`
+
+2. 整体结构目录树新增:
+   - `frontend/src/components/auto-cut/AdvancedTab.vue`
+
+3. 新增 `AdvancedTab.vue` 配置组件文档（Props/Events/6 分区控件表/动态行为说明）
+
+### docs/BusinessRules.md
+
+<!-- v2.2.0-CHANGE: 新增 AdvancedTab 业务规则章节 -->
+
+1. 新增 `前端页面规则（v2.2.0 Phase 4 — Advanced Tab）` 子章节，包含:
+   - 编码器查询规则（触发时机、结果缓存、空结果处理）
+   - 范围列表规则（格式、增删、空行过滤）
+   - Container Toggles 规则（faststart/fragmented 默认值与 flag 逻辑）
+
+### docs/Procedure.md
+
+<!-- v2.2.0-CHANGE: 版本索引新增 Phase 4 条目，新增编码器查询与范围列表流程 -->
+
+1. 版本变更索引新增 1 条 Phase 4 流程条目
+2. 新增 `Auto-Editor 编码器查询流程`（触发时机、后端解析、前端填充、extension 变更重查）
+3. 新增范围列表管理流程（增删/填写/删除/buildParams 构建）
+
+### docs/StateMachine.md
+
+<!-- v2.2.0-CHANGE: 无需修改 -->
+- Phase 4 无状态机变更
+## Phase 5 文档变更
+
+### docs/Structure.md
+
+<!-- v2.2.0-CHANGE: 版本索引新增 Phase 5 条目，目录树新增 AutoEditorSetup.vue，新增组件文档，TaskRow 扩展 -->
+
+1. 版本变更索引新增 4 条 Phase 5 条目:
+   - `| v2.2.0 / Phase 5 | AutoEditorSetup 组件 | 新建 AutoEditorSetup.vue，auto-editor 路径设置与版本检测，集成到 SettingsPage |`
+   - `| v2.2.0 / Phase 5 | FileDropInput 扩展 | 新增 multiple prop，支持单文件约束模式 |`
+   - `| v2.2.0 / Phase 5 | TaskDTO 扩展 | 新增 task_type 字段，TaskRow 区分 auto_editor / ffmpeg 任务类型 |`
+   - `| v2.2.0 / Phase 5 | i18n 扩展 | en.ts/zh-CN.ts 新增 settings.autoEditor、任务类型标签翻译键 |`
+
+2. 整体结构目录树新增:
+   - `frontend/src/components/settings/AutoEditorSetup.vue`
+
+3. FileDropInput.vue Props 表新增 `multiple` prop 文档
+
+4. 新增 `AutoEditorSetup.vue` 配置组件文档（Props/Events/布局/行为）
+
+5. FFmpegSetup.vue 文档后新增 AutoEditorSetup.vue 设置组件引用文档
+
+6. TaskRow.vue 文档新增 task_type badge 标识说明
+
+### docs/BusinessRules.md
+
+<!-- v2.2.0-CHANGE: 新增 Phase 5 业务规则章节 -->
+
+1. 新增 `前端页面规则（v2.2.0 Phase 5 — Settings & Polish）` 子章节，包含:
+   - Auto-Editor Settings 规则（组件位置、路径选择、版本检测、事件监听、风格一致）
+   - FileDropInput 单文件约束规则（multiple prop、多文件拒绝、错误提示、使用场景）
+   - 任务队列集成规则（task_type 字段、类型标识、进度显示、取消支持、i18n 标签）
+
+### docs/Procedure.md
+
+<!-- v2.2.0-CHANGE: 版本索引新增 Phase 5 条目，新增 2 个 Phase 5 流程 -->
+
+1. 版本变更索引新增 2 条 Phase 5 流程条目
+2. 新增 `Auto-Editor 路径设置流程（Settings 页面）`（mermaid 时序图）
+3. 新增 `Auto-Editor 任务队列集成流程`（文本流程描述）
+
+### docs/StateMachine.md
+
+<!-- v2.2.0-CHANGE: 无需修改 -->
+- Phase 5 无状态机变更，通用状态机已覆盖 auto-editor 任务
+## Phase 6 文档变更
+
+### docs/Structure.md
+
+<!-- v2.2.0-CHANGE: 版本索引新增 Phase 6 条目，目录树新增测试指南文件 -->
+
+1. 版本变更索引新增 1 条 Phase 6 条目:
+   - `| v2.2.0 / Phase 6 | 集成测试指南 | 新建 test-guide-2.2.0.md，覆盖后端与前端全阶段手动测试项 |`
+
+2. 整体结构目录树新增:
+   - `references/test-guide-2.2.0.md`
+
+### docs/BusinessRules.md
+
+<!-- v2.2.0-CHANGE: 无需修改 -->
+- Phase 6 无业务规则变更，仅新增测试指南
+
+### docs/Procedure.md
+
+<!-- v2.2.0-CHANGE: 无需修改 -->
+- Phase 6 无新流程变更，仅新增测试指南
+
+### docs/StateMachine.md
+
+<!-- v2.2.0-CHANGE: 无需修改 -->
+- Phase 6 无状态机变更

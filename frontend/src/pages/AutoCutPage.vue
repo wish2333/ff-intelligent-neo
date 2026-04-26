@@ -5,16 +5,18 @@
  * Automatic silence/motion detection and cutting using auto-editor.
  * Uses useAutoEditor composable for all state management.
  *
- * v2.2.0 Phase 2: Initial page shell with status bar, file input,
- * tab container, command preview, and add-to-queue button.
+ * v2.2.0 Phase 2: Initial page shell.
+ * v2.2.0 Phase 3: Extract BasicTab as independent component.
  */
 
-import { computed, onMounted, onUnmounted } from "vue"
+import { ref, computed, onMounted, onUnmounted } from "vue"
 import { useI18n } from "vue-i18n"
 import { useRouter } from "vue-router"
 import { useAutoEditor } from "../composables/useAutoEditor"
 import CommandPreview from "../components/config/CommandPreview.vue"
 import FileDropInput from "../components/common/FileDropInput.vue"
+import BasicTab from "../components/auto-cut/BasicTab.vue"
+import AdvancedTab from "../components/auto-cut/AdvancedTab.vue"
 
 const { t } = useI18n()
 const router = useRouter()
@@ -27,6 +29,10 @@ const {
   whenNormalAction,
   margin,
   smooth,
+  speedValue,
+  volumeValue,
+  advancedOptions,
+  encoderLists,
   selectedFile,
   autoEditorStatus,
   commandPreview,
@@ -36,18 +42,10 @@ const {
   init,
   dispose,
   addToQueue,
+  fetchEncoders,
 } = useAutoEditor()
 
-const currentThreshold = computed({
-  get: () => editMethod.value === "audio" ? audioThreshold.value : motionThreshold.value,
-  set: (v: number) => {
-    if (editMethod.value === "audio") {
-      audioThreshold.value = v
-    } else {
-      motionThreshold.value = v
-    }
-  },
-})
+const activeTab = ref("basic")
 
 const isReady = computed(
   () => autoEditorStatus.value.available && autoEditorStatus.value.compatible,
@@ -65,7 +63,9 @@ const statusMessage = computed(() => {
   return ""
 })
 
-const activeTab = computed(() => "basic")
+function handleTabClick(tab: string) {
+  activeTab.value = tab
+}
 
 async function handleAddToQueue() {
   const success = await addToQueue()
@@ -116,104 +116,53 @@ onUnmounted(() => {
       @update:model-value="selectedFile = $event || null"
     />
 
-    <!-- Tab container placeholder -->
-    <div class="tabs tabs-bordered">
-      <a class="tab tab-active" data-tab="basic">{{ t("autoCut.basicTab") }}</a>
-      <a class="tab" data-tab="advanced">{{ t("autoCut.advancedTab") }}</a>
+    <!-- Tab container -->
+    <div role="tablist" class="tabs tabs-bordered">
+      <a
+        role="tab"
+        class="tab"
+        :class="{ 'tab-active': activeTab === 'basic' }"
+        @click="handleTabClick('basic')"
+      >{{ t("autoCut.basicTab") }}</a>
+      <a
+        role="tab"
+        class="tab"
+        :class="{ 'tab-active': activeTab === 'advanced' }"
+        @click="handleTabClick('advanced')"
+      >{{ t("autoCut.advancedTab") }}</a>
     </div>
 
-    <!-- Basic tab content placeholder -->
-    <div v-if="activeTab === 'basic'" class="card bg-base-200 shadow-sm border border-base-300">
-      <div class="card-body">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Edit method -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">{{ t("autoCut.editMethod") }}</span>
-            </label>
-            <select
-              v-model="editMethod"
-              class="select select-bordered select-sm w-full"
-            >
-              <option value="audio">{{ t("autoCut.audio") }}</option>
-              <option value="motion">{{ t("autoCut.motion") }}</option>
-            </select>
-          </div>
+    <!-- Basic tab -->
+    <BasicTab
+      v-show="activeTab === 'basic'"
+      :edit-method="editMethod"
+      :audio-threshold="audioThreshold"
+      :motion-threshold="motionThreshold"
+      :when-silent-action="whenSilentAction"
+      :when-normal-action="whenNormalAction"
+      :margin="margin"
+      :smooth="smooth"
+      :speed-value="speedValue"
+      :volume-value="volumeValue"
+      @update:edit-method="editMethod = $event"
+      @update:audio-threshold="audioThreshold = $event"
+      @update:motion-threshold="motionThreshold = $event"
+      @update:when-silent-action="whenSilentAction = $event"
+      @update:when-normal-action="whenNormalAction = $event"
+      @update:margin="margin = $event"
+      @update:smooth="smooth = $event"
+      @update:speed-value="speedValue = $event"
+      @update:volume-value="volumeValue = $event"
+    />
 
-          <!-- Threshold -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">{{ t("autoCut.threshold") }}</span>
-              <span class="label-text-alt">{{ currentThreshold }}</span>
-            </label>
-            <input
-              v-model.number="currentThreshold"
-              type="range"
-              min="0.01"
-              max="0.20"
-              step="0.01"
-              class="range range-sm range-primary"
-            />
-          </div>
-
-          <!-- When silent -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">{{ t("autoCut.whenSilent") }}</span>
-            </label>
-            <select
-              v-model="whenSilentAction"
-              class="select select-bordered select-sm w-full"
-            >
-              <option value="cut">cut</option>
-              <option value="nil">nil</option>
-            </select>
-          </div>
-
-          <!-- When normal -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">{{ t("autoCut.whenNormal") }}</span>
-            </label>
-            <select
-              v-model="whenNormalAction"
-              class="select select-bordered select-sm w-full"
-            >
-              <option value="nil">nil</option>
-              <option value="cut">cut</option>
-            </select>
-          </div>
-
-          <!-- Margin -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">{{ t("autoCut.margin") }}</span>
-            </label>
-            <input
-              v-model="margin"
-              type="text"
-              class="input input-bordered input-sm w-full"
-              placeholder="0.2s"
-            />
-          </div>
-
-          <!-- Smooth -->
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text">
-                {{ t("autoCut.smoothMincut") }} / {{ t("autoCut.smoothMinclip") }}
-              </span>
-            </label>
-            <input
-              v-model="smooth"
-              type="text"
-              class="input input-bordered input-sm w-full"
-              placeholder="0.2s,0.1s"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Advanced tab -->
+    <AdvancedTab
+      v-show="activeTab === 'advanced'"
+      :advanced-options="advancedOptions"
+      :encoder-lists="encoderLists"
+      @update:advanced-options="advancedOptions = $event"
+      @fetch-encoders="fetchEncoders($event)"
+    />
 
     <!-- Command preview -->
     <CommandPreview

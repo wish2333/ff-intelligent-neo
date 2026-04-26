@@ -614,6 +614,39 @@
 | 切换阈值 | 切换 editMethod 时自动切换阈值默认值（audio 0.04 / motion 0.02） |
 | 状态监听 | 监听 `auto_editor_version_changed` 事件实时更新 auto-editor 状态 |
 
+| action 值输入 | 当 whenSilent/whenNormal 为 speed:X 时显示 Speed 输入框，值为 X；volume:X 同理 |
+
+### 前端页面规则（v2.2.0 Phase 4 — Advanced Tab）
+
+<!-- v2.2.0-CHANGE: 新增 AdvancedTab 业务规则 -->
+
+**编码器查询**:
+
+| 规则 | 说明 |
+|------|------|
+| 触发时机 | 初次进入 Advanced 选项卡时自动查询，output extension 变更时重新查询 |
+| 查询 API | `get_auto_editor_encoders(output_extension)` |
+| 结果缓存 | 查询结果存储在 composable 中，避免重复查询 |
+| 空结果 | 查询失败或未配置 auto-editor 时下拉框显示空选项 |
+
+**范围列表**:
+
+| 规则 | 说明 |
+|------|------|
+| cut-out/add-in 格式 | "start,end" 时间范围字符串，如 "0,10" |
+| set-action 格式 | "start,end,action" 三段式，如 "0,10,cut" |
+| 增删 | 动态列表，每行可删除，底部添加按钮 |
+| 空行过滤 | 构建 params 时过滤空字符串 |
+
+**Container Toggles**:
+
+| 规则 | 说明 |
+|------|------|
+| faststart 默认 ON | ON 时不发任何 flag（auto-editor 默认行为），OFF 时发 `--no-faststart` |
+| fragmented 默认 OFF | OFF 时不发任何 flag，ON 时发 `--fragmented` |
+| vn/an/sn/dn | 开启时发对应的 `-vn`/`-an`/`-sn`/`-dn` flag |
+
+
 **导航与国际化**:
 
 | 规则 | 说明 |
@@ -621,4 +654,36 @@
 | 导航项位置 | AutoCut 位于 AudioSubtitle 和 Merge 之间 |
 | i18n key | `nav.autoCut` = "Auto Cut" / "自动剪辑" |
 | 状态徽标 | auto-editor 状态徽标位于 FFmpeg 状态徽标之后，样式复用 FFmpeg badge |
- |
+
+### 前端页面规则（v2.2.0 Phase 5 — Settings & Polish）
+
+<!-- v2.2.0-CHANGE: 新增 Phase 5 业务规则 -->
+
+**Auto-Editor Settings 规则**:
+
+| 规则 | 说明 |
+|------|------|
+| 组件位置 | AutoEditorSetup.vue 位于 SettingsPage 右侧列，与 ThreadCountInput 同列 |
+| 路径选择 | 通过文件选择器选择 auto-editor 二进制路径，后端执行 `--version` 验证 |
+| 版本检测 | 配置成功后显示版本号，不兼容时显示黄色警告 |
+| 事件监听 | 监听 `auto_editor_version_changed` 事件实时更新状态 |
+| 风格一致 | 与 FFmpegSetup.vue 保持相同的 badge 状态指示 + 操作按钮风格 |
+
+**FileDropInput 单文件约束规则**:
+
+| 规则 | 说明 |
+|------|------|
+| multiple prop | 新增 `multiple` prop，默认 `true`（向后兼容） |
+| 多文件拒绝 | `multiple=false` 时，拖拽或选择多个文件显示错误提示 |
+| 错误提示 | 错误信息使用 i18n key `common.onlyOneFile` |
+| 使用场景 | AutoCutPage 使用 `:multiple="false"` |
+
+**任务队列集成规则**:
+
+| 规则 | 说明 |
+|------|------|
+| task_type 字段 | TaskDTO 新增 `task_type` 字段（`"ffmpeg"` / `"auto_editor"`），后端在创建任务时设置 |
+| 类型标识 | TaskRow 在文件名前显示 task_type badge，区分任务来源 |
+| 进度显示 | auto-editor 任务复用通用进度条，进度由 `task_progress` 事件驱动 |
+| 取消支持 | auto-editor 任务取消使用 terminate -> wait(5s) -> kill 顺序，清理部分输出 |
+| i18n 标签 | `taskQueue.taskType.ffmpeg` / `taskQueue.taskType.autoEditor`|

@@ -10,45 +10,7 @@
 
 import { ref, watch } from "vue"
 import { call, onEvent } from "../bridge"
-
-interface AeStatus {
-  available: boolean
-  compatible: boolean
-  version: string
-  path: string
-}
-
-interface EncoderResult {
-  video: string[]
-  audio: string[]
-  subtitle: string[]
-  other: string[]
-}
-
-interface AdvancedOptions {
-  cutOutRanges: string[]
-  addInRange: string[]
-  setActionRanges: string[]
-  frameRate: string
-  sampleRate: string
-  resolution: string
-  vn: boolean
-  an: boolean
-  sn: boolean
-  dn: boolean
-  videoCodec: string
-  audioCodec: string
-  videoBitrate: string
-  audioBitrate: string
-  crf: string
-  audioLayout: string
-  audioNormalize: string
-  noCache: boolean
-  open: boolean
-  faststart: boolean
-  fragmented: boolean
-  outputExtension: string
-}
+import type { AeStatus, AdvancedOptions, EncoderLists } from "../types/autoEditor"
 
 const PREVIEW_DEBOUNCE_MS = 300
 
@@ -61,6 +23,15 @@ export function useAutoEditor() {
   const whenNormalAction = ref("nil")
   const margin = ref("0.2s")
   const smooth = ref("0.2s,0.1s")
+  const speedValue = ref(4)
+  const volumeValue = ref(0.5)
+
+  const encoderLists = ref<EncoderLists>({
+    video: [],
+    audio: [],
+    subtitle: [],
+    other: [],
+  })
 
   const advancedOptions = ref<AdvancedOptions>({
     cutOutRanges: [],
@@ -126,17 +97,18 @@ export function useAutoEditor() {
     return false
   }
 
-  async function fetchEncoders(format: string): Promise<EncoderResult | null> {
-    const res = await call<EncoderResult>("get_auto_editor_encoders", format)
+  async function fetchEncoders(format: string): Promise<void> {
+    const res = await call<EncoderLists>("get_auto_editor_encoders", format)
     if (res.success && res.data) {
-      return res.data
+      encoderLists.value = res.data
+    } else {
+      encoderLists.value = { video: [], audio: [], subtitle: [], other: [] }
+      if (res.error) {
+        alertMessage.value = res.error
+        alertType.value = "error"
+        clearAlert()
+      }
     }
-    if (res.error) {
-      alertMessage.value = res.error
-      alertType.value = "error"
-      clearAlert()
-    }
-    return null
   }
 
   function buildParams(): Record<string, unknown> {
@@ -145,8 +117,20 @@ export function useAutoEditor() {
       threshold: editMethod.value === "audio"
         ? audioThreshold.value
         : motionThreshold.value,
-      when_silent: whenSilentAction.value,
-      when_normal: whenNormalAction.value,
+      when_silent: whenSilentAction.value === "cut"
+        ? "cut"
+        : whenSilentAction.value === "speed"
+          ? `speed:${speedValue.value}`
+          : whenSilentAction.value === "volume"
+            ? `volume:${volumeValue.value}`
+            : whenSilentAction.value,
+      when_normal: whenNormalAction.value === "cut"
+        ? "cut"
+        : whenNormalAction.value === "speed"
+          ? `speed:${speedValue.value}`
+          : whenNormalAction.value === "volume"
+            ? `volume:${volumeValue.value}`
+            : whenNormalAction.value,
       margin: margin.value,
       smooth: smooth.value,
       input_file: selectedFile.value ?? "",
@@ -238,7 +222,8 @@ export function useAutoEditor() {
   // --- Watch for parameter changes -> debounced preview ---
   watch(
     [editMethod, audioThreshold, motionThreshold, whenSilentAction,
-     whenNormalAction, margin, smooth, selectedFile, advancedOptions],
+     whenNormalAction, margin, smooth, speedValue, volumeValue,
+     selectedFile, advancedOptions],
     () => {
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(updatePreview, PREVIEW_DEBOUNCE_MS)
@@ -294,7 +279,10 @@ export function useAutoEditor() {
     whenNormalAction,
     margin,
     smooth,
+    speedValue,
+    volumeValue,
     advancedOptions,
+    encoderLists,
     commandPreview,
     selectedFile,
     autoEditorStatus,

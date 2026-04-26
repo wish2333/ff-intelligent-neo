@@ -357,6 +357,7 @@ class Task:
     file_size_bytes: int = 0
     duration_seconds: float = 0.0
     config: TaskConfig = field(default_factory=TaskConfig)
+    task_type: str = "ffmpeg"
     state: TaskState = "pending"
     progress: TaskProgress = field(default_factory=TaskProgress)
     output_path: str = ""
@@ -404,6 +405,7 @@ class Task:
             "file_size_bytes": self.file_size_bytes,
             "duration_seconds": self.duration_seconds,
             "config": self.config.to_dict(),
+            "task_type": self.task_type,
             "state": self.state,
             "progress": self.progress.to_dict(),
             "output_path": self.output_path,
@@ -426,6 +428,7 @@ class Task:
             file_size_bytes=data.get("file_size_bytes", 0),
             duration_seconds=data.get("duration_seconds", 0.0),
             config=TaskConfig.from_dict(data.get("config", {})),
+            task_type=data.get("task_type", "ffmpeg"),
             state=data.get("state", "pending"),
             progress=TaskProgress(
                 percent=pr.get("percent", 0.0),

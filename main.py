@@ -832,9 +832,9 @@ if __name__ == "__main__":
     app = App(
         api,
         title="FF Intelligent Neo",
-        width=1200,
-        height=900,
-        min_size=(1000, 600),
+        width=1260,
+        height=1000,
+        min_size=(1100, 600),
         frontend_dir="frontend_dist",
         on_closing=api._cleanup,
     )

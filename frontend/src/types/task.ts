@@ -25,6 +25,7 @@ export interface TaskDTO {
   file_size_bytes: number
   duration_seconds: number
   config: TaskConfigDTO
+  task_type: string
   state: TaskState
   progress: TaskProgressDTO
   output_path: string

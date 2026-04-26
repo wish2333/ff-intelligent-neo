@@ -7,6 +7,7 @@
  * File type validation is performed on the frontend.
  *
  * Phase 3.5.1: Add fullscreenDrop prop for document-level drag handling.
+ * Phase 5: Add multiple prop for single-file constraint mode.
  */
 import { ref, computed, onMounted, onUnmounted } from "vue"
 import { useI18n } from "vue-i18n"
@@ -20,8 +21,10 @@ const props = withDefaults(defineProps<{
   accept?: string
   placeholder?: string
   fullscreenDrop?: boolean
+  multiple?: boolean
 }>(), {
   fullscreenDrop: false,
+  multiple: true,
 })
 
 const emit = defineEmits<{
@@ -82,6 +85,10 @@ async function onDrop(e: DragEvent): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 80))
   const res = await call<string[]>("get_dropped_files")
   if (res.success && res.data && res.data.length > 0) {
+    if (!props.multiple && res.data.length > 1) {
+      error.value = t("common.onlyOneFile")
+      return
+    }
     const path = res.data[0]
     if (validateExtension(path)) {
       emit("update:modelValue", path)
@@ -118,6 +125,10 @@ async function onFullscreenDrop(e: DragEvent): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 80))
   const res = await call<string[]>("get_dropped_files")
   if (res.success && res.data && res.data.length > 0) {
+    if (!props.multiple && res.data.length > 1) {
+      error.value = t("common.onlyOneFile")
+      return
+    }
     const path = res.data[0]
     if (validateExtension(path)) {
       emit("update:modelValue", path)

@@ -37,6 +37,10 @@
 | v2.2.0 / Phase 1 | Auto-Editor 编码器查询流程 | 新增 |
 | v2.2.0 / Phase 2 | Auto-Editor 页面初始化流程 | 新增前端状态检查与 composable 初始化 |
 | v2.2.0 / Phase 2 | Auto-Editor 命令预览流程 | 新增 debounced 命令预览与类型切换 |
+| v2.2.0 / Phase 3 | Auto-Editor 动作值更新流程 | 新增 speed/volume action 值动态显隐 |
+| v2.2.0 / Phase 4 | Auto-Editor 编码器查询流程 | 新增 Advanced Tab 编码器动态查询与范围列表管理 |
+| v2.2.0 / Phase 5 | Auto-Editor 路径设置流程（Settings 页面） | 新增 Settings 页面 auto-editor 配置流程 |
+| v2.2.0 / Phase 5 | Auto-Editor 任务队列集成流程 | 新增 auto-editor 任务在队列中的展示与控制 |
 
 ---
 
@@ -1056,3 +1060,99 @@ sequenceDiagram
 | 参数来源 | configRef (computed) | composable reactive state |
 | 验证 | 返回 errors/warnings | 返回 success/error |
 | 显示模式 | FFmpeg 语法高亮 | 纯文本 |
+
+### Auto-Editor Action 值动态更新流程（v2.2.0 Phase 3）
+
+<!-- v2.2.0-CHANGE: 新增 action 值动态显隐流程 -->
+
+\`\`\`
+用户选择 whenSilent 或 whenNormal action
+-> select v-model 更新 whenSilentAction / whenNormalAction
+-> computed hasSpeedAction / hasVolumeAction 判断 action 值是否包含 "speed:" / "volume:"
+  -> action.startsWith("speed:") -> true
+  -> action.startsWith("volume:") -> true
+-> v-if="hasSpeedAction": 显示 Speed 输入框
+  -> Speed 输入变更 -> speedValue ref 更新
+-> v-if="hasVolumeAction": 显示 Volume 输入框
+  -> Volume 输入变更 -> volumeValue ref 更新
+-> 参数构建:
+  -> action="speed:4" -> params.when_silent="speed:4", params.speed_value="4"
+  -> action="volume:0.5" -> params.when_normal="volume:0.5", params.volume_value="0.5"
+  -> action="cut" -> params.when_silent="cut" (无 speed/volume 参数)
+\`\`\`
+
+### Auto-Editor 路径设置流程（Settings 页面）（v2.2.0 Phase 5）
+
+<!-- v2.2.0-CHANGE: 新增 Settings 页面 auto-editor 配置流程 -->
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant Settings as SettingsPage
+    participant Setup as AutoEditorSetup.vue
+    participant Main as main.py
+    participant Api as AutoEditorApi
+    participant Navbar as AppNavbar.vue
+
+    User->>Settings: 进入 Settings 页面
+    Settings->>Setup: 传递 autoEditorStatus
+    Setup->>Main: get_auto_editor_status()
+    Main-->>Setup: 返回 {available, compatible, version, path}
+    Note over Setup: 显示当前状态 badge
+
+    User->>Setup: 点击 "Select Binary"
+    Setup->>Main: select_file()
+    Main-->>Setup: 返回路径
+    Setup->>Main: set_auto_editor_path(path)
+    Main->>Api: set_auto_editor_path(path)
+    Api->>Api: 执行 auto-editor --version 验证
+    alt 验证失败
+        Api-->>Main: {success: false, error: "..."}
+        Main-->>Setup: 显示错误提示
+    else 版本不兼容
+        Api-->>Main: {success: false, error: "version X not supported"}
+        Main-->>Setup: 显示黄色警告
+    else 验证成功
+        Api->>Api: save_settings({auto_editor_path: path})
+        Api-->>Main: {success: true, data: {version, path}}
+        Main->>Main: _emit("auto_editor_version_changed", {...})
+        Main-->>Setup: 更新状态为就绪
+        Note over Navbar: 监听到 auto_editor_version_changed 事件
+        Navbar->>Navbar: 更新 auto-editor 状态徽标
+    end
+```
+
+#### 流程说明
+
+1. 用户进入 Settings 页面，AutoEditorSetup 自动获取当前 auto-editor 状态
+2. 用户点击 "Select Binary" 选择二进制路径
+3. 后端执行 `--version` 验证路径有效性和版本兼容性
+4. 验证通过后保存到 AppSettings，广播 `auto_editor_version_changed` 事件
+5. AppNavbar 和 AutoEditorSetup 同时响应事件更新 UI
+
+### Auto-Editor 任务队列集成流程（v2.2.0 Phase 5）
+
+<!-- v2.2.0-CHANGE: 新增 auto-editor 任务队列展示与控制流程 -->
+
+\`\`\`
+用户在 AutoCutPage 点击 "Add to Queue"
+-> useAutoEditor.addToQueue()
+  -> call("add_auto_editor_task", input_file, params)
+  -> 后端: validate + enqueue task (task_type="auto_editor")
+  -> 返回: {success, data: {task_id}}
+-> 用户跳转到任务队列页面
+-> TaskQueuePage:
+  -> fetchTasks() 获取任务列表（含 task_type 字段）
+  -> TaskList 渲染任务列表
+  -> TaskRow 根据 task_type 显示对应 badge
+    -> task_type="auto_editor": 显示 "Auto Cut" badge
+    -> task_type="ffmpeg": 显示 "FFmpeg" badge（或不显示，作为默认类型）
+-> 任务执行中:
+  -> task_runner 调度 auto_editor 任务
+  -> 进度通过 task_progress 事件推送
+  -> TaskProgressBar 实时更新百分比
+-> 用户取消任务:
+  -> control.stopTask(task_id)
+  -> 后端: terminate -> wait(5s) -> kill -> 清理部分输出
+  -> task_state_changed 事件更新前端状态
+\`\`\`
