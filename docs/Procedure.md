@@ -31,6 +31,12 @@
 | v2.1.1 | 命令预览流程（重写） | v2.1.1 重写，合并 IPC |
 | v2.1.1 | 文件探测异步流程 | v2.1.1 新增 |
 | v2.1.1 | FFmpeg 下载完成流程（修改） | v2.1.1 改为事件驱动 |
+| v2.2.0 / Phase 1 | Auto-Editor 路径设置流程 | 新增 |
+| v2.2.0 / Phase 1 | Auto-Editor 任务添加流程 | 新增 |
+| v2.2.0 / Phase 1 | Auto-Editor 任务执行流程 | 新增 |
+| v2.2.0 / Phase 1 | Auto-Editor 编码器查询流程 | 新增 |
+| v2.2.0 / Phase 2 | Auto-Editor 页面初始化流程 | 新增前端状态检查与 composable 初始化 |
+| v2.2.0 / Phase 2 | Auto-Editor 命令预览流程 | 新增 debounced 命令预览与类型切换 |
 
 ---
 
@@ -876,3 +882,177 @@ main.py 启动
 
 - 单个文件 probe 失败不影响其他文件
 - probe 失败时保持占位数据（duration=0），不触发 task_info_updated 事件
+
+---
+
+## Auto-Editor 流程（v2.2.0）
+
+### Auto-Editor 路径设置流程
+
+<!-- v2.2.0-CHANGE: 新增 auto-editor 路径设置流程 -->
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant Settings as Settings 页面
+    participant Api as AutoEditorApi
+    participant SettingsMgr as save_settings
+    participant Navbar as AppNavbar.vue
+
+    User->>Settings: 选择 auto-editor 二进制路径
+    Settings->>Api: set_auto_editor_path(path)
+    Api->>Api: subprocess.run([path, "--version"], timeout=10)
+    alt 版本验证失败
+        Api-->>Settings: {success: false, error: "invalid version"}
+    else 版本不兼容
+        Api-->>Settings: {success: false, error: "version X not supported"}
+    else 成功
+        Api->>SettingsMgr: save_settings(settings)
+        Api->>Api: _emit("auto_editor_version_changed", {version, path, status: "ready"})
+        Api-->>Settings: {success: true, data: {version, path}}
+        Note over Navbar: 监听到 auto_editor_version_changed 事件
+        Navbar->>Navbar: 更新 auto-editor 状态徽标
+    end
+```
+
+### Auto-Editor 任务添加流程
+
+<!-- v2.2.0-CHANGE: 新增 auto-editor 任务添加流程 -->
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant Page as AutoCutPage
+    participant Api as AutoEditorApi
+    participant Runner as auto_editor_runner.py
+    participant Queue as TaskQueue
+
+    User->>Page: 选择文件 + 配置参数
+    User->>Page: 点击 "Add to Queue"
+    Page->>Api: add_auto_editor_task(input_file, params)
+    Api->>Runner: validate_local_input(input_file)
+    alt 验证失败（URL/不存在/扩展名无效）
+        Api-->>Page: {success: false, error: "..."}
+    else 验证通过
+        Api->>Api: 校验参数（audio+motion 互斥等）
+        Api->>Queue: enqueue(task)
+        Api-->>Page: {success: true, data: {task_id}}
+        Note over Page: 切换到任务队列页面
+    end
+```
+
+### Auto-Editor 任务执行流程
+
+<!-- v2.2.0-CHANGE: 新增 auto-editor 任务执行流程 -->
+
+```mermaid
+sequenceDiagram
+    participant Runner as task_runner.py
+    participant Builder as auto_editor_runner.py
+    participant Proc as subprocess
+    participant Parser as parse_auto_editor_segment
+    participant Queue as TaskQueue
+
+    Runner->>Runner: start_task(task_id)
+    Runner->>Builder: build_command(input_file, params, path, output_path)
+    Runner->>Proc: Popen(cmd, stdout=PIPE, stderr=STDOUT)
+    loop 读取 stdout（按 \r 分割）
+        Proc-->>Runner: chunk data
+        Runner->>Parser: parse_auto_editor_segment(segment)
+        alt machine 格式（title~current~total~eta）
+            Parser-->>Runner: {title, progress, eta_seconds}
+            Runner->>Runner: 更新 TaskProgress + emit task_progress
+        else 非 machine 格式
+            Parser-->>Runner: {type: "log", message}
+            Runner->>Runner: 追加到 task.log_lines
+        end
+    end
+    Proc-->>Runner: 进程退出（returncode）
+    alt returncode == 0
+        Runner->>Queue: transition_task(task_id, "completed")
+    else returncode != 0
+        Runner->>Queue: transition_task(task_id, "failed")
+    end
+```
+
+### Auto-Editor 编码器查询流程
+
+<!-- v2.2.0-CHANGE: 新增 auto-editor 编码器查询流程 -->
+
+```mermaid
+sequenceDiagram
+    participant Page as AdvancedTab
+    participant Api as AutoEditorApi
+    participant Proc as subprocess
+
+    Page->>Api: get_auto_editor_encoders("mp4")
+    Api->>Proc: subprocess.run([path, "info", "-encoders", "mp4"])
+    Proc-->>Api: stdout (v: libx264\na: aac\n...)
+    Api->>Api: _parse_encoder_output(stdout)
+    Api-->>Page: {success: true, data: {video: [...], audio: [...]}}
+    Note over Page: 填充 Codec 下拉框
+```
+
+
+### Auto-Editor 页面初始化流程（v2.2.0 Phase 2）
+
+<!-- v2.2.0-CHANGE: 新增 auto-editor 页面初始化流程 -->
+
+```
+用户导航到 /auto-cut
+-> AutoCutPage.vue onMounted
+-> useAutoEditor composable 初始化:
+  -> fetchStatus()  // call get_auto_editor_status
+  -> 后端:
+    -> load_settings()  // 读取 auto_editor_path
+    -> path 为空: 返回 {available: false}
+    -> path 非空: subprocess.run([path, "--version"])
+    -> 版本兼容性检查 (>=30.1.0, <31.0.0)
+  -> 前端: 更新 autoEditorStatus ref
+  -> 状态栏渲染:
+    -> available=false: "Set auto-editor path in Settings"
+    -> compatible=false: "Version X not supported"
+    -> available=true, compatible=true: 隐藏状态栏或显示绿色指示器
+  -> "Add to Queue" 按钮状态:
+    -> !available || !compatible: disabled
+    -> available && compatible: enabled
+-> 监听 auto_editor_version_changed 事件:
+  -> Settings 页面设置路径后触发
+  -> 更新 autoEditorStatus ref
+  -> 重新评估状态栏和按钮状态
+```
+
+### Auto-Editor 命令预览流程（v2.2.0 Phase 2）
+
+<!-- v2.2.0-CHANGE: 新增 auto-editor 命令预览流程 -->
+
+```
+用户修改任意 auto-editor 参数
+-> Vue reactive state 更新（useAutoEditor composable）
+-> watch 触发（监听所有参数）
+-> debounceTimer = setTimeout(updatePreview, 300)
+-> updatePreview():
+  -> 构建 params dict:
+    -> edit, threshold (audio/motion), margin, smooth
+    -> when_silent, when_normal
+    -> input_file (selectedFile.value)
+  -> call("preview_auto_editor_command", params)
+  -> 后端:
+    -> validate_local_input(input_file)
+    -> build_command(params, _preview_mode=True)
+    -> 返回: {success, data: {argv: [...], display: str}}
+  -> 前端:
+    -> commandPreview.value = data.display
+    -> CommandPreview.vue (type="auto-editor") 纯文本渲染
+-> Vue re-render: 命令预览区域更新
+```
+
+**与 FFmpeg 命令预览的区别**:
+
+| 对比项 | FFmpeg | Auto-Editor |
+|--------|--------|-------------|
+| debounce | 500ms | 300ms |
+| API | `preview_command` | `preview_auto_editor_command` |
+| 参数来源 | configRef (computed) | composable reactive state |
+| 验证 | 返回 errors/warnings | 返回 success/error |
+| 显示模式 | FFmpeg 语法高亮 | 纯文本 |

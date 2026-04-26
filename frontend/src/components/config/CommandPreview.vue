@@ -21,6 +21,7 @@ defineProps<{
   errors: ValidationItem[]
   warnings: ValidationItem[]
   validating: boolean
+  type?: "ffmpeg" | "auto-editor"
 }>()
 
 const copied = ref(false)
@@ -76,7 +77,7 @@ function formatItem(item: ValidationItem): string {
       >
         <!-- Keep existing command while validating to avoid flash -->
         <span v-if="commandText">{{ commandText }}</span>
-        <span v-else class="text-base-content/30 font-mono">ffmpeg</span>
+        <span v-else class="text-base-content/30 font-mono">{{ type === 'auto-editor' ? 'auto-editor' : 'ffmpeg' }}</span>
         <!-- Small inline spinner during validation -->
         <span
           v-if="validating"

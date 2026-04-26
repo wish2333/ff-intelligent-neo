@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import tempfile
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Callable
 
 from core.command_builder import build_command, build_output_path
@@ -415,6 +418,208 @@ class TaskRunner:
     # ------------------------------------------------------------------
     # Internal: task execution
     # ------------------------------------------------------------------
+
+    def start_auto_editor_task(
+        self,
+        task_id: str,
+        args: list[str],
+        input_file: str = "",
+        output_path: str = "",
+    ) -> bool:
+        """Submit a pending auto-editor task for execution.
+
+        Args:
+            task_id: Task identifier.
+            args: auto-editor CLI arguments (including binary).
+            input_file: Input file path (for metadata).
+            output_path: Expected output path (for cleanup on cancel).
+
+        Returns:
+            True if the task was submitted, False otherwise.
+        """
+        task = self._queue.get_task(task_id)
+        if task is None:
+            logger.warning("start_auto_editor_task: task {} not found", task_id)
+            return False
+        if not task.can_transition("running"):
+            logger.warning(
+                "start_auto_editor_task: invalid transition {} -> running",
+                task.state,
+            )
+            return False
+
+        task.output_path = output_path
+
+        cancel_event = threading.Event()
+        with self._lock:
+            self._cancel_events[task_id] = cancel_event
+
+        old_state = self._queue.transition_task(task_id, "running")
+        self._emit("task_state_changed", {
+            "task_id": task_id,
+            "old_state": old_state or "pending",
+            "new_state": "running",
+        })
+        self._emit("queue_changed", self._queue.get_summary())
+
+        assert self._executor is not None
+        self._executor.submit(
+            self._run_auto_editor_task,
+            task,
+            args,
+            cancel_event,
+            input_file,
+        )
+        return True
+
+    def _run_auto_editor_task(
+        self,
+        task: Task,
+        args: list[str],
+        cancel_event: threading.Event,
+        input_file: str,
+    ) -> None:
+        """Execute a single auto-editor task in a worker thread."""
+        from core.auto_editor_runner import read_auto_editor_output
+        from core.process_control import kill_process_tree
+
+        task_id = task.id
+
+        def _on_progress(progress: TaskProgress) -> None:
+            self._emit("task_progress", {
+                "task_id": task_id,
+                "progress": progress.to_dict(),
+            })
+
+        def _on_log(line: str) -> None:
+            self._emit("task_log", {
+                "task_id": task_id,
+                "line": line,
+            })
+
+        env = os.environ.copy()
+        env["NO_COLOR"] = "1"
+
+        popen_kw: dict = {
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.STDOUT,
+            "text": False,
+            "env": env,
+        }
+        if sys.platform == "win32":
+            popen_kw["creationflags"] = (
+                subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+            )
+        else:
+            popen_kw["start_new_session"] = True
+
+        try:
+            proc = subprocess.Popen(args, **popen_kw)
+        except OSError as e:
+            logger.error("Failed to start auto-editor: {}", e)
+            with self._lock:
+                self._cancel_events.pop(task_id, None)
+            task.error = str(e)
+            self._queue.transition_task(task_id, "failed")
+            self._emit("task_state_changed", {
+                "task_id": task_id,
+                "old_state": "running",
+                "new_state": "failed",
+            })
+            self._emit("queue_changed", self._queue.get_summary())
+            return
+
+        with self._procs_lock:
+            self._running_procs[task_id] = proc
+
+        logger.debug("Running auto-editor: {}", " ".join(args))
+
+        # Read output and parse progress
+        try:
+            for segment in read_auto_editor_output(proc):
+                if cancel_event.is_set():
+                    break
+
+                if segment.get("type") == "progress":
+                    progress = TaskProgress(
+                        percent=segment["progress"],
+                        current_seconds=segment["current"],
+                        total_seconds=segment["total"],
+                    )
+                    task.update_progress(progress)
+                    _on_progress(progress)
+                else:
+                    log_line = segment.get("message", "")
+                    if log_line:
+                        task.log_lines.append(log_line)
+                        if len(task.log_lines) > 500:
+                            task.log_lines = task.log_lines[-500:]
+                        _on_log(log_line)
+        except Exception:
+            logger.exception("Error reading auto-editor output (task {})", task_id)
+
+        # Wait for process to finish
+        returncode = 0
+        try:
+            while True:
+                if cancel_event.is_set():
+                    kill_process_tree(proc.pid)
+                    try:
+                        proc.wait(timeout=5)
+                    except Exception:
+                        pass
+                    returncode = -1
+                    break
+
+                returncode = proc.poll()
+                if returncode is not None:
+                    break
+
+                time.sleep(0.1)
+        except Exception as e:
+            logger.error("Exception during auto-editor proc wait: {}", e)
+            kill_process_tree(proc.pid)
+            returncode = -1
+
+        # Cleanup
+        with self._procs_lock:
+            self._running_procs.pop(task_id, None)
+        with self._lock:
+            self._cancel_events.pop(task_id, None)
+
+        if cancel_event.is_set():
+            # Already cancelled via stop_task -- cleanup partial output
+            if task.output_path:
+                try:
+                    Path(task.output_path).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            return
+
+        if returncode == 0:
+            progress = TaskProgress(percent=100.0)
+            task.update_progress(progress)
+            _on_progress(progress)
+            logger.info("auto-editor completed (task {})", task_id)
+            new_state: TaskState = "completed"
+            task.error = ""
+        else:
+            logger.error("auto-editor exited with code {} (task {})", returncode, task_id)
+            new_state = "failed"
+            task.error = f"auto-editor exited with code {returncode}"
+
+        try:
+            old_state = self._queue.transition_task(task_id, new_state)
+        except ValueError:
+            logger.debug("Task {} race: skip {} transition", task_id, new_state)
+            return
+
+        self._emit("task_state_changed", {
+            "task_id": task_id,
+            "old_state": old_state,
+            "new_state": new_state,
+        })
+        self._emit("queue_changed", self._queue.get_summary())
 
     def _run_task(
         self,

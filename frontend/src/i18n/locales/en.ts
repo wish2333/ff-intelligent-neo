@@ -3,6 +3,7 @@ export default {
     queue: "Queue",
     config: "Config",
     avMix: "A/V Mix",
+    autoCut: "Auto Cut",
     merge: "Merge",
     custom: "Custom",
     settings: "Settings",
@@ -13,6 +14,8 @@ export default {
     ffmpegNotFound: "FFmpeg Not Found",
     ffmpegChecking: "Checking...",
     ffmpegUnknownError: "Unknown error",
+    aeNotFound: "AE Not Found",
+    aeChecking: "Checking AE...",
   },
 
   ffmpeg: {
@@ -383,6 +386,30 @@ export default {
     ffmpegParameters: "FFmpeg Parameters",
     textareaPlaceholder: "e.g. -vf crop=1920:800:0:280 -c:v libx265 -preset medium",
     hint: "Do not include -i input or output path. Only the parameters between them.",
+  },
+
+  autoCut: {
+    title: "Auto Cut",
+    description: "Automatically detect and cut silent/motion sections",
+    notConfigured: "Set auto-editor path in Settings",
+    versionIncompatible: "Version {version} not supported (need 30.1.x)",
+    statusReady: "Auto-editor Ready",
+    editMethod: "Edit Method",
+    audio: "Audio",
+    motion: "Motion",
+    threshold: "Threshold",
+    whenSilent: "When Silent",
+    whenNormal: "When Normal",
+    margin: "Margin",
+    smoothMincut: "Smooth Mincut",
+    smoothMinclip: "Smooth Minclip",
+    addToQueue: "Add to Queue",
+    addSuccess: "Task added to queue",
+    addFailed: "Failed to add task",
+    noFileSelected: "Please select a file first",
+    multipleFiles: "Please select only one file",
+    basicTab: "Basic",
+    advancedTab: "Advanced",
   },
 
   common: {

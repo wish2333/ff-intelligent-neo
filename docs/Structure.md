@@ -32,6 +32,13 @@
 | v2.1.1 | Bridge 事件处理类型安全 | task_state_changed 等事件添加运行时类型守卫 |
 | v2.1.1 | bridge.ts 类型安全 | call 返回 unknown + 泛型，替代 any |
 | v2.1.1 | 前端组件变更 | 错误反馈、确认对话框、复制反馈等 |
+| v2.2.0 / Phase 1 | auto-editor 后端基础 | 新增 auto_editor_runner.py、auto_editor_api.py，AppSettings 扩展，task_runner 自动剪辑调度 |
+| v2.2.0 / Phase 1 | 数据模型扩展 | AppSettings 新增 auto_editor_path 字段 |
+| v2.2.0 / Phase 2 | 前端页面与路由 | 新增 /auto-cut 路由、AutoCutPage.vue、useAutoEditor.ts composable |
+| v2.2.0 / Phase 2 | 导航栏扩展 | AppNavbar.vue 新增 AutoCut 导航项 + auto-editor 状态徽标 |
+| v2.2.0 / Phase 2 | CommandPreview 扩展 | CommandPreview.vue 新增 type prop 支持 auto-editor 命令预览 |
+| v2.2.0 / Phase 2 | 国际化扩展 | en.ts / zh-CN.ts 新增 nav.autoCut 及 auto-cut 相关翻译键 |
+| v2.2.0 / Phase 2 | FileDropInput 扩展 | 新增 multiple prop 支持单文件约束模式 |
 
 ---
 
@@ -44,6 +51,8 @@ ff-intelligent-neo/
 │   ├── models.py           # 数据模型（Task, TaskState, TranscodeConfig 等）
 │   ├── task_runner.py      # 任务执行、暂停/恢复/终止/重置
 │   ├── command_builder.py  # FFmpeg 命令构建
+│   ├── auto_editor_runner.py  # auto-editor 命令构建、输入验证、进度解析 (v2.2.0)
+│   ├── auto_editor_api.py  # auto-editor Bridge API 类 (v2.2.0)
 │   ├── ffmpeg_setup.py     # FFmpeg 下载/检测/版本管理
 │   ├── paths.py           # 路径管理（Phase 4 新增）
 │   └── logging.py          # 日志系统
@@ -64,6 +73,8 @@ ff-intelligent-neo/
 │   │   │   │   ├── MergeFileList.vue  # 拼接文件列表（Phase 3）
 │   │   │   │   ├── MergePanel.vue     # 拼接配置面板（Phase 3）
 │   │   │   │   └── MergeSettingsForm.vue  # 拼接设置表单 - Config 页（Phase 3.5.2）
+│   │   │   ├── auto-cut/     # 自动剪辑组件（v2.2.0 Phase 2）
+│   │   │   │   └── BasicTab.vue          # 基础选项卡（Phase 3）
 │   │   │   ├── settings/   # 设置相关组件
 │   │   │   │   └── FFmpegSetup.vue    # FFmpeg 管理面板
 │   │   │   └── task-queue/ # 任务队列组件
@@ -76,13 +87,15 @@ ff-intelligent-neo/
 │   │   │   ├── useTheme.ts            # 主题切换管理
 │   │   │   ├── useLocale.ts           # 语言切换（Phase 4）
 │   │   │   ├── useGlobalConfig.ts     # 全局配置 + configRef
-│   │   │   └── useCommandPreview.ts   # 命令预览（v2.1.1 优化）
+│   │   │   ├── useCommandPreview.ts   # 命令预览（v2.1.1 优化）
+│   │   │   └── useAutoEditor.ts       # auto-editor 状态与预览（v2.2.0 Phase 2）
 │   │   ├── pages/         # 页面组件
 │   │   │   ├── TaskQueuePage.vue
 │   │   │   ├── CommandConfigPage.vue
 │   │   │   ├── AudioSubtitlePage.vue  # 音频/字幕独立页面（Phase 3.5）
 │   │   │   ├── MergePage.vue          # 拼接独立页面（Phase 3.5）
 │   │   │   ├── CustomCommandPage.vue  # 自定义命令页面（Phase 3.5）
+│   │   │   ├── AutoCutPage.vue          # 自动剪辑页面（v2.2.0 Phase 2）
 │   │   │   └── SettingsPage.vue
 │   │   ├── data/          # 静态数据（Phase 3）
 │   │   │   └── encoders.ts         # 编码器注册表
@@ -312,6 +325,43 @@ const res = await call<{
 
 **行为**: 调用 `save_settings({ language })` 持久化，更新 vue-i18n 全局 locale。
 
+
+### useAutoEditor.ts
+
+<!-- v2.2.0-CHANGE: Phase 2 新增 -->
+
+**路径**: `frontend/src/composables/useAutoEditor.ts`
+
+**状态**:
+
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `editMethod` | `Ref<'audio' | 'motion'>` | `'audio'` | 编辑方法（subtitle 隐藏） |
+| `audioThreshold` | `Ref<number>` | `0.04` | 音频阈值（range 0.01-0.20） |
+| `motionThreshold` | `Ref<number>` | `0.02` | 运动阈值（range 0.01-0.20） |
+| `whenSilentAction` | `Ref<string>` | `'cut'` | 静音时动作 |
+| `whenNormalAction` | `Ref<string>` | `'nil'` | 正常时动作 |
+| `margin` | `Ref<string>` | `'0.2s'` | 边距 |
+| `smooth` | `Ref<string>` | `'0.2s,0.1s'` | 平滑参数 |
+| `commandPreview` | `Ref<string>` | `''` | 命令预览文本（computed via backend call, debounced） |
+| `autoEditorStatus` | `Ref<{available, compatible, version, path}>` | `{available: false, ...}` | auto-editor 可用状态 |
+| `selectedFile` | `Ref<string | null>` | `null` | 已选输入文件路径 |
+
+**方法**:
+
+| 方法 | 说明 | 后端 API |
+|------|------|---------|
+| `fetchStatus()` | 获取 auto-editor 可用状态 | `get_auto_editor_status` |
+| `setPath(path)` | 设置并验证 auto-editor 路径 | `set_auto_editor_path` |
+| `fetchEncoders(format)` | 查询指定格式的编码器列表 | `get_auto_editor_encoders` |
+| `updatePreview()` | 更新命令预览（300ms debounce） | `preview_auto_editor_command` |
+| `addToQueue()` | 验证参数并添加任务到队列 | `add_auto_editor_task` |
+
+**行为**:
+- `fetchStatus()` 在 composable 初始化时自动调用
+- `updatePreview()` 通过 `watch` 监听所有参数变化，debounced 300ms 调用后端
+- 切换 `editMethod` 时自动切换阈值值（audio <-> motion）
+- auto-editor 状态通过监听 `auto_editor_version_changed` 事件实时更新
 ---
 
 ## 后端核心
@@ -605,6 +655,51 @@ def preview_command(self, config: dict) -> dict:
 
 ---
 
+### AutoEditorApi Bridge（v2.2.0）
+
+<!-- v2.2.0-CHANGE: 新增 AutoEditorApi Bridge 文档 -->
+
+独立于 `FFmpegApi` 的第二个 Bridge 类，注册于 `main.py`。
+
+#### 事件: auto_editor_version_changed
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `version` | `string` | auto-editor 版本号（如 "30.1.4"） |
+| `path` | `string` | auto-editor 二进制路径 |
+| `status` | `string` | `"ready"` / `"not_found"` / `"incompatible"` |
+
+#### API 方法
+
+| 方法 | 参数 | 返回 | 说明 |
+|------|------|------|------|
+| `set_auto_editor_path` | `path: str` | `{success, data: {version, path}}` | 验证二进制（`--version`），保存到 AppSettings |
+| `get_auto_editor_status` | - | `{success, data: {available, compatible, version, path}}` | 检查路径、版本兼容性（>=30.1.0, <31.0.0） |
+| `get_auto_editor_encoders` | `output_format: str` | `{success, data: {video: [...], audio: [...], subtitle: [...], other: [...]}}` | 查询 `auto-editor info -encoders <fmt>` |
+| `add_auto_editor_task` | `input_file: str, params: dict` | `{success, data: {task_id}}` | 验证输入+参数，入队任务 |
+| `preview_auto_editor_command` | `params: dict` | `{success, data: {argv: [...], display: str}}` | 构建预览命令 |
+| `cancel_auto_editor_task` | `task_id: str` | `{success}` | 终止进程，清理部分输出 |
+
+#### auto_editor_runner.py 模块
+
+| 函数 | 说明 |
+|------|------|
+| `validate_local_input(input_file)` | 拒绝 URL 输入，验证文件存在/扩展名 |
+| `build_command(input_file, params, auto_editor_path, output_path)` | 构建 auto-editor CLI 命令，自动添加 `--progress machine` |
+| `generate_output_path(input_file, output_dir, task_id, extension)` | 生成唯一输出路径，防止路径遍历 |
+| `parse_auto_editor_segment(segment)` | 解析 `title~current~total~eta` 格式进度 |
+| `read_auto_editor_output(proc)` | 逐字节读取 stdout，按 `\r` 分割并解析进度 |
+
+#### task_runner.py 扩展
+
+| 变更 | 说明 |
+|------|------|
+| `auto_editor` 任务类型 | 路由到 `\r`-based 进度解析器 |
+| `NO_COLOR=1` 环境变量 | auto-editor 子进程禁用 ANSI 颜色 |
+| 命令构建时机 | 执行时构建（非入队时） |
+
+---
+
 ## 前端组件
 
 ### 页面组件
@@ -662,9 +757,57 @@ CustomCommandPage
   Raw Args Textarea      - 原始 FFmpeg 参数输入
 ```
 
+#### AutoCutPage.vue
+
+<!-- v2.2.0-CHANGE: Phase 2 新增 -->
+
+```
+AutoCutPage (v2.2.0 Phase 2)
+  StatusBar              - auto-editor 可用状态显示
+  FileDropInput          - 单文件输入（:multiple="false"）
+  TabContainer           - [Basic] [Advanced] 选项卡
+  BasicTab.vue           - 基础选项卡（Phase 3 实现）
+  AdvancedTab.vue        - 高级选项卡（Phase 4 实现）
+  CommandPreview.vue     - 命令预览（type="auto-editor"）
+  "Add to Queue" Button - 添加自动剪辑任务
+```
+
+**状态栏**:
+- 未配置: "Set auto-editor path in Settings"
+- 版本不兼容: "Version X not supported (need 30.1.x)"
+- 就绪: 隐藏（或绿色指示器）
+
+**行为**:
+- 未配置时 "Add to Queue" 按钮禁用
+- 使用 `useAutoEditor` composable 管理所有状态
+- 添加任务后跳转到任务队列页面
 ---
 
 ### 配置组件
+
+#### CommandPreview.vue
+
+<!-- v2.2.0-CHANGE: Phase 2 新增 type prop -->
+
+**路径**: `frontend/src/components/config/CommandPreview.vue`
+
+**Props**:
+
+| Prop | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `commandText` | `string` | `''` | 命令文本 |
+| `errors` | `ValidationItem[]` | `[]` | 验证错误列表 |
+| `warnings` | `ValidationItem[]` | `[]` | 验证警告列表 |
+| `validating` | `boolean` | `false` | 是否正在验证 |
+| `type` | `'ffmpeg' | 'auto-editor'` | `'ffmpeg'` | 命令类型（v2.2.0 Phase 2） |
+
+**行为**:
+- `type='ffmpeg'`: 显示 FFmpeg 特有语法高亮（默认行为不变）
+- `type='auto-editor'`: 纯文本显示，禁用 FFmpeg 语法高亮
+- 文件路径显示为纯文本（不使用 `v-html`，XSS 防护）
+- 复制按钮复用现有逻辑（`navigator.clipboard` + fallback）
+
+---
 
 #### EncoderSelect.vue
 
@@ -805,8 +948,12 @@ VC -> QM -> QV -> Resolution -> Framerate -> VB -> MB -> Bufsize -> EP -> PF -> 
 
 #### AppNavbar.vue
 
+<!-- v2.2.0-CHANGE: Phase 2 新增 AutoCut 导航项 + auto-editor 状态徽标 -->
+
 - 导航栏: `border-b border-base-300`，品牌名 `text-base tracking-tight`，导航项 `gap-0.5`，右侧控件 `gap-1.5`
 - FFmpeg 状态徽标: 实时更新版本号和状态（监听 `ffmpeg_version_changed` 事件）
+- auto-editor 状态徽标（v2.2.0）: 实时更新版本号和状态（监听 `auto_editor_version_changed` 事件），位于 FFmpeg 状态徽标之后
+- 导航项（v2.2.0 新增 AutoCut）: 位于 AudioSubtitle 和 Merge 之间，i18n key: `nav.autoCut`
 - 主题切换: 太阳/月亮图标按钮，`toggleTheme()` 在 light/dark 间切换
 - 语言切换: CN/EN 标签按钮（Phase 4）
 
@@ -849,6 +996,7 @@ VC -> QM -> QV -> Resolution -> Framerate -> VB -> MB -> Bufsize -> EP -> PF -> 
 | `/audio-subtitle` | AudioSubtitle | `AudioSubtitlePage.vue` | 音频/字幕独立页面 |
 | `/merge` | Merge | `MergePage.vue` | 拼接独立页面 |
 | `/custom-command` | CustomCommand | `CustomCommandPage.vue` | 自定义命令页面 |
+| `/auto-cut` | AutoCut | `AutoCutPage.vue` | 自动剪辑页面（v2.2.0 Phase 2） |
 | `/settings` | Settings | `SettingsPage.vue` | 设置（不变） |
 
 ---

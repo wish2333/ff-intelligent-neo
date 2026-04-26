@@ -495,6 +495,7 @@ class AppSettings:
     default_output_dir: str = ""
     ffmpeg_path: str = ""
     ffprobe_path: str = ""
+    auto_editor_path: str = ""
     theme: str = "auto"
     language: str = "auto"
 
@@ -504,6 +505,7 @@ class AppSettings:
             "default_output_dir": self.default_output_dir,
             "ffmpeg_path": self.ffmpeg_path,
             "ffprobe_path": self.ffprobe_path,
+            "auto_editor_path": self.auto_editor_path,
             "theme": self.theme,
             "language": self.language,
         }
@@ -515,6 +517,7 @@ class AppSettings:
             default_output_dir=data.get("default_output_dir", ""),
             ffmpeg_path=data.get("ffmpeg_path", ""),
             ffprobe_path=data.get("ffprobe_path", ""),
+            auto_editor_path=data.get("auto_editor_path", ""),
             theme=data.get("theme", "auto"),
             language=data.get("language", "auto"),
         )

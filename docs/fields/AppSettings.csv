@@ -5,3 +5,4 @@ ffmpeg_path,str,"",No,Custom FFmpeg binary path,If empty, uses auto-downloaded F
 ffprobe_path,str,"",No,Custom FFprobe binary path,If empty, uses auto-downloaded FFprobe
 theme,str,"auto",No,"Theme preference: auto/light/dark","auto = follow system preference; light/dark = manual; persisted to settings.json via save_settings API"
 language,str,"auto",No,"Language preference: auto/zh-CN/en","auto = follow system language (Chinese priority); zh-CN/en = manual; persisted to settings.json via save_settings API; used by vue-i18n"
+auto_editor_path,str,"",No,Custom auto-editor binary path,"If empty, auto-cut feature disabled; set via Settings page; validated via --version check (>=30.1.0, <31.0.0); persisted to settings.json via save_settings API"

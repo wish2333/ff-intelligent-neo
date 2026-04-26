@@ -3,6 +3,7 @@ export default {
     queue: "队列",
     config: "配置",
     avMix: "音视频混流",
+    autoCut: "自动剪辑",
     merge: "合并",
     custom: "自定义",
     settings: "设置",
@@ -13,6 +14,8 @@ export default {
     ffmpegNotFound: "未找到 FFmpeg",
     ffmpegChecking: "检测中...",
     ffmpegUnknownError: "未知错误",
+    aeNotFound: "未找到 AE",
+    aeChecking: "检测 AE...",
   },
 
   ffmpeg: {
@@ -383,6 +386,30 @@ export default {
     ffmpegParameters: "FFmpeg 参数",
     textareaPlaceholder: "例如 -vf crop=1920:800:0:280 -c:v libx265 -preset medium",
     hint: "不要包含 -i 输入或输出路径，只需输入它们之间的参数。",
+  },
+
+  autoCut: {
+    title: "自动剪辑",
+    description: "自动检测并剪裁静音/运动片段",
+    notConfigured: "请在设置中配置 auto-editor 路径",
+    versionIncompatible: "版本 {version} 不受支持（需要 30.1.x）",
+    statusReady: "Auto-editor 已就绪",
+    editMethod: "编辑方法",
+    audio: "音频",
+    motion: "运动",
+    threshold: "阈值",
+    whenSilent: "静音时",
+    whenNormal: "正常时",
+    margin: "边距",
+    smoothMincut: "平滑最小剪切",
+    smoothMinclip: "平滑最小片段",
+    addToQueue: "添加到队列",
+    addSuccess: "任务已添加到队列",
+    addFailed: "添加任务失败",
+    noFileSelected: "请先选择文件",
+    multipleFiles: "请仅选择一个文件",
+    basicTab: "基础",
+    advancedTab: "高级",
   },
 
   common: {

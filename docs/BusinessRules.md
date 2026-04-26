@@ -420,6 +420,7 @@
 | Config 页面 | 仅保留 Transcode、Filters、Clip 三个选项卡 |
 | 预览位置 | CommandConfigPage 的命令预览移至页面顶部（预设选择器之上） |
 | 导航栏 | AppNavbar 新增 "A/V Mix"、"Merge"、"Custom" 导航项 |
+| AutoCut 导航 | AppNavbar 新增 AutoCut 导航项（位于 AudioSubtitle 和 Merge 之间）（v2.2.0 Phase 2） |
 
 ### Phase 3.5.1 更新规则
 
@@ -539,3 +540,85 @@
 | 导航栏 | `border-b border-base-300`，品牌名 `text-base tracking-tight`，导航项 `gap-0.5`，右侧控件 `gap-1.5` |
 | 队列摘要 | `border border-base-300 bg-base-100`，统计 badge 使用 `badge-sm` |
 | 状态徽标 | 所有状态 badge 统一使用 `badge-sm` |
+
+---
+
+## Auto-Editor 业务规则（v2.2.0）
+
+### 输入验证规则
+
+<!-- v2.2.0-CHANGE: 新增 auto-editor 输入验证规则 -->
+
+| 规则 | 说明 |
+|------|------|
+| URL 拒绝 | auto-editor 不支持 URL 输入，输入 http/https/ftp scheme 时抛出 ValueError |
+| 单文件限制 | v1 仅支持单文件处理，拒绝多文件输入 |
+| 扩展名白名单 | `.mp4`, `.mov`, `.mkv`, `.m4v`, `.mp3`, `.wav`, `.m4a`, `.aac` |
+| audio+motion 互斥 | 当 edit 方法为 motion 时，若同时设置了 `-an`（禁用音频），应警告用户 |
+
+### 版本兼容性规则
+
+| 规则 | 说明 |
+|------|------|
+| 最低版本 | >= 30.1.0（支持 `--progress machine`） |
+| 最高版本 | < 31.0.0（防止 API 变更破坏兼容性） |
+| 版本解析 | 从 `--version` 输出提取版本号，格式 "auto-editor X.Y.Z" |
+| 路径验证 | 设置路径时执行 `--version` 超时检测（10 秒），验证二进制可执行 |
+
+### 命令构建规则
+
+| 规则 | 说明 |
+|------|------|
+| 进度格式 | 自动添加 `--progress machine`，不依赖用户配置 |
+| 预览模式 | 当 `_preview_mode` 为 true 时，使用占位输出路径，不生成真实文件 |
+| 多范围参数 | `--cut-out`、`--add-in`、`--set-action` 支持多范围，每个范围重复一次 flag |
+| 容器 flag 逻辑 | `--faststart` 默认开启（不发 flag），关闭时发 `--no-faststart`；`--fragmented` 反之 |
+| NO_COLOR | auto-editor 子进程强制设置 `NO_COLOR=1` 环境变量 |
+
+### 输出路径规则
+
+| 规则 | 说明 |
+|------|------|
+| 路径遍历防护 | 输出路径必须在 output_dir 内，拒绝 `..` 遍历 |
+| 唯一命名 | `{stem}_{task_id[:8]}.{extension}` 防止同文件覆盖 |
+| 目录校验 | output_dir 必须存在且可写，否则抛出 ValueError |
+
+### 取消任务规则
+
+| 规则 | 说明 |
+|------|------|
+| 终止顺序 | terminate -> wait(5s) -> kill |
+| 输出清理 | 取消后删除部分输出文件（若存在） |
+| 进程树 | 使用 kill_process_tree 清理所有子进程
+### 前端页面规则（v2.2.0 Phase 2）
+
+<!-- v2.2.0-CHANGE: 新增 auto-editor 前端页面规则 -->
+
+**页面布局**:
+
+| 规则 | 说明 |
+|------|------|
+| 状态栏 | 页面顶部显示 auto-editor 可用状态：未配置/版本不兼容/就绪 |
+| 单文件输入 | AutoCutPage 使用 FileDropInput 的 `multiple=false` 模式，拒绝多文件 |
+| 选项卡 | Basic 和 Advanced 选项卡互斥显示（同一时间只显示一个） |
+| 命令预览 | 使用 `type="auto-editor"` 模式，纯文本显示命令 |
+| 按钮禁用 | 未配置 auto-editor 时，"Add to Queue" 按钮禁用 |
+| 任务添加 | 添加后跳转到任务队列页面 |
+
+**命令预览**:
+
+| 规则 | 说明 |
+|------|------|
+| debounce | 参数变更后 300ms debounce 调用后端 `preview_auto_editor_command` |
+| 参数构建 | composable 内收集所有参数，构建 params dict 传给后端 |
+| 切换阈值 | 切换 editMethod 时自动切换阈值默认值（audio 0.04 / motion 0.02） |
+| 状态监听 | 监听 `auto_editor_version_changed` 事件实时更新 auto-editor 状态 |
+
+**导航与国际化**:
+
+| 规则 | 说明 |
+|------|------|
+| 导航项位置 | AutoCut 位于 AudioSubtitle 和 Merge 之间 |
+| i18n key | `nav.autoCut` = "Auto Cut" / "自动剪辑" |
+| 状态徽标 | auto-editor 状态徽标位于 FFmpeg 状态徽标之后，样式复用 FFmpeg badge |
+ |

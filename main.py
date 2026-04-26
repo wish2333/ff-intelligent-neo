@@ -763,6 +763,49 @@ class FFmpegApi(Bridge):
         return {"method": "unknown", "command": ""}
 
     # ------------------------------------------------------------------
+    # Auto-Editor delegates (v2.2.0)
+    # ------------------------------------------------------------------
+
+    @property
+    def _auto_editor(self):
+        if not hasattr(self, "_auto_editor_inst"):
+            from core.auto_editor_api import AutoEditorApi
+            self._auto_editor_inst = AutoEditorApi(
+                emit=self._emit,
+                queue=self._queue,
+                runner=self._runner,
+            )
+        return self._auto_editor_inst
+
+    @expose
+    def set_auto_editor_path(self, path: str) -> dict:
+        return self._auto_editor.set_auto_editor_path(path)
+
+    @expose
+    def get_auto_editor_status(self) -> dict:
+        return self._auto_editor.get_auto_editor_status()
+
+    @expose
+    def get_auto_editor_encoders(self, output_format: str = "mp4") -> dict:
+        return self._auto_editor.get_auto_editor_encoders(output_format)
+
+    @expose
+    def add_auto_editor_task(self, input_file: str, params: dict) -> dict:
+        return self._auto_editor.add_auto_editor_task(input_file, params)
+
+    @expose
+    def preview_auto_editor_command(self, params: dict) -> dict:
+        return self._auto_editor.preview_auto_editor_command(params)
+
+    @expose
+    def cancel_auto_editor_task(self, task_id: str) -> dict:
+        return self._auto_editor.cancel_auto_editor_task(task_id)
+
+    @expose
+    def start_auto_editor_task(self, task_id: str) -> dict:
+        return self._auto_editor.start_auto_editor_task(task_id)
+
+    # ------------------------------------------------------------------
     # Cleanup
     # ------------------------------------------------------------------
 
