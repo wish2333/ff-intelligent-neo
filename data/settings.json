@@ -1,8 +1,0 @@
-{
-  "max_workers": 2,
-  "default_output_dir": "",
-  "ffmpeg_path": "",
-  "ffprobe_path": "",
-  "theme": "light",
-  "language": "auto"
-}
