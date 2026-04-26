@@ -2,9 +2,11 @@
 
 **Date:** 2026-04-26  
 **Status:** Approved  
-**Branch:** dev-2.1.1
+**Branch:** dev-2.2.0
 
 ---
+
+目前版本基于https://github.com/WyattBlue/auto-editor/releases/tag/30.1.4此版本的auto-editor进行
 
 ## 1. Architecture Overview
 
@@ -217,6 +219,8 @@ useAutoEditor.ts → call('preview_auto_editor_command', params)
 ## 6. Dependencies
 
 - auto-editor binary (user-provided, configured in Settings)
+  - or design a new downloader（适应多平台）：下载二进制文件来源：https://github.com/WyattBlue/auto-editor/releases/tag/30.1.4
+
 - No new npm packages required
 - No new Python packages required (auto-editor is a separate binary)
 - Reuses: pywebvue, task_queue, composables pattern
