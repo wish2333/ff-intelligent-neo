@@ -1,0 +1,930 @@
+## Phase 2 完成总结
+
+```
+  文档更新 (4 files)
+
+  - Structure.md: 版本索引 +6 条，目录树 +3 文件，新增 useAutoEditor/AutoCutPage/CommandPreview 文档，路由表 +1
+    条，AppNavbar 文档更新
+  - BusinessRules.md: 页面布局规则 +AutoCut 导航，新增 auto-editor 前端页面规则章节（页面布局/命令预览/导航与国际化）
+  - Procedure.md: 版本索引 +2 条，新增页面初始化流程和命令预览流程（含与 FFmpeg 对比表）
+  - PRD 附录 A: 新增 Phase 2 文档变更追踪
+
+  代码实现 (7 files: 2 new + 5 modified)
+
+  ┌───────────────────────────────────────────────────┬──────────────────────────────────────────────────────────────┐
+  │                       文件                        │                             变更                             │
+  ├───────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+  │ frontend/src/router.ts                            │ 新增 /auto-cut 路由                                          │
+  ├───────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+  │ frontend/src/components/layout/AppNavbar.vue      │ 新增 AutoCut 导航项 + auto-editor 状态徽标                   │
+  ├───────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+  │ frontend/src/i18n/locales/en.ts                   │ 新增 nav.autoCut + autoCut.* + nav.aeNotFound 键             │
+  ├───────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+  │ frontend/src/i18n/locales/zh-CN.ts                │ 对应中文翻译                                                 │
+  ├───────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+  │ frontend/src/components/config/CommandPreview.vue │ 新增 type prop，支持 auto-editor 占位符                      │
+  ├───────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+  │ frontend/src/composables/useAutoEditor.ts         │ 新文件 - 完整 composable（状态/方法/debounce/lifecycle）     │
+  ├───────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
+  │ frontend/src/pages/AutoCutPage.vue                │ 新文件 - 页面 shell（状态栏/文件输入/Basic                   │
+  │                                                   │ tab/命令预览/添加按钮）                                      │
+  └───────────────────────────────────────────────────┴──────────────────────────────────────────────────────────────┘
+
+  构建验证
+
+  - TypeScript 类型检查: 通过
+  - Vite 构建: 通过 (2.54s)
+
+
+```
+
+
+
+## CC-Mem
+
+    Legend: session-request | 🔴 bugfix | 🟣 feature | 🔄 refactor | ✅ change | 🔵 discovery | ⚖️ decision
+    Apr 26, 2026
+    
+     core/auto_editor_runner.py
+       #2768  8:25 PM  🔵  Threshold flag bug confirmed - no correct references exist in codebase
+       #2769  8:28 PM  🔵  Discovered broken threshold flag in auto_editor_runner.py
+     core/auto_editor_api.py
+       #2770           🔵  Located task cancellation implementation in auto_editor_api.py
+     core/task_runner.py
+       #2771  8:30 PM  🔵  Found empty lock acquisition in OSError exception handler
+       #2772           🔵  task_runner.py lacks cancel method implementations
+     core/auto_editor_api.py
+       #2773           🔵  Discovered pending task storage pattern in auto_editor_api.py
+     General
+       #2774  8:56 PM  🔵  stop_task method lacks output_path cleanup
+       #2775  8:57 PM  🔵  Task model lacks type field for task categorization
+       #2776           🔵  AutoEditor API supports encoder format querying
+       #2777           🔵  Task queue lacks auto_editor-specific task handling
+       #2778           🔵  AutoEditor runner uses output_path parameter with hardcoded preview extension
+       #2779           🔵  AutoEditor API accepts output_extension parameter with default .mp4
+       #2780           🔵  get_auto_editor_encoders method queries auto-editor subprocess with timeout
+     references/PRD-2.2.0.md
+       #2781  9:05 PM  ⚖️  Phase 1 development initiated from PRD-2.2.0
+     core/auto_editor_api.py
+       #2782           🔵  Output extension handling in auto_editor_api.py
+     main.py
+       #2783           🔵  TaskQueue instantiation pattern across codebase
+     core/auto_editor_api.py
+       #2784  9:06 PM  🔵  AutoEditorApi class initialization pattern
+     core/task_queue.py
+       #2785           🔵  TaskQueue class location identified
+       #2786           🔵  TaskQueue architecture reveals non-singleton design
+       #2787           🔵  TaskQueue confirms no singleton implementation
+     main.py
+       #2788  9:07 PM  🔵  Main.py TaskQueue instantiation at line 52
+       #2789           🔵  Main.py implements lazy-loading queue pattern with state persistence
+     core/auto_editor_api.py
+       #2790           🔵  No output format whitelist validation in auto_editor_api.py
+     core/task_runner.py
+       #2791           🔵  Task runner code contains no known issues or temporary workarounds
+     core/auto_editor_runner.py
+       #2792  9:08 PM  🔵  Code review identifies 14 issues in Phase 1 implementation
+     General
+       #2793           ✅  Task created for fixing code review issues
+       #2794           ✅  Task 9 status updated to in_progress
+     core/auto_editor_runner.py
+       #2795  9:09 PM  🔴  Fixed CRITICAL CLI flag typo and threshold logic in auto_editor_runner.py
+     core/auto_editor_api.py
+       #2796           🔵  AutoEditorApi class location confirmed at line 67
+       #2797           🔵  AutoEditorApi _runner property creates isolated queue instance
+       #2798           🔄  Refactored AutoEditorApi to use shared queue and runner instances
+       #2799           🔵  Remaining TaskQueue() instantiation calls found in auto_editor_api.py
+       #2800  9:10 PM  🔵  add_auto_editor_task creates isolated queue instance at line 375
+       #2801           🔴  Fixed queue isolation in add_auto_editor_task method
+     General
+       #2802  9:52 PM  🔵  ECC Phase 1 Foundation Requirements Analyzed
+     core/auto_editor_api.py
+       #2803           🔄  Auto-Editor API Refactored to Use Shared Queue and Runner Instances
+       #2804  9:53 PM  🟣  Auto-Editor Encoder Query Now Validates Output Format
+       #2805  9:58 PM  🔄  Removed unused imports from cancel_auto_editor_task method
+       #2806           🔵  Found duplicate comment pattern in auto_editor_api.py
+       #2807  10:04 PM  🔵  Auto-Editor API Uses Dictionary for Pending Task Parameter Storage
+       #2808            🔄  Removed Misleading Comments From Auto-Editor Task Creation
+     core/auto_editor_runner.py
+       #2809            🔴  Added Extension Normalization to Output Path Generation
+       #2810            🔄  Optimized Auto-Editor Output Reading from Byte-by-Byte to Chunked Reading
+       #2811  10:05 PM  🔵  Syntax Validation Confirms All Modified Files Compile Successfully
+       #2812  10:06 PM  🔵  Comprehensive Test Suite Validates All Recent Fixes
+     General
+       #2813            🔵  Auto-Editor Code Cleanup and Optimization Task Completed
+     references/PRD-2.2.0.md
+       #2814  10:08 PM  ✅  Updated PRD Phase 6 Testing Section with Phase 1 Backend-Specific Test Specifications
+     core/models.py
+       #2815  10:10 PM  🔵  Phase 1 Backend Integration Smoke Test Passed Successfully
+     General
+       #2816  10:11 PM  🔵  Phase 1 Backend Implementation Summary: 251 Lines Added Across Three Core Files
+     core/auto_editor_runner.py
+       #2817            🔵  Phase 1 New Backend Modules Total 902 Lines of Code
+       
+         Apr 27, 2026
+    
+           #2892  1:04 AM  ✅  Phase 2 documentation planning completed
+         references/PRD-2.2.0.md
+           #2893  1:05 AM  🔵  PRD appendix structure identified for Phase 2 documentation
+           #2894           🔵  StateMachine.md unchanged in Phase 1 documentation
+           #2895  1:06 AM  ✅  Phase 2 documentation appendix added to PRD
+           #2896           ✅  Phase 2 documentation planning completed
+         frontend/src/router.ts
+           #2897           🔵  Frontend routing and navigation structure examined
+         frontend/src/components/layout/AppNavbar.vue
+           #2898           🔵  AppNavbar.vue navigation component structure identified
+           #2899  1:07 AM  🔵  AppNavbar.vue navigation structure and FFmpeg status tracking pattern identified
+         frontend/src/i18n/locales/en.ts
+           #2900           🔵  i18n navigation keys structure identified in en.ts
+         frontend/src/components/config/CommandPreview.vue
+           #2901           🔵  CommandPreview.vue component structure analyzed
+         frontend/src/router.ts
+           #2902           🟣  /auto-cut route added to Vue Router
+         frontend/src/components/layout/AppNavbar.vue
+           #2903           🟣  AutoCut navigation item added to AppNavbar
+           #2904           🟣  Auto-editor status tracking state added to AppNavbar
+           #2905           🟣  Auto-editor event cleanup handler added
+           #2906           🟣  Auto-editor status checking implemented in AppNavbar
+           #2907           🟣  Auto-editor event cleanup handler registered in onUnmounted
+           #2908           🟣  Auto-editor status badge added to navbar template
+         frontend/src/i18n/locales/zh-CN.ts
+           #2909  1:08 AM  🔵  Chinese i18n locale file structure examined
+         frontend/src/i18n/locales/en.ts
+           #2910           🔵  English i18n locale file structure examined
+           #2911           🔵  i18n locale files prepared for auto-editor translation keys
+           #2912           🔵  i18n locale files structure confirmed for auto-editor translations
+           #2913           🟣  AutoCut navigation translation keys added to i18n locale files
+           #2914           🟣  Auto-editor status translation keys added to English locale
+         frontend/src/i18n/locales/zh-CN.ts
+           #2915           🟣  Auto-editor status translation keys added to Chinese locale
+         frontend/src/i18n/locales/en.ts
+           #2916           🔵  i18n locale file structure verified
+           #2917           🔵  i18n common section location identified
+           #2918  1:09 AM  🔵  i18n common section content examined
+           #2919           🔵  English locale common section confirmed at line 391
+           #2920  1:10 AM  🟣  AutoCut i18n namespace added to locale files
+         frontend/src/components/config/CommandPreview.vue
+           #2921  1:11 AM  🟣  CommandPreview component extended with type prop
+           #2922           🔵  CommandPreview template placeholder examined
+           #2923           🟣  CommandPreview placeholder updated with type-based conditional rendering
+         frontend/src/composables/
+           #2924           🔵  Existing composables catalog identified
+         frontend/src/composables/useCommandPreview.ts
+           #2925           🔵  useCommandPreview composable pattern examined
+         frontend/src/composables/useAutoEditor.ts
+           #2926  1:12 AM  🟣  useAutoEditor composable implemented with comprehensive state management
+         frontend/src/bridge.ts
+           #2927           🔵  bridge.ts exports onEvent function but UnsubscribeFn type not found
+         frontend/src/composables/useAutoEditor.ts
+           #2928  1:24 AM  🔄  Removed UnsubscribeFn type import from useAutoEditor composable
+           #2929  1:25 AM  🔄  Replaced UnsubscribeFn type with inline () => void type
+         frontend/src/bridge.ts
+           #2930           🔵  Investigated call function signature in bridge.ts
+           #2931           🔵  Found call function signature in bridge.ts
+           #2932  1:33 AM  🔵  Examined call function implementation in bridge.ts
+         main.py
+           #2933           🔵  Located add_auto_editor_task backend method in main.py
+         frontend/src/pages/MergePage.vue
+           #2934           🔵  Examined MergePage.vue structure for auto-editor page reference pattern
+         frontend/src/pages/AutoCutPage.vue
+           #2935           🟣  Created AutoCutPage.vue for auto-editor silence/motion detection UI
+         frontend/src/composables/useAutoEditor.ts
+           #2936  1:34 AM  🔵  TypeScript error: unused Ref import in useAutoEditor.ts
+           #2937           🔴  Removed unused Ref type import from useAutoEditor.ts
+           #2938           🔵  Verified TypeScript compilation passes after Ref import removal
+         frontend/src/pages/AutoCutPage.vue
+           #2939           🔵  Vue build error in AutoCutPage.vue - invalid v-model syntax
+           #2940           🔴  Fixed v-model syntax error in AutoCutPage.vue FileDropInput
+           #2941  1:35 AM  🔵  Verified successful Vite build after v-model fix
+
+### 📝 Commit Message
+
+```
+feat(auto-cut): 自动剪辑功能Phase2
+
+后端:
+- 修复 CLI 阈值参数传递逻辑错误
+- 重构队列与运行器为共享单例，消除任务隔离问题
+- 编码器查询增加输出格式校验
+- 输出路径扩展名规范化处理
+- 子进程输出读取从逐字节改为分块读取，提升性能
+- 清理冗余导入与误导性注释
+
+前端:
+- 新增 /auto-cut 路由及导航入口，含运行状态徽标
+- 实现 useAutoEditor 组合式函数管理完整状态
+- 创建 AutoCutPage 静音/动作检测交互页面
+- 扩展 CommandPreview 组件支持多类型条件渲染
+- 补充中英文国际化翻译键
+- 修复 v-model 语法与未使用类型导入问题
+```
+
+### 🚀 Release Notes
+
+```
+## 2026-04-27 - 自动剪辑功能上线
+
+### ✨ 新增
+- 全新的「自动剪辑」功能页面，支持基于静音与画面动作检测自动裁剪视频
+- 导航栏新增自动剪辑入口，实时显示当前剪辑运行状态
+- 命令预览组件支持根据不同剪辑类型展示对应的命令参数
+
+### 🐛 修复
+- 修复静音/动作阈值参数未正确传递给底层工具的问题
+- 修复多个剪辑任务同时运行时彼此隔离、无法统一管理的问题
+- 修复输出文件扩展名在某些情况下不正确的问题
+
+### ⚡ 优化
+- 工具进程输出读取效率提升，减少高负载下的卡顿感
+- 编码器查询增加格式合法性校验，避免因不支持的格式导致任务静默失败
+```
+
+## Phase3
+
+Summary of changes:
+
+  Docs (updated first per workflow):
+  - docs/Structure.md — BasicTab.vue component docs
+  - docs/BusinessRules.md — action value input rules
+  - docs/Procedure.md — speed/volume dynamic show/hide flow
+  - references/PRD-2.2.0.md — Phase 3 appendix entry
+
+  Code:
+  - frontend/src/components/auto-cut/BasicTab.vue — extracted component with 8 controls: edit method, threshold,
+    when-silent/when-normal actions with dynamic speed/volume inputs, margin, smooth mincut/minclip
+  - frontend/src/pages/AutoCutPage.vue — refactored to use BasicTab, added tab switching
+  - frontend/src/composables/useAutoEditor.ts — added speedValue/volumeValue refs, action value embedding in
+    buildParams()
+  - frontend/src/i18n/locales/{en,zh-CN}.ts — added speed/volume i18n keys
+
+     Legend: session-request | 🔴 bugfix | 🟣 feature | 🔄 refactor | ✅ change | 🔵 discovery | ⚖️ decision
+    
+     Apr 27, 2026
+    
+     frontend/src/composables/useAutoEditor.ts
+       #2937  1:34 AM  🔴  Removed unused Ref type import from useAutoEditor.ts
+       #2938           🔵  Verified TypeScript compilation passes after Ref import removal
+     frontend/src/pages/AutoCutPage.vue
+       #2939           🔵  Vue build error in AutoCutPage.vue - invalid v-model syntax
+       #2940           🔴  Fixed v-model syntax error in AutoCutPage.vue FileDropInput
+       #2941  1:35 AM  🔵  Verified successful Vite build after v-model fix
+     General
+       #2943  1:45 AM  🔵  AutoCutPage Component Structure
+       #2944           🔵  AutoCutPage UI Structure
+       #2945           🔵  AutoCutPage Basic Configuration Controls
+       #2946  1:46 AM  🔵  AutoCutPage Template Completion
+       #2947           🔵  useAutoEditor Composable Structure
+       #2948           🔵  Speed and Volume Parameters Not Implemented
+       #2949           🔵  Tab Pattern Not Found in CommandConfigPage
+       #2950           🔵  Tab Switching Pattern in CommandConfigPage
+       #2951           🔵  Config Component Inventory
+       #2952           🔵  Conditional Input Pattern Search
+       #2953           🔵  Conditional Input Pattern in TranscodeForm
+       #2954           🔵  Conditional Pattern Search Results
+       #2955           🔵  Select Element Pattern in TranscodeForm
+       #2956  1:47 AM  🔵  Phase 3 Planning Analysis Complete
+       #2957           🟣  Phase 3 Task Created for BasicTab Extraction
+       #2958           🟣  Phase 3 Task Suite Created
+       #2959           🟣  Phase 3 Documentation Task Started
+       #2961           🔵  Documentation Phase Entry Structure
+       #2962  1:48 AM  ✅  Structure.md Updated for Phase 3
+       #2963           ✅  BusinessRules.md Updated for Phase 3
+       #2964           ✅  Procedure.md Updated for Phase 3
+       #2965  1:49 AM  ✅  PRD Appendix Updated with Phase 3 Documentation
+       #2966           🟣  Phase 3 Documentation Task Completed
+       #2967           🟣  Speed/Volume Composable Task Started
+       #2968           🔵  useAutoEditor State Structure
+       #2969           🔵  useAutoEditor State Refs Section
+       #2970  1:50 AM  🔵  useAutoEditor Function Structure
+       #2971           🔵  buildParams Function Structure
+       #2972           🔵  addToQueue Function Structure
+       #2973           🔵  useAutoEditor Return Statement
+       #2974           🟣  Speed and Volume State Refs Added
+       #2975           🟣  Action Value Parameter Construction
+       #2976           🟣  Speed and Volume Watch Dependencies Added
+       #2977  1:51 AM  🟣  Speed and Volume Exported from Composable
+       #2978           🔵  AutoCut i18n Section Location
+       #2979           🟣  English i18n Keys Added for Speed and Volume
+       #2980           🟣  Chinese i18n Keys Added for Speed and Volume
+       #2981           🟣  Speed/Volume Composable Task Completed
+       #2982           🟣  BasicTab Component Extraction Started
+       #2983  1:54 AM  🔵  AutoCutPage Script Structure
+       #2984           🔵  AutoCutPage Composable Usage
+       #2985  1:55 AM  🔵  AutoCutPage Computed Properties
+       #2986           🟣  BasicTab Component Created
+       #2987           🔵  AutoCutPage Full Structure
+       #2988  1:56 AM  🟣  AutoCutPage Refactored with BasicTab Component
+
+## Phase4
+
+### Complete
+
+```
+  Docs (updated first per workflow):
+  - docs/Structure.md — AdvancedTab.vue component docs (6 sections, props/events/control tables), version index,
+  directory tree
+  - docs/BusinessRules.md — Encoder query rules, range list rules, container toggle flag logic
+  - docs/Procedure.md — Encoder query flow (mount + extension change trigger), range list management flow
+  - references/PRD-2.2.0.md — Phase 4 appendix entry
+
+  Code:
+  - frontend/src/components/auto-cut/AdvancedTab.vue — new component with 6 sections, immutable updateField helper,
+  dynamic range lists with add/remove
+  - frontend/src/composables/useAutoEditor.ts — added encoderLists ref, fetchEncoders now stores results
+  - frontend/src/pages/AutoCutPage.vue — replaced Advanced tab placeholder with <AdvancedTab> wiring
+  - frontend/src/i18n/locales/{en,zh-CN}.ts — ~35 new AdvancedTab i18n keys
+
+  Build: vue-tsc --noEmit + bun run build both pass (120 modules).
+```
+
+### Review
+
+```
+  Review fixes applied:
+  1. HIGH: Extracted AdvancedOptions and EncoderLists to shared src/types/autoEditor.ts — imported in both composable
+  and component
+  2. HIGH: Replaced splice with filter in removeRange (immutable)
+  3. MEDIUM: Replaced index assignment with map in updateRange (immutable)
+  4. MEDIUM: Switched v-if/v-else to v-show for tab switching (avoids component destroy/recreate)
+  5. MEDIUM: Used removeRange i18n key in template instead of hardcoded "X"
+  6. MEDIUM: Removed unnecessary videoCodecOptions/audioCodecOptions computed wrappers, using
+  encoderLists.video/encoderLists.audio directly
+  7. LOW: Added section headings for all 6 sections (Actions, Timeline, Container, Video, Audio, Misc)
+```
+
+### CC-Mem
+
+       #2989  1:57 AM  🔄  BasicTab i18n Import Cleanup
+       #2990           🔄  BasicTab i18n Import Restored
+       #2991  1:58 AM  🟣  TypeScript Type Check Passed
+       #2992           🟣  Vite Build Verification Started
+       #2994           🟣  Phase 3 Development Completed
+     ..\..\Git\GithubManager\ff-intelligent-neo\references\PRD-2.2.0.md
+       #2995  1:59 AM  🔵  Phase 4 Development Initiated - Advanced Tab Implementation
+     ..\..\Git\GithubManager\ff-intelligent-neo\docs\BusinessRules.md
+       #2996           🔵  Documentation Structure Analysis for Phase 4 Updates
+       #2997           🔵  Documentation Pattern Analysis for Phase 4 Preparation
+     General
+       #2998  2:00 AM  🟣  Phase 4 AdvancedTab Integration Task Created
+       #2999           🟣  Phase 4 Task Breakdown and Workflow Planning
+     ..\..\Git\GithubManager\ff-intelligent-neo\docs\Structure.md
+       #3000  2:08 AM  ✅  Structure.md Updated with Phase 4 Documentation
+       #3001  2:09 AM  ✅  AdvancedTab.vue Component Documentation Added to Structure.md
+     ..\..\Git\GithubManager\ff-intelligent-neo\docs\BusinessRules.md
+       #3002  2:10 AM  ✅  BusinessRules.md Updated with Phase 4 Advanced Tab Rules
+     ..\..\Git\GithubManager\ff-intelligent-neo\docs\Procedure.md
+       #3003  2:12 AM  ✅  Procedure.md Updated with Phase 4 Encoder Query and Range List Flows
+     ..\..\Git\GithubManager\ff-intelligent-neo\references\PRD-2.2.0.md
+       #3004  2:13 AM  ✅  PRD-2.2.0.md Appendix A Updated with Phase 4 Documentation Summary
+     General
+       #3005           🔵  Phase 4 Workflow Progression: Documentation Complete, Starting i18n
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\i18n\locales\en.ts
+       #3006           🟣  English i18n Keys Added for Advanced Tab (Task #19)
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\i18n\locales\zh-CN.ts
+       #3007           🟣  Chinese i18n Keys Added for Advanced Tab (Task #19)
+     General
+       #3008           🔵  Phase 4 Workflow Progression: i18n Complete, Starting Component Implementation
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useAutoEditor.ts
+       #3009  2:14 AM  🟣  useAutoEditor Composable Extended with Encoder Lists State
+       #3010           🔄  fetchEncoders Method Refactored to Update encoderLists State
+       #3011           🟣  encoderLists Exported from useAutoEditor Composable
+     General
+       #3012           🟣  AdvancedTab.vue Component Created (Task #22)
+       #3013  2:15 AM  🔵  Phase 4 Workflow Progression: AdvancedTab Component Complete, Starting Integration
+     ..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\pages\AutoCutPage.vue
+       #3014           🟣  AdvancedTab Component Imported into AutoCutPage
+       #3015           🟣  AutoCutPage Destructures advancedOptions and encoderLists from Composable
+       #3016           🟣  fetchEncoders Method Destructured for Event Binding
+       #3017           🟣  AdvancedTab Component Integrated into AutoCutPage Template (Task #23)
+     General
+       #3018           🔵  Phase 4 Workflow Progression: Integration Complete, Starting Build Verification
+     references/PRD-2.2.0.md
+       #3019  4:37 AM  ⚖️  Phase 1 Planning Decision
+     src/composables/useAutoEditor.ts
+       #3020  4:38 AM  🟣  Auto Editor Phase 2-4 Implementation
+     src/i18n/locales/zh-CN.ts
+       #3021           🟣  Auto-Cut Internationalization Complete
+     src/components/auto-cut/BasicTab.vue
+       #3022           🟣  Auto-Cut BasicTab Component Implementation
+     src/composables/useAutoEditor.ts
+       #3023           ✅  Auto-Cut Feature Implementation Phase 1-4 Complete
+     src/components/config/TranscodeForm.vue
+       #3024           🔵  Vue Component Architecture Analysis
+     src/types/config.ts
+       #3025           🔵  Types Directory Found
+     src/types/autoEditor.ts
+       #3026           🟣  Centralized Auto-Editor Type Definitions
+     src/composables/useAutoEditor.ts
+       #3027           🔄  useAutoEditor Type Import Refactoring
+       #3028           🔄  EncoderLists Type Consistency Update
+       #3029  4:39 AM  🔄  API Response Type Consistency Update
+     src/components/auto-cut/AdvancedTab.vue
+       #3030           🔄  AdvancedTab Component Type Definition Migration
+       #3031           🔄  AdvancedTab Complete Type Centralization and UI Improvements
+     src/pages/AutoCutPage.vue
+       #3032           🔄  Tab Conditional Rendering Optimization
+     General
+       #3033           🔵  TypeScript Validation Successful
+       #3034  4:40 AM  🟣  Auto-Cut Feature Build Validation Complete
+     #S4 Auto-Editor Feature Phase 1-4 Implementation and Code Review Fixes (Apr 27, 4:40 AM)
+
+### 📝 Commit Message
+
+```
+feat(auto-cut): 新增基础与高级Tab组件
+
+- 提取 BasicTab：编辑方式、阈值、静音/正常动作（动态
+  速度/音量）、边距、平滑设置
+- 提取 AdvancedTab：动作、时间轴、容器、视频、音频、杂项
+  6大配置区，支持动态增删范围列表
+- useAutoEditor 扩展 speedValue/volumeValue 及
+  encoderLists 编码器列表查询
+- 类型定义集中至 autoEditor.ts 消除重复
+- 不可变数组操作(filter/map)，Tab 切换 v-show 优化
+- 修复 FileDropInput v-model 语法错误
+```
+
+### 🚀 Release Notes
+
+```
+## 2026-04-27 - 自动剪辑配置界面升级
+
+### ✨ 新增
+- 自动剪辑页面改为分页式配置：基础设置与高级设置各自独立
+- 基础设置：支持编辑方式选择、阈值调节、静音/正常时段动作
+  配置（根据动作类型动态显示速度或音量调节）、边距与平滑设置
+- 高级设置：提供动作规则、时间轴范围（支持动态增删）、
+  容器格式、视频编码、音频编码及杂项共6大配置区域
+- 编码器列表根据所选容器格式自动查询并更新
+
+### 🐛 修复
+- 修复文件拖放输入框绑定异常的问题
+
+### ⚡ 优化
+- 切换基础/高级标签页时不再销毁重建组件，切换更流畅
+```
+
+## Phase 5 6
+
+### 完成总结
+
+```
+  文档更新（文档先行）
+
+  - Structure.md: +144 行 - 版本索引 4 条 Phase 5 条目，目录树新增 AutoEditorSetup.vue，FileDropInput 新增 multiple prop
+    文档，新增 AutoEditorSetup.vue 组件文档，TaskRow 新增 task_type badge 说明
+  - BusinessRules.md: +67 行 - 新增 Phase 5 规则章节（Settings/单文件约束/任务队列集成）
+  - Procedure.md: +100 行 - 新增路径设置流程（mermaid 时序图）和任务队列集成流程
+  - PRD-2.2.0.md: +113 行 - 附录 A 同步 Phase 5 文档变更
+
+  代码实现
+
+  ┌─────────────────────┬────────────────────────────────────────────┬─────────────────────────────────────────────┐
+  │       子任务        │                    文件                    │                    变更                     │
+  ├─────────────────────┼────────────────────────────────────────────┼─────────────────────────────────────────────┤
+  │ 5.1 AutoEditorSetup │ 新建                                       │ 路径设置组件，与 FFmpegSetup 风格一致       │
+  │                     │ components/settings/AutoEditorSetup.vue    │                                             │
+  ├─────────────────────┼────────────────────────────────────────────┼─────────────────────────────────────────────┤
+  │ 5.1 SettingsPage    │ pages/SettingsPage.vue                     │ 导入并挂载 AutoEditorSetup                  │
+  │ 集成                │                                            │                                             │
+  ├─────────────────────┼────────────────────────────────────────────┼─────────────────────────────────────────────┤
+  │ 5.2 FileDropInput   │ components/common/FileDropInput.vue        │ 新增 multiple prop，多文件拒绝              │
+  ├─────────────────────┼────────────────────────────────────────────┼─────────────────────────────────────────────┤
+  │ 5.3 Task 模型       │ core/models.py                             │ Task 新增 task_type 字段                    │
+  ├─────────────────────┼────────────────────────────────────────────┼─────────────────────────────────────────────┤
+  │ 5.3 API 设置类型    │ core/auto_editor_api.py                    │ 创建任务时设置 task_type="auto_editor"      │
+  ├─────────────────────┼────────────────────────────────────────────┼─────────────────────────────────────────────┤
+  │ 5.3 前端类型        │ types/task.ts                              │ TaskDTO 新增 task_type                      │
+  ├─────────────────────┼────────────────────────────────────────────┼─────────────────────────────────────────────┤
+  │ 5.3 TaskRow         │ components/task-queue/TaskRow.vue          │ auto_editor 任务显示 "Auto Cut" badge       │
+  ├─────────────────────┼────────────────────────────────────────────┼─────────────────────────────────────────────┤
+  │ 5.3 类型迁移        │ types/autoEditor.ts                        │ 提取 AeStatus 共享类型                      │
+  ├─────────────────────┼────────────────────────────────────────────┼─────────────────────────────────────────────┤
+  │ i18n                │ en.ts, zh-CN.ts                            │ 新增 autoEditor 设置 + taskType +           │
+  │                     │                                            │ onlyOneFile 翻译                            │
+  └─────────────────────┴────────────────────────────────────────────┴─────────────────────────────────────────────┘
+
+  验证
+
+  - TypeScript 类型检查通过
+  - Vite 生产构建成功 (2.01s)
+
+
+```
+
+### CC-Mem
+
+       #3072  5:17 AM  ✅  Added task type badge documentation to TaskRow.vue section
+     General
+       #3073           ✅  Updated development task tracking status
+     docs/BusinessRules.md
+       #3074           🔵  Located insertion point in BusinessRules.md for Phase 5 content
+       #3075           ✅  Added Phase 5 business rules to BusinessRules.md
+     General
+       #3076           ✅  Updated development task workflow progression
+     docs/Procedure.md
+       #3077  5:18 AM  🔵  Located Procedure.md version index insertion point
+       #3078           ✅  Added Phase 5 workflow entries to Procedure.md version index
+       #3079           🔵  Located Procedure.md file end for Phase 5 workflow insertion
+       #3080           🔵  Confirmed Procedure.md file end location at line 1082
+       #3081           ✅  Added Phase 5 workflow documentation to Procedure.md
+     General
+       #3082           ✅  Updated development workflow task progression
+     references/PRD-2.2.0.md
+       #3083           🔵  Located Phase 4 end in PRD at line 689
+       #3084           🔵  Confirmed PRD file ends at line 689
+       #3085           🔵  Read PRD file end structure for Phase 5 insertion
+       #3086  5:19 AM  ✅  Added Phase 5 documentation to PRD Appendix A
+     General
+       #3087           ✅  Completed PRD documentation and started implementation phase
+     frontend/src/i18n/locales/en.ts
+       #3088           🔵  Checked existing common i18n keys in en.ts and zh-CN.ts
+       #3089  5:20 AM  🔵  Read en.ts common keys section context for i18n insertion
+     frontend/src/i18n/locales/zh-CN.ts
+       #3090           🔵  Verified zh-CN.ts file structure and length
+     frontend/src/i18n/locales/en.ts
+       #3091           🔵  Verified en.ts file structure matches zh-CN.ts format
+       #3092           🔵  Read en.ts lines 475-479 for i18n insertion context
+     frontend/src/i18n/locales/zh-CN.ts
+       #3093           🔵  Verified parallel i18n structure in en.ts and zh-CN.ts lines 475-479
+     frontend/src/i18n/locales/en.ts
+       #3094  5:21 AM  🟣  Added onlyOneFile i18n key to en.ts
+     frontend/src/i18n/locales/zh-CN.ts
+       #3095  5:22 AM  🟣  Added onlyOneFile i18n key to zh-CN.ts
+     frontend/src/i18n/locales/en.ts
+       #3096           🟣  Verified onlyOneFile i18n keys successfully added to both language files
+     frontend/src/components/common/FileDropInput.vue
+       #3097           ✅  Added Phase 5 documentation to FileDropInput.vue header comment
+       #3098           🟣  Implemented multiple prop in FileDropInput.vue for single-file constraint
+     General
+       #3099           ✅  Completed FileDropInput multiple prop implementation and started Task 1
+     frontend/src/i18n/locales/en.ts
+       #3100           🔵  Located settings i18n section in en.ts
+       #3101  5:23 AM  🔵  Read en.ts settings section structure (lines 35-55)
+       #3102           🔵  Read extended settings section structure in en.ts (lines 35-70)
+       #3103           🔵  Read en.ts output section end (lines 56-60)
+       #3104  5:24 AM  🔵  Located settings object closing brace at line 65 in en.ts
+       #3105           🔵  Read en.ts lines 62-67 to confirm autoEditor insertion point
+       #3106           🟣  Added autoEditor i18n subsection to en.ts settings object
+     frontend/src/i18n/locales/zh-CN.ts
+       #3107           🔵  Search for output section in zh-CN.ts returned no matches
+       #3108           🔵  Located output section at line 57 in zh-CN.ts
+       #3109           🔵  Read zh-CN.ts output section structure (lines 57-67)
+       #3110  5:25 AM  🟣  Added autoEditor i18n subsection to zh-CN.ts settings object
+     frontend/src/i18n/locales/en.ts
+       #3111           🔵  Verified autoEditor i18n keys successfully added to both language files
+     frontend/src/components/settings/
+       #3112           🔵  Listed settings components directory contents
+     General
+       #3113           🟣  Created AutoEditorSetup.vue component for Phase 5
+     frontend/src/components/settings/AutoEditorSetup.vue
+       #3114           🔴  Fixed missing ref import in AutoEditorSetup.vue
+     frontend/src/pages/SettingsPage.vue
+       #3115           🔵  Read SettingsPage.vue file header to verify structure
+       #3116           ✅  Added AutoEditorSetup import to SettingsPage.vue
+       #3117           ✅  Added useAutoEditor composable import to SettingsPage.vue
+       #3118           🟣  Initialized useAutoEditor composable in SettingsPage.vue
+       #3119  5:26 AM  🟣  Added auto-editor status fetch to SettingsPage onMounted lifecycle
+       #3120           🟣  Added handleSelectAutoEditorBinary handler to SettingsPage.vue
+       #3121           ✅  Added call import to SettingsPage.vue bridge imports
+       #3122  5:40 AM  ✅  Structure.md updated for Phase 6 integration test guide
+       #3123           ✅  Structure.md directory tree updated with Phase 6 test files
+     ..\..\Git\GithubManager\ff-intelligent-neo\references\PRD-2.2.0.md
+       #3124           ✅  PRD-2.2.0.md updated with Phase 6 documentation changes
+     ..\..\Git\GithubManager\ff-intelligent-neo\references\test-guide-2.2.0.md
+       #3125  5:43 AM  🟣  Phase 6 integration test guide created
+
+### 📝 Commit Message
+
+```
+feat(auto-editor): 新增自动剪辑设置与任务类型标识
+
+- 新建 AutoEditorSetup 组件并集成至全局设置页
+- Task 模型新增 task_type 字段，任务列表展示专属标签
+- FileDropInput 新增 multiple 属性支持单文件约束
+- 同步更新 Phase 5 业务规则、流程文档及国际化文案
+```
+
+### 🚀 Release Notes
+
+```
+## 2024-05-25 - 自动剪辑设置与任务管理增强
+
+### ✨ 新增
+- 新增自动剪辑工具路径设置功能，方便统一配置工具环境
+- 任务队列支持区分任务类型，自动剪辑任务将展示专属标识
+
+### ⚡ 优化
+- 文件拖拽区域支持限制仅允许拖入单个文件，避免误操作
+```
+
+## 测试修复
+
+## Phase7-11测试结果
+
+- FP-03测试不通过：有有效auto-editor后，仍然显示“请在设置中配置 auto-editor 路径”
+- FP-06测试不通过，有有效auto-editor后仍不可点击
+- FB-04  优化方向：到0.1和0.2时显示0.10和0.20避免布局变动
+- FB相关优化方向：这些参数都是必须要传入或者这些数值都是默认传入的值吗，不是的话，应该默认设为不传入，选择了相关选项才传入。此外，输入框不要出现消失，选择了不需要输入框的选项时冻结住就行了，这样才能避免排版变动。
+- FB-11测试不通过，命令预览没有任何更新。也因此，相关测试无法测试
+- FA-04测试不通过，视频/音频编码器下拉框未填充编码器列表  。也因此FA-05无法测试
+- FS-02测试不通过，点击不打开文件选择
+- FS-03测试不通过，有有效auto-editor后，仍然显示“未配置”。但FS-07测试通过
+- FS相关问题，相关的持久化配置是否保存到并读取在：软件目录\data\ 文件夹中
+
+已完成一轮修复，进行第二轮测试，详细内容如下：
+
+## 第二轮测试结果
+
+- FB相关优化不正确：我看到现在静音时和正常时共用了速度和音量输入框，这不对，他们的输入框应该是独立的。而且分别支配一个“速度/音量”输入框即可，输入框选到速度是显示默认值4，选音量时显示默认值0.5
+- FP-03优化不完全：有有效auto-editor后，仍然短暂显示“请在设置中配置 auto-editor 路径”过了一秒左右才消失。
+- 自动剪辑页面的FileDropInput：点击未弹出文件选择器
+- FD-02：应该支持拖入多个，命令预览显示文件占位符（input.mp4）即可（始终这样，能够让命令预览在没有输入文件的时候也能够预览命令），添加到队列时分别带着标识符依次传入队列即可
+- FQ测试：自动剪辑任务添加到队列之后，任务带有自动剪辑标识，但是执行发现运行的是ffmpeg命令：core.ffmpeg_runner:run_single - Running: C:\Program Files\FFmpeg\ffmpeg.EXE -hide_banner -y -i Q:\Git\GithubManager\ff-intelligent-neo\test_files\20260327Fly.mkv -c:v libx264 -c:a aac -b:a 128k -y Q:\Git\GithubManager\ff-intelligent-neo\test_files\20260327Fly.mp4
+- 添加了一次到队列之后，又显示“请在设置中配置 auto-editor 路径”了。好像不是添加到队列的问题，而是设置完之后一切出设置界面设置界面就又“未配置”了，查看本地持久化文件是有auto-editor二进制路径的
+
+  Changes Summary
+
+  1. FB: Independent speed/volume inputs (silent vs normal)
+
+  - useAutoEditor.ts: Split speedValue/volumeValue into
+    silentSpeedValue/silentVolumeValue/normalSpeedValue/normalVolumeValue, all defaulting to 4 (speed) or 0.5 (volume)
+  - BasicTab.vue: Updated props/emits to use independent pairs. Each section (silent/normal) now shows a single input
+    that switches between speed/volume based on the selected action, with frozen disabled state when no value is needed
+    (cut/nil)
+  - AutoCutPage.vue: Updated destructuring and bindings for the new independent props
+  - en.ts / zh-CN.ts: Added noValueNeeded i18n key
+
+  2. FP-03: Flash of "not configured" status
+
+  - AutoCutPage.vue: Added initializing to destructured exports, status bar now uses v-if="statusMessage &&
+    !initializing"
+  - useAutoEditor.ts: Wrapped fetchStatus() in try/finally so initializing is always cleared
+
+  3. FileDropInput click + multi-file (FD-02)
+
+  - FileDropInput.vue:
+    - Removed toWebViewFileTypes import (file_types were causing dialog issues on Windows; frontend still validates
+    extensions)
+    - Drop handlers now emit all files when multiple=true
+    - openFileDialog now uses select_files (multi-file) when multiple=true, select_file_filtered (single) otherwise
+
+  4. Command preview when no file selected
+
+  - auto_editor_api.py: preview_auto_editor_command now skips file validation for _placeholder.mp4 paths, allowing the
+    command preview to always show
+
+  5. FQ: Auto-editor tasks dispatched correctly
+
+  - main.py: retry_task now checks task_type == 'auto_editor' and delegates to auto-editor API
+  - auto_editor_api.py: start_auto_editor_task no longer pops pending params, so retry can reuse them
+
+  - Recommended — libx264 (H.264), libx265 (H.265/HEVC) — always available
+  - Hardware (GPU) — h264_nvenc, hevc_nvenc, av1_nvenc (NVIDIA), h264_amf, hevc_amf (AMD), h264_qsv, hevc_qsv (Intel),
+    h264_videotoolbox, hevc_videotoolbox (Apple VT)
+  - Other — libsvtav1, libvpx-vp9, mpeg4
+  - Custom... — text input for any encoder name
+
+
+
+  docs/Structure.md — Updated:
+  - Version index: Phase 2-4 entries reflect actual implementation (multi-file, independent speed/volume, static encoder
+      lists, consolidations)
+  - Directory tree: added autoEditorEncoders.ts
+  - FileDropInput: multi-file support instead of single-file constraint
+  - useAutoEditor: independent speed/volume refs, removed encoderLists/fetchEncoders, added initializing/selectedFile,
+    immediate preview
+  - BasicTab: added codec selectors, independent action value inputs, frozen disabled state
+  - AdvancedTab: restructured to Actions/Timeline/Switches/Video/Audio/Output
+  - AutoCutPage: multi-file input, initializing flash prevention
+  - AutoEditorSetup: reserved path space
+
+  docs/BusinessRules.md — Updated:
+  - Input validation: multi-file support
+  - Command building: --edit METHOD:THRESHOLD format, placeholder preview, immediate trigger
+  - Phase 2 page rules: initializing hide, multi-file, immediate preview, independent action values
+  - Phase 4 rules: static curated encoder lists, Switches consolidation
+  - FileDropInput rules: multi-file emit, no file_types to pywebview
+  - Settings rules: reserved path space
+
+  docs/Procedure.md — Updated command preview flow with immediate trigger and placeholder support.
+
+  references/PRD-2.2.0.md — Updated:
+  - AutoCutPage layout (multi-file, immediate preview)
+  - Phase 3 BasicTab (codecs, independent speed/volume, frozen inputs)
+  - Phase 4 AdvancedTab (Switches consolidation, codecs moved)
+  - Phase 5 FileDropInput (multi-file support)
+  - Added Phase 7: Bugfixes & Refinements section
+  - Updated Out of Scope
+
+  README.md — Added Auto Cut feature, auto-editor core/frontend files, page route, prerequisites.
+
+### CC-Mem
+
+```
+[ff-intelligent-neo] recent context, 2026-04-27 5:40pm GMT+8
+────────────────────────────────────────────────────────────
+
+Legend: session-request | 🔴 bugfix | 🟣 feature | 🔄 refactor | ✅ change | 🔵 discovery | ⚖️ decision
+
+Column Key
+  Read: Tokens to read this observation (cost to learn it now)
+  Work: Tokens spent on work that produced this record ( research, building, deciding)
+
+Context Index: This semantic index (titles, types, files, tokens) is usually sufficient to understand past work.
+
+When you need implementation details, rationale, or debugging context:
+  - Fetch by ID: get_observations([IDs]) for observations visible in this index
+  - Search history: Use the mem-search skill for past decisions, bugs, and deeper research
+  - Trust this index over re-reading code for past decisions and learnings
+
+Context Economics
+  Loading: 120 observations (29,244 tokens to read)
+  Work investment: 0 tokens spent on research, building, and decisions
+
+Apr 23, 2026
+
+#S2 ComboInput component enhanced with improved filtering behavior (Apr 23, 12:50 AM)
+
+#S1 Audio transcoding parameter consistency fix - user requested explanation of changes made to ensure passed parameters match command preview (Apr 23, 12:50 AM)
+
+#S3 Frontend Code Review for UX Issues and FFmpeg Preview Optimization (Apr 23, 12:54 AM)
+
+
+Apr 27, 2026
+
+#S4 Auto-Editor Feature Phase 1-4 Implementation and Code Review Fixes (Apr 27, 4:40 AM)
+
+General
+  #3126  6:11 AM  🔵  Backend testing initiated for auto-editor functionality  
+references/test-guide-2.2.0.md
+  #3128           🔵  Test guide v2.2.0 defines 6 backend functionality test items  
+  #3129           🔵  Test guide items 4-6 cover API integration, error handling, and end-to-end video processing  
+core/models.py
+  #3130  6:12 AM  🔵  Backend codebase size determined for testing planning  
+core/auto_editor_runner.py
+  #3131           🔵  auto_editor_runner.py implements command building, input validation, and progress parsing for auto-editor integration  
+core/auto_editor_api.py
+  #3132           🔵  AutoEditorApi class provides backend API layer with path management, encoder querying, and task lifecycle management  
+core/models.py
+  #3133           🔵  models.py defines frozen dataclasses for type-safe data transfer with serialization support  
+test_backend_phase1_6.py
+  #3134  6:15 AM  🟣  Comprehensive test suite created for backend functionality testing (sections 1-6)  
+  #3135  6:18 AM  🔴  Test cases BE-04 and BE-05 fixed to properly test extension validation with real temporary files  
+core/auto_editor_runner.py
+  #3136           🔴  Path traversal prevention logic fixed in generate_output_path function  
+test_backend_phase1_6.py
+  #3137  6:19 AM  🔵  Backend test suite completed successfully with 61/61 tests passing for sections 1-6  
+  #3139  6:22 AM  🔵  Backend test suite confirmed stable with 61/61 tests passing across multiple test runs  
+TEST_RESULTS.md
+  #3140  6:23 AM  🔵  Comprehensive test results documentation created for backend testing sections 1-6  
+General
+  #3141  1:51 PM  🔵  Auto-Editor Integration Has Configuration Detection Issues  
+  #3142           🔵  UI Layout Instability from Dynamic Input Fields  
+  #3143           🔵  Core Features Not Functional  
+  #3144           🔵  Persistent Configuration Storage Location Unclear  
+frontend/src/components/settings/AutoEditorSetup.vue
+  #3145           🔵  Auto-Editor Configuration Component Located  
+frontend/src/composables/useAutoEditor.ts
+  #3146           🔵  Auto-Editor Logic Architecture Mapped  
+  #3147  1:54 PM  🔵  Auto-Editor Status Validation Logic Identified  
+  #3148           🔵  Command Preview Update Mechanism Identified  
+  #3149           🔵  Encoder Fetching System Identified  
+main.py
+  #3150  1:55 PM  🔵  Backend API Architecture Identified  
+frontend/src/pages/SettingsPage.vue
+  #3151           🔵  Settings Page Auto-Editor Integration Flow  
+main.py
+  #3152           🔵  File Selection API Method Name Mismatch  
+frontend/src/components/settings/FFmpegSetup.vue
+  #3153  1:56 PM  🔵  Two Separate Binary Selection Flows Identified  
+main.py
+  #3154           🔵  File Dialog Backend Implementation Details  
+  #3155           🔵  File Dialog Method Selection Strategy  
+frontend/src/pages/AutoCutPage.vue
+  #3156  1:58 PM  🔵  Status Update Root Cause Identified  
+core/config.py
+  #3157           🔵  Settings Persistence Architecture Confirmed  
+General
+  #3158           ⚖️  Task Prioritization Strategy Established  
+frontend/src/components/auto-cut/BasicTab.vue
+  #3159  1:59 PM  🔵  BasicTab UI Component Architecture  
+core/paths.py
+  #3160           🔵  Settings Persistence Location Confirmed as Application Directory/data  
+frontend/src/components/auto-cut/BasicTab.vue
+  #3161  2:00 PM  🔵  BasicTab Layout Instability Implementation Details  
+frontend/src/components/layout/AppNavbar.vue
+  #3162           🔵  AppNavbar Also Fetches Auto-Editor Status  
+  #3163  2:01 PM  🔵  AppNavbar Auto-Editor Event Handler Implementation  
+frontend/src/pages/SettingsPage.vue
+  #3164           🔴  Fixed FS-02: File Picker Method Name  
+  #3165           🔴  Fixed SettingsPage Status Fetch Timing  
+frontend/src/pages/AutoCutPage.vue
+  #3166  2:02 PM  🔴  Added waitForPyWebView Import to AutoCutPage  
+  #3167           🔴  Fixed AutoCutPage Status Fetch Race Condition  
+frontend/src/composables/useAutoEditor.ts
+  #3168           🔴  Added Error Handling to useAutoEditor.fetchStatus()  
+  #3169  2:03 PM  🔴  Fixed updatePreview Error Handling and Loading State  
+  #3170           🔴  Added Error Handling to fetchEncoders Function  
+frontend/src/components/auto-cut/BasicTab.vue
+  #3171           ✅  Added Fixed Decimal Formatting for Threshold Display  
+  #3172           ✅  Applied Fixed Decimal Formatting to Threshold Label  
+  #3173  2:05 PM  🔄  Refactored Speed/Volume Inputs to Always-Visible Disabled State  
+frontend/src/composables/useAutoEditor.ts
+  #3174           🔄  Optimized buildParams to Only Pass Non-Default Values  
+..\..\Git\GithubManager\ff-intelligent-neo\core\auto_editor_api.py
+  #3177  2:27 PM  🔵  Auto Editor Task Implementation Found  
+..\..\Git\GithubManager\ff-intelligent-neo\main.py
+  #3179  2:28 PM  🔵  Queue Change Notification System  
+  #3180  2:29 PM  🔵  Task Runner Initialization Pattern  
+..\..\Git\GithubManager\ff-intelligent-neo\core\auto_editor_api.py
+  #3181  2:30 PM  🔵  Auto Editor Backend System Analysis  
+..\..\Git\GithubManager\ff-intelligent-neo\main.py
+  #3182           🔵  FFmpeg Task Configuration Structure  
+  #3183  2:31 PM  🔵  Task Creation and Background Probing  
+General
+  #3184  2:32 PM  🔵  Task Management Operations  
+..\..\Git\GithubManager\ff-intelligent-neo\core\task_runner.py
+  #3185  2:33 PM  🔵  Task Runner Start Task Method  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useTaskControl.ts
+  #3186           🔵  Frontend Task Control Implementation  
+  #3187  2:34 PM  🔵  Frontend Task Auto-Start Implementation  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\common\FileDropInput.vue
+  #3188           🔵  File Drop Input Component  
+  #3189  2:36 PM  🔵  FileDropInput Component Structure  
+  #3190           🔵  File Selection Validation Logic  
+General
+  #3191  2:37 PM  ✅  Critical Auto Editor Task Dispatch Fix Identified  
+..\..\Git\GithubManager\ff-intelligent-neo\main.py
+  #3192  2:38 PM  🔵  Main API start_task Implementation  
+  #3193           🔴  Auto Editor Task Dispatch Fixed  
+  #3194           🔵  Task Control Methods Need Similar Fix  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\auto-cut\BasicTab.vue
+  #3195  2:39 PM  🔴  AutoCut Shared Speed/Volume Inputs Fixed  
+  #3196           🔴  AutoCut Speed/Volume Separation Complete  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\pages\AutoCutPage.vue
+  #3197  2:40 PM  🔵  AutoCut File Input Identified  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useAutoEditor.ts
+  #3198           🔵  Auto Editor Composable Identified  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\common\FileDropInput.vue
+  #3199  2:41 PM  🔵  FileDropInput Multiple File Support Found  
+  #3200           🔵  FileDropInput Drop Handlers Confirmed  
+  #3201  2:42 PM  🔵  FileDropInput OnDrop Handler Logic  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useAutoEditor.ts
+  #3202  2:43 PM  🔄  Auto Editor Composable Multi-File Support Started  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\pages\AutoCutPage.vue
+  #3203  2:44 PM  🔄  AutoCutPage Single-File Component Identified  
+  #3204           ✅  AutoCut Multi-File Support Complete  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\i18n\locales\en.ts
+  #3205  2:49 PM  🟣  Auto Cut multi-file selection support added  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useAutoEditor.ts
+  #3206           🟣  Auto Editor initialization state tracking added  
+  #3207           🟣  Auto Editor initialization lifecycle implemented
+```
+
+### 📝 Commit Message
+
+```
+feat(auto-editor): 修复状态闪烁、命令预览及输入交互，新增多文件支持
+
+- 静音/正常模式的速度/音量输入框独立，默认值4/0.5，非必要输入时冻结禁用
+- 解决加载时短暂显示“未配置”状态的问题
+- FileDropInput 支持多文件拖入/选择，同时修复点击无法打开对话框的问题
+- 命令预览在无文件时显示占位符命令，触发立即预览
+- 自动剪辑任务正确调度至 auto-editor 流程，而非默认 ffmpeg
+```
+
+### 🚀 Release Notes
+
+```
+## 2026-04-27 - 自动剪辑交互与稳定性优化
+
+### ✨ 新增
+- 静音与正常模式的速度/音量配置相互独立，各自拥有独立的输入框，默认值符合预期
+- 支持拖入或选择多个文件，配合占位符命令预览，可先行查看命令再添加任务
+- 无文件时仍可预览自动剪辑命令，便于提前检查参数
+
+### 🐛 修复
+- 修复进入自动剪辑页面时状态栏短暂闪现“未配置”提示的问题
+- 修复文件拖入区域点击后无法弹出文件选择对话框的问题
+- 自动剪辑任务现已正确执行 auto-editor 流程，不再误用转码命令
+
+### ⚡ 优化
+- 参数输入框不再动态显示/隐藏，无需求时保持冻结状态，避免界面布局抖动
+- 阈值等浮点数显示保留固定小数位数（如 0.10、0.20），确保排版稳定
+```
+
+## 问题1
+
+- 配置页-编码配置
+  - 不要隐藏任何框，全都显示出来，怎么改各种选项都显示，这样才能确保没有排版错误。只要保证没选择相关的选项，参数不会错误地传递就行了
+  - 然后指定了最大比特率时的缓存输入框在最大比特率下方位置
+  - 还有视频编码器里面我电脑没有amd显卡但还是显示了amf编码器
+  - 视频编码器中新增av1_qsv在备选中VP9上方
+  - 音视频编码器的copy和No Video都显示在推荐类型的最上方
+- 所有页优化
+  - 预留滚动条的空间以避免滚动条导致的画面变动
+
+
+@references/PRD-2.2.0.md 根据需求文档，现已完成Phase4的开发，准备推进Phase5的开发，请你先遵循开发流程，修改相关文档并更新PRD的附录A，再开始具体开发
+

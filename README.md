@@ -14,6 +14,7 @@ FFmpeg batch processing desktop tool built with Python + Vue.js.
 - **Custom Commands** - Write raw FFmpeg arguments with real-time preview
 - **Preset System** - Save and load encoder/filter configurations
 - **Dark/Light Theme** - Follows system preference, manual toggle, DaisyUI themed
+- **Auto Cut (v2.2.0)** - Silence/motion-based auto-editing via auto-editor, curated encoder lists (Recommended / GPU Hardware / Custom)
 - **Chinese/English UI** - Full i18n support via vue-i18n
 - **Cross-platform** - Windows, macOS, Linux
 
@@ -32,6 +33,8 @@ FFmpeg batch processing desktop tool built with Python + Vue.js.
 ff-intelligent-neo/
   main.py              # Entry point, Bridge API, event system
   core/                # Python backend modules
+    auto_editor_runner.py  # auto-editor: command builder, progress parser (v2.2.0)
+    auto_editor_api.py     # auto-editor: path mgmt, task ops, preview (v2.2.0)
     command_builder.py # FFmpeg command generation
     task_runner.py     # Task execution & process control
     task_queue.py      # Task persistence
@@ -45,12 +48,13 @@ ff-intelligent-neo/
   frontend/            # Vue.js SPA
     src/
       components/      # UI components
+        auto-cut/      # Auto Cut (BasicTab, AdvancedTab) (v2.2.0)
         config/        # Command config forms (Transcode, Filters, Clip, Merge, Encoder)
         task-queue/    # Queue components (TaskList, TaskRow, ProgressBar)
         settings/      # Settings panels
         common/        # Shared components (ComboInput, FileDropInput, SplitDropZone)
         layout/        # AppNavbar
-      composables/     # Reactive logic (useCommandPreview, useTaskQueue, useTheme, useLocale)
+      composables/     # Reactive logic (useAutoEditor, useCommandPreview, useTaskQueue, ...)
       pages/           # Route pages (TaskQueuePage, CommandConfigPage, MergePage, etc.)
       i18n/            # zh-CN / en-US language packs
       types/           # TypeScript type definitions
@@ -67,6 +71,7 @@ ff-intelligent-neo/
 - [uv](https://docs.astral.sh/uv/)
 - [bun](https://bun.sh/)
 - FFmpeg (auto-detected or downloaded via built-in downloader on Windows)
+- auto-editor v30.1.x (optional, for Auto Cut feature; downloadable from GitHub Releases)
 
 ### Development
 
@@ -102,7 +107,8 @@ uv run build.py --no-ffmpeg      # without bundled FFmpeg
 | `/audio-subtitle` (A/V Mix) | Mix external audio/subtitle tracks into video |
 | `/merge` (Merge) | Multi-video merging with intro/outro support |
 | `/custom-command` | Write raw FFmpeg arguments |
-| `/settings` | FFmpeg setup, output folder, theme, language |
+| `/auto-cut` (v2.2.0) | Auto-Editor silence/motion detection cutting with curated encoder lists |
+| `/settings` | FFmpeg/auto-editor setup, output folder, theme, language |
 
 ## License
 

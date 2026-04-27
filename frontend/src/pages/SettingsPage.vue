@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { onMounted, computed } from "vue"
-import { waitForPyWebView } from "../bridge"
+import { waitForPyWebView, call } from "../bridge"
 import { useSettings } from "../composables/useSettings"
+import { useAutoEditor } from "../composables/useAutoEditor"
 import { useI18n } from "vue-i18n"
 
 import FFmpegSetup from "../components/settings/FFmpegSetup.vue"
+import AutoEditorSetup from "../components/settings/AutoEditorSetup.vue"
 import ThreadCountInput from "../components/settings/ThreadCountInput.vue"
 import OutputFolderInput from "../components/settings/OutputFolderInput.vue"
 import AppAbout from "../components/settings/AppAbout.vue"
 
 const { t } = useI18n()
 const s = useSettings()
+const ae = useAutoEditor()
 
 const currentVersion = computed(() => {
   const active = s.ffmpegVersions.value.find((v) => v.active)
@@ -23,6 +26,7 @@ onMounted(async () => {
     s.fetchSettings()
     s.fetchFfmpegVersions()
     s.fetchAppInfo()
+    await ae.fetchStatus()
   } catch (err) {
     console.error("[SettingsPage] mount failed:", err)
   }
@@ -34,6 +38,17 @@ async function handleThreadChange(value: number): Promise<void> {
 
 async function handleOutputDirChange(value: string): Promise<void> {
   await s.saveSettings({ default_output_dir: value })
+}
+
+async function handleSelectAutoEditorBinary(): Promise<void> {
+  try {
+    const res = await call<string>("select_file_filtered")
+    if (res.success && res.data) {
+      ae.setPath(res.data)
+    }
+  } catch {
+    // silently fail
+  }
 }
 </script>
 
@@ -58,6 +73,15 @@ async function handleOutputDirChange(value: string): Promise<void> {
       </div>
 
       <div class="space-y-4">
+        <div class="card bg-base-200 shadow-sm border border-base-300">
+          <div class="card-body">
+            <AutoEditorSetup
+              :status="ae.autoEditorStatus.value"
+              @select-binary="handleSelectAutoEditorBinary"
+              @set-path="(path) => ae.setPath(path)"
+            />
+          </div>
+        </div>
         <div class="card bg-base-200 shadow-sm border border-base-300">
           <div class="card-body">
             <ThreadCountInput

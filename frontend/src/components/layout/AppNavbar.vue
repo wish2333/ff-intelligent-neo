@@ -9,6 +9,8 @@ const { t } = useI18n()
 const ffmpegStatus = ref<"unknown" | "ready" | "not_found">("unknown")
 const ffmpegVersion = ref("")
 const ffmpegError = ref("")
+const aeStatus = ref<"unknown" | "ready" | "not_found">("unknown")
+const aeVersion = ref("")
 const { resolveTheme, toggleTheme } = useTheme()
 const { toggleLocale, currentLocale } = useLocale()
 
@@ -16,12 +18,14 @@ const navItems = computed(() => [
   { name: "TaskQueue", label: t("nav.queue"), path: "/task-queue" },
   { name: "CommandConfig", label: t("nav.config"), path: "/config" },
   { name: "AudioSubtitle", label: t("nav.avMix"), path: "/audio-subtitle" },
+  { name: "AutoCut", label: t("nav.autoCut"), path: "/auto-cut" },
   { name: "Merge", label: t("nav.merge"), path: "/merge" },
   { name: "CustomCommand", label: t("nav.custom"), path: "/custom-command" },
   { name: "Settings", label: t("nav.settings"), path: "/settings" },
 ])
 
 let cleanupVersionEvent: (() => void) | null = null
+let cleanupAeVersionEvent: (() => void) | null = null
 
 onMounted(async () => {
   await waitForPyWebView()
@@ -60,10 +64,30 @@ onMounted(async () => {
     ffmpegVersion.value = detail.version
     ffmpegError.value = ""
   })
+
+  // Auto-editor status check
+  call<{ available: boolean; compatible: boolean; version: string; path: string }>(
+    "get_auto_editor_status",
+  ).then((res) => {
+    if (res.success && res.data) {
+      aeStatus.value = res.data.available && res.data.compatible ? "ready" : "not_found"
+      aeVersion.value = res.data.version
+    }
+  }).catch(() => {})
+
+  cleanupAeVersionEvent = onEvent<{
+    version: string
+    path: string
+    status: string
+  }>("auto_editor_version_changed", (detail) => {
+    aeStatus.value = detail.status === "ready" ? "ready" : "not_found"
+    aeVersion.value = detail.version
+  })
 })
 
 onUnmounted(() => {
   cleanupVersionEvent?.()
+  cleanupAeVersionEvent?.()
 })
 </script>
 
@@ -124,6 +148,15 @@ onUnmounted(() => {
             ? (ffmpegError || t("nav.ffmpegNotFound"))
             : t("nav.ffmpegChecking")
         }}
+      </span>
+
+      <!-- Auto-editor status badge -->
+      <span
+        v-if="aeStatus !== 'unknown'"
+        class="badge badge-sm font-medium"
+        :class="aeStatus === 'ready' ? 'badge-success' : 'badge-warning'"
+      >
+        {{ aeStatus === 'ready' ? `AE ${aeVersion}` : t("nav.aeNotFound") }}
       </span>
     </div>
   </div>

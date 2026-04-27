@@ -344,6 +344,9 @@ class FFmpegApi(Bridge):
     def start_task(self, task_id: str, config: dict | None = None) -> dict:
         """Start executing a single pending task with the current config."""
         try:
+            task = self._queue.get_task(task_id)
+            if task is not None and getattr(task, 'task_type', '') == 'auto_editor':
+                return self._auto_editor.start_auto_editor_task(task_id)
             ok = self._runner.start_task(task_id, config=config)
             return {"success": ok, "data": None}
         except Exception as exc:
@@ -354,6 +357,9 @@ class FFmpegApi(Bridge):
     def stop_task(self, task_id: str) -> dict:
         """Stop a single task (pending / running / paused)."""
         try:
+            task = self._queue.get_task(task_id)
+            if task is not None and getattr(task, 'task_type', '') == 'auto_editor':
+                return self._auto_editor.cancel_auto_editor_task(task_id)
             ok = self._runner.stop_task(task_id)
             return {"success": ok, "data": None}
         except Exception as exc:
@@ -384,6 +390,13 @@ class FFmpegApi(Bridge):
     def retry_task(self, task_id: str, config: dict | None = None) -> dict:
         """Retry a failed task with the current config."""
         try:
+            task = self._queue.get_task(task_id)
+            if task is not None and getattr(task, 'task_type', '') == 'auto_editor':
+                # Reset state then re-execute with stored params
+                ok = self._runner.reset_task(task_id)
+                if not ok:
+                    return {"success": False, "error": "Failed to reset task"}
+                return self._auto_editor.start_auto_editor_task(task_id)
             ok = self._runner.retry_task(task_id, config=config)
             return {"success": ok, "data": None}
         except Exception as exc:
@@ -763,6 +776,49 @@ class FFmpegApi(Bridge):
         return {"method": "unknown", "command": ""}
 
     # ------------------------------------------------------------------
+    # Auto-Editor delegates (v2.2.0)
+    # ------------------------------------------------------------------
+
+    @property
+    def _auto_editor(self):
+        if not hasattr(self, "_auto_editor_inst"):
+            from core.auto_editor_api import AutoEditorApi
+            self._auto_editor_inst = AutoEditorApi(
+                emit=self._emit,
+                queue=self._queue,
+                runner=self._runner,
+            )
+        return self._auto_editor_inst
+
+    @expose
+    def set_auto_editor_path(self, path: str) -> dict:
+        return self._auto_editor.set_auto_editor_path(path)
+
+    @expose
+    def get_auto_editor_status(self) -> dict:
+        return self._auto_editor.get_auto_editor_status()
+
+    @expose
+    def get_auto_editor_encoders(self, output_format: str = "mp4") -> dict:
+        return self._auto_editor.get_auto_editor_encoders(output_format)
+
+    @expose
+    def add_auto_editor_task(self, input_file: str, params: dict) -> dict:
+        return self._auto_editor.add_auto_editor_task(input_file, params)
+
+    @expose
+    def preview_auto_editor_command(self, params: dict) -> dict:
+        return self._auto_editor.preview_auto_editor_command(params)
+
+    @expose
+    def cancel_auto_editor_task(self, task_id: str) -> dict:
+        return self._auto_editor.cancel_auto_editor_task(task_id)
+
+    @expose
+    def start_auto_editor_task(self, task_id: str) -> dict:
+        return self._auto_editor.start_auto_editor_task(task_id)
+
+    # ------------------------------------------------------------------
     # Cleanup
     # ------------------------------------------------------------------
 
@@ -789,9 +845,9 @@ if __name__ == "__main__":
     app = App(
         api,
         title="FF Intelligent Neo",
-        width=1200,
-        height=900,
-        min_size=(1000, 600),
+        width=1260,
+        height=1000,
+        min_size=(1100, 600),
         frontend_dir="frontend_dist",
         on_closing=api._cleanup,
     )

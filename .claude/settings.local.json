@@ -8,7 +8,8 @@
       "mcp__plugin_claude-mem_mcp-search__get_observations",
       "mcp__plugin_claude-mem_mcp-search__search",
       "mcp__plugin_claude-mem_mcp-search__smart_search",
-      "Bash(find Q:\\\\Git\\\\GithubManager\\\\ff-intelligent-neo\\\\frontend\\\\src\\\\i18n:*)"
+      "Bash(find Q:\\\\Git\\\\GithubManager\\\\ff-intelligent-neo\\\\frontend\\\\src\\\\i18n:*)",
+      "Bash(npx vue-tsc:*)"
     ]
   }
 }

@@ -37,6 +37,11 @@ const router = createRouter({
       component: () => import("./pages/CustomCommandPage.vue"),
     },
     {
+      path: "/auto-cut",
+      name: "AutoCut",
+      component: () => import("./pages/AutoCutPage.vue"),
+    },
+    {
       path: "/settings",
       name: "Settings",
       component: () => import("./pages/SettingsPage.vue"),
