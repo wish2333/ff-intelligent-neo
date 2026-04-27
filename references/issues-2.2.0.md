@@ -1409,6 +1409,15 @@ core/auto_editor_api.py
   #3461           🟣  Download duplicate prevention implemented
 ```
 
+### 其他修复
+
+- macos端测试自动剪辑添加至队列时报错：autoCut.Invalid input file name for path
+    generation:/Users/huangmiaosen/Movies/E'儿了 上帝视角[星导晶 NIJISANJI] .mp4，但是这个文件在队列页是可以导入的
+  - 修复完成。原来的检查 normalized_input.startswith("/") || "//" in normalized_input 在 macOS/Linux
+      上会把所有绝对路径拦截掉。.. 检查足以防止路径遍历攻击，startswith("/") 和 // 的检查对 Unix 系统的绝对路径是误判。
+
+
+
 ### 📝 Commit Message
 
 ```
@@ -1420,6 +1429,7 @@ feat(settings): 完善 Auto-Editor 多平台下载与检测
 - 修复切换主题/语言导致全部设置项被意外清空的问题
 - 修复后端缩进错误导致的 Auto-Editor API 调用异常
 - 限制导航栏 FFmpeg 版本号显示长度最多 20 字符
+- 修复macOS系统下绝对路径被错误拦截的问题
 ```
 
 ### 🚀 Release Notes
