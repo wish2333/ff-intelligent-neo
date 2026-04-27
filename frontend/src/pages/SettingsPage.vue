@@ -53,7 +53,7 @@ async function handleSelectAutoEditorBinary(): Promise<void> {
 </script>
 
 <template>
-  <div class="flex flex-1 flex-col gap-4 p-4 overflow-auto">
+  <div class="page-scroll flex flex-1 flex-col gap-4 p-4 overflow-auto">
     <h1 class="text-xl font-bold tracking-tight">{{ t("settings.title") }}</h1>
 
     <div class="grid gap-4 lg:grid-cols-2">

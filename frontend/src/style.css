@@ -13,3 +13,8 @@ html {
 .overflow-auto {
   scrollbar-gutter: stable;
 }
+
+/* Mirror the scrollbar gutter on the left edge for symmetric page layout */
+.page-scroll {
+  padding-left: calc(1rem + 1.5rem);
+}

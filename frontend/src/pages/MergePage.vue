@@ -46,6 +46,45 @@ const { commandText, errors, warnings, validating } = useCommandPreview(mergePre
 
 const canAddToQueue = computed(() => mergeConfig.file_list.length >= 2)
 
+const referenceCommand = computed(() => {
+  const ext = transcode.output_extension || ".mp4"
+  const res = mergeConfig.target_resolution.replace("x", ":")
+  const fps = mergeConfig.target_fps || 30
+  const vc = transcode.video_codec && !["copy", "none"].includes(transcode.video_codec)
+    ? transcode.video_codec
+    : "libx264"
+  const ac = transcode.audio_codec && !["copy", "none"].includes(transcode.audio_codec)
+    ? transcode.audio_codec
+    : "aac"
+
+  if (mergeConfig.merge_mode === "filter_complex") {
+    const fcFilter = [
+      "[0:v]fps={fps},scale={res},setsar=1[v0]",
+      "[0:a]aformat=sample_rates=44100:channel_layouts=stereo[a0]",
+      "[1:v]fps={fps},scale={res},setsar=1[v1]",
+      "[1:a]aformat=sample_rates=44100:channel_layouts=stereo[a1]",
+      "[v0][a0][v1][a1]concat=n=2:v=1:a=1[vout][aout]",
+    ].join(";").replace("{fps}", String(fps)).replace("{res}", res)
+
+    return `Reference: ffmpeg -hide_banner -y -i video1.mp4 -i video2.mp4 -filter_complex "${fcFilter}" -map [vout] -map [aout] -c:v ${vc} -c:a ${ac} output${ext}`
+  }
+
+  // concat_protocol / ts_concat
+  return `Reference: ffmpeg -f concat -safe 0 -i list.txt -c copy output${ext}`
+})
+
+// Show reference while commandText is empty (before preview builds),
+// switch to actual command once ready. No "ffmpeg" flash in between.
+const displayCommand = computed(() =>
+  commandText.value || referenceCommand.value,
+)
+const displayErrors = computed(() =>
+  commandText.value ? errors.value : [],
+)
+const displayWarnings = computed(() =>
+  commandText.value ? warnings.value : [],
+)
+
 onMounted(() => {
   activeMode.value = "merge"
 })
@@ -69,16 +108,16 @@ async function handleAddToQueue(): Promise<void> {
 </script>
 
 <template>
-  <div class="flex flex-1 flex-col gap-4 p-4 overflow-y-auto">
+  <div class="page-scroll flex flex-1 flex-col gap-4 p-4 overflow-y-auto">
     <h1 class="text-xl font-bold tracking-tight">{{ t("mergePage.title") }}</h1>
     <p class="text-sm text-base-content/60">
       {{ t("mergePage.description") }}
     </p>
 
     <CommandPreview
-      :command-text="commandText"
-      :errors="errors"
-      :warnings="warnings"
+      :command-text="displayCommand"
+      :errors="displayErrors"
+      :warnings="displayWarnings"
       :validating="validating"
     />
 

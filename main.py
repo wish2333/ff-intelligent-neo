@@ -582,6 +582,17 @@ class FFmpegApi(Bridge):
         except Exception as exc:
             logger.exception("get_file_duration failed: {}", exc)
             return {"success": False, "error": str(exc)}
+
+    @expose
+    def probe_media_file(self, file_path: str) -> dict:
+        """Full ffprobe analysis of a media file. Returns parsed + raw data."""
+        try:
+            from core.file_info import probe_media_full
+            return probe_media_full(file_path)
+        except Exception as exc:
+            logger.exception("probe_media_file failed: {}", exc)
+            return {"success": False, "error": str(exc)}
+
     @expose
     def get_file_formats(self) -> dict:
         """Return supported file formats from presets/file_formats.json."""

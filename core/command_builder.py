@@ -47,7 +47,7 @@ def _preview_quote(path: str) -> str:
 VALID_VIDEO_CODECS = {
     "libx264", "libx265", "libsvtav1", "libvpx-vp9",
     "av1_nvenc", "hevc_nvenc", "h264_nvenc",
-    "h264_amf", "hevc_amf", "h264_qsv", "hevc_qsv",
+    "h264_amf", "hevc_amf", "h264_qsv", "hevc_qsv", "av1_qsv",
     "h264_videotoolbox", "hevc_videotoolbox",
     "copy", "none",
 }
@@ -1074,6 +1074,10 @@ def build_command_preview(config: TaskConfig) -> str:
     if config.merge and len(config.merge.file_list) >= 2:
         args = build_merge_command(config, f"output{ext}")
         return "ffmpeg " + " ".join(args)
+    # Merge config without files and without intro/outro - return empty
+    # (frontend shows reference commands instead)
+    if config.merge:
+        return ""
 
     args = build_command(config, "input.mp4", f"output{ext}")
     return "ffmpeg " + " ".join(args)
@@ -1182,8 +1186,11 @@ def validate_config(
     # Validate merge config
     if config.merge:
         merge = config.merge
-        # Only require 2+ files when no intro/outro is set (intro/outro can be used standalone)
-        if not merge.intro_path and not merge.outro_path and len(merge.file_list) < 2:
+        # Only require 2+ files when not in preview mode (config page doesn't upload files)
+        # and no intro/outro is set (intro/outro can be used standalone)
+        if (not ctx.preview_mode
+                and not merge.intro_path and not merge.outro_path
+                and len(merge.file_list) < 2):
             issues.append({
                 "level": "error",
                 "param": "file_list",
