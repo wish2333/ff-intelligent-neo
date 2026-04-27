@@ -11,9 +11,11 @@ through FFmpegApi in main.py.
 from __future__ import annotations
 
 import os
+import platform as _platform
 import re
 import subprocess
 import sys
+import urllib.request
 import uuid
 from pathlib import Path
 
@@ -61,6 +63,25 @@ def _parse_version(version_str: str) -> list[int] | None:
     match = _VERSION_RE.search(version_str)
     if match:
         return [int(match.group(1)), int(match.group(2)), int(match.group(3))]
+    return None
+
+
+def _find_auto_editor_platform_path() -> str | None:
+    """Check platform-specific known installation paths for auto-editor."""
+    known: list[str] = []
+    if sys.platform == "win32":
+        from core.paths import get_app_dir
+        known = [str(get_app_dir() / "data" / "auto-editor" / "auto-editor-windows-x86_64.exe")]
+    elif sys.platform == "darwin":
+        machine = _platform.machine().lower()
+        if machine in ("arm64", "aarch64"):
+            known = ["/opt/homebrew/bin/auto-editor"]
+        else:
+            known = ["/usr/local/bin/auto-editor"]
+    for candidate_str in known:
+        candidate = Path(candidate_str)
+        if candidate.is_file():
+            return candidate_str
     return None
 
 
@@ -168,6 +189,10 @@ class AutoEditorApi:
             settings = load_settings()
             path = settings.auto_editor_path
 
+            # Fall back to platform-specific path (e.g. Homebrew on macOS)
+            if not path:
+                path = _find_auto_editor_platform_path() or ""
+
             if not path:
                 return {
                     "success": True,
@@ -233,6 +258,99 @@ class AutoEditorApi:
             }
         except Exception as exc:
             logger.exception("get_auto_editor_status failed: {}", exc)
+            return {"success": False, "error": str(exc)}
+
+    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Download (Windows)
+    # ------------------------------------------------------------------
+
+    def download_auto_editor(self) -> dict:
+        """Download auto-editor binary to data/auto-editor/ (Windows only).
+
+        Returns:
+            {success, data: {path}} on success.
+        """
+        if sys.platform != "win32":
+            return {"success": False, "error": "Download only supported on Windows"}
+
+        try:
+            from core.paths import get_app_dir
+
+            dest_dir = get_app_dir() / "data" / "auto-editor"
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest_path = dest_dir / "auto-editor-windows-x86_64.exe"
+
+            if dest_path.is_file():
+                result = _run_subprocess([str(dest_path), "--version"], timeout=10)
+                if result.returncode == 0:
+                    version_str = result.stdout.strip()
+                    print(f"[auto-editor] Already exists: {dest_path} (v{version_str})")
+                    self._emit("auto_editor_version_changed", {
+                        "version": version_str,
+                        "path": str(dest_path),
+                        "status": "ready",
+                    })
+                    return {"success": True, "data": {"path": str(dest_path)}}
+
+            url = (
+                "https://github.com/wish2333/ff-intelligent-neo/"
+                "raw/main/auto-editor/auto-editor-windows-x86_64.exe"
+            )
+            logger.info("[download] url={}", url)
+            logger.info("[download] dest={}", dest_path)
+            print(f"[auto-editor] Downloading from {url}")
+
+            self._emit("auto_editor_download_progress", {
+                "status": "downloading",
+                "message": "Downloading auto-editor...",
+            })
+
+            def _report(block_num: int, block_size: int, total_size: int) -> None:
+                downloaded = block_num * block_size
+                if total_size > 0:
+                    pct = downloaded * 100 // total_size
+                    mb_down = downloaded / (1024 * 1024)
+                    mb_total = total_size / (1024 * 1024)
+                    print(f"\r[auto-editor] {mb_down:.1f}/{mb_total:.1f} MB ({pct}%)", end="", flush=True)
+                else:
+                    mb_down = downloaded / (1024 * 1024)
+                    print(f"\r[auto-editor] {mb_down:.1f} MB downloaded", end="", flush=True)
+
+            urllib.request.urlretrieve(url, dest_path, _report)
+            print()  # newline after progress
+
+            if not dest_path.is_file():
+                logger.error("[download] file not created at {}", dest_path)
+                return {"success": False, "error": "Download failed: file not created"}
+
+            size_mb = dest_path.stat().st_size / (1024 * 1024)
+            logger.info("[download] saved, size={:.1f} MB", size_mb)
+            print(f"[auto-editor] Saved to {dest_path} ({size_mb:.1f} MB)")
+
+            # Validate the downloaded binary
+            print("[auto-editor] Validating binary...")
+            result = _run_subprocess([str(dest_path), "--version"], timeout=10)
+            if result.returncode != 0:
+                print(f"[auto-editor] Validation failed: {result.stderr.strip()}")
+                dest_path.unlink(missing_ok=True)
+                return {"success": False, "error": "Downloaded binary is invalid"}
+
+            version_str = result.stdout.strip()
+            print(f"[auto-editor] OK, version {version_str}")
+            self._emit("auto_editor_version_changed", {
+                "version": version_str,
+                "path": str(dest_path),
+                "status": "ready",
+            })
+
+            return {
+                "success": True,
+                "data": {"path": str(dest_path)},
+            }
+        except Exception as exc:
+            print(f"[auto-editor] Error: {exc}")
+            logger.exception("download_auto_editor failed: {}", exc)
             return {"success": False, "error": str(exc)}
 
     # ------------------------------------------------------------------

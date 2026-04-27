@@ -73,7 +73,6 @@ export default {
       selectBinaryTitle: "选择 auto-editor 二进制文件",
       currentPath: "当前路径：",
       downloadAutoEditor: "下载 Auto-Editor",
-      macAutoDetectNote: "macOS 上暂不支持自动检测，请通过 Homebrew 安装或手动下载。",
     },
   },
 

@@ -27,6 +27,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const { on } = useBridge()
 const isLoading = ref(false)
+const isDownloading = ref(false)
 const isMacOS = computed(() => props.platform === "darwin")
 
 const statusBadge = computed(() => {
@@ -46,8 +47,9 @@ const statusBadge = computed(() => {
 
 function onVersionChanged(): void {
   // Status is managed by parent via useAutoEditor.fetchStatus()
-  // Just stop loading spinner on any version change event
+  // Just stop loading spinners on any version change event
   isLoading.value = false
+  isDownloading.value = false
 }
 
 onMounted(() => {
@@ -60,6 +62,20 @@ onUnmounted(() => {
 
 async function handleSelectBinary(): Promise<void> {
   emit("select-binary")
+}
+
+async function handleDownload(): Promise<void> {
+  isDownloading.value = true
+  try {
+    const res = await call<{ path: string }>("download_auto_editor")
+    if (res.success && res.data?.path) {
+      emit("set-path", res.data.path)
+    }
+  } catch {
+    // silently fail
+  } finally {
+    isDownloading.value = false
+  }
 }
 
 async function handleAutoDetect(): Promise<void> {
@@ -103,7 +119,6 @@ async function handleAutoDetect(): Promise<void> {
     <!-- Actions -->
     <div class="flex flex-wrap gap-2">
       <button
-        v-if="!isMacOS"
         class="btn btn-xs btn-primary btn-outline"
         :disabled="isLoading"
         @click="handleAutoDetect"
@@ -111,6 +126,8 @@ async function handleAutoDetect(): Promise<void> {
         <span v-if="isLoading" class="loading loading-spinner loading-xs" />
         {{ t("settings.autoEditor.autoDetect") }}
       </button>
+
+      <!-- macOS: external download link -->
       <a
         v-if="isMacOS"
         href="https://auto-editor.com/installing"
@@ -120,19 +137,25 @@ async function handleAutoDetect(): Promise<void> {
       >
         {{ t("settings.autoEditor.downloadAutoEditor") }}
       </a>
+
+      <!-- Windows: download button -->
       <button
-        v-else
+        v-else-if="!isMacOS"
+        class="btn btn-xs btn-accent btn-outline"
+        :disabled="isDownloading"
+        @click="handleDownload"
+      >
+        <span v-if="isDownloading" class="loading loading-spinner loading-xs" />
+        {{ t("settings.autoEditor.downloadAutoEditor") }}
+      </button>
+
+      <button
         class="btn btn-xs btn-outline"
         @click="handleSelectBinary"
       >
         {{ t("settings.autoEditor.selectBinary") }}
       </button>
     </div>
-
-    <!-- macOS auto-detect note -->
-    <p v-if="isMacOS" class="text-xs opacity-60">
-      {{ t("settings.autoEditor.macAutoDetectNote") }}
-    </p>
 
     <!-- Current path (space reserved to avoid layout shift) -->
     <div class="text-xs space-y-1 min-h-[2.5rem]">
