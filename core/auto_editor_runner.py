@@ -280,7 +280,7 @@ def generate_output_path(
     # Path traversal prevention: check the raw input_file for traversal patterns
     # Normalize to forward slashes for consistent checking
     normalized_input = input_file.replace("\\", "/")
-    if ".." in normalized_input or normalized_input.startswith("/") or "//" in normalized_input:
+    if ".." in normalized_input:
         raise ValueError(f"Invalid input file name for path generation: {input_file}")
 
     stem = Path(input_file).stem

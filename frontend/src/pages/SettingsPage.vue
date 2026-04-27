@@ -77,6 +77,7 @@ async function handleSelectAutoEditorBinary(): Promise<void> {
           <div class="card-body">
             <AutoEditorSetup
               :status="ae.autoEditorStatus.value"
+              :platform="s.appInfo.value?.platform ?? 'win32'"
               @select-binary="handleSelectAutoEditorBinary"
               @set-path="(path) => ae.setPath(path)"
             />

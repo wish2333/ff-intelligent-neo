@@ -143,7 +143,7 @@ onUnmounted(() => {
         "
       >
         {{ ffmpegStatus === 'ready'
-          ? (ffmpegVersion ? `FFmpeg ${ffmpegVersion}` : t("nav.ffmpegReady"))
+          ? (ffmpegVersion ? `FFmpeg ${ffmpegVersion.length > 20 ? ffmpegVersion.slice(0, 17) + '...' : ffmpegVersion}` : t("nav.ffmpegReady"))
           : ffmpegStatus === 'not_found'
             ? (ffmpegError || t("nav.ffmpegNotFound"))
             : t("nav.ffmpegChecking")

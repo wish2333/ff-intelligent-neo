@@ -646,9 +646,14 @@ class FFmpegApi(Bridge):
     @expose
     def save_settings(self, settings: dict) -> dict:
         try:
-            from core.config import save_settings as _save
+            from core.config import load_settings, save_settings as _save
             from core.models import AppSettings
-            s = AppSettings.from_dict(settings)
+            current = load_settings()
+            merged = {
+                **current.to_dict(),
+                **settings,
+            }
+            s = AppSettings.from_dict(merged)
             _save(s)
             return {"success": True, "data": None}
         except Exception as exc:
@@ -801,6 +806,10 @@ class FFmpegApi(Bridge):
     @expose
     def get_auto_editor_encoders(self, output_format: str = "mp4") -> dict:
         return self._auto_editor.get_auto_editor_encoders(output_format)
+
+    @expose
+    def download_auto_editor(self) -> dict:
+        return self._auto_editor.download_auto_editor()
 
     @expose
     def add_auto_editor_task(self, input_file: str, params: dict) -> dict:

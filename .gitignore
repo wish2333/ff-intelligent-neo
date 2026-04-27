@@ -187,5 +187,5 @@ frontend_dist/
 ffmpeg_binaries/
 
 # Data
-data/
+/data/
 test_files/

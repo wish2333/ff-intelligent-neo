@@ -258,9 +258,9 @@ Summary of changes:
   - frontend/src/i18n/locales/{en,zh-CN}.ts — added speed/volume i18n keys
 
      Legend: session-request | 🔴 bugfix | 🟣 feature | 🔄 refactor | ✅ change | 🔵 discovery | ⚖️ decision
-    
+        
      Apr 27, 2026
-    
+        
      frontend/src/composables/useAutoEditor.ts
        #2937  1:34 AM  🔴  Removed unused Ref type import from useAutoEditor.ts
        #2938           🔵  Verified TypeScript compilation passes after Ref import removal
@@ -1085,4 +1085,367 @@ fix(settings): 修复配置覆盖与权限拦截，优化剪辑页体验
 
 ### ⚡ 优化
 - 切换 FFmpeg 路径时自动同步并保存 ffprobe 路径，提升重启后的配置可靠性
+```
+
+## 问题3
+
+- macos设置界面调整（不要影响win平台）
+  - “下载FFmpeg”按钮打开https://formulae.brew.sh/formula/ffmpeg
+  - Auto-Editor部分“选择二进制文件”按钮在mac上显示为"下载Auto-Editor"打开https://auto-editor.com/installing
+  - Mac尚无法自动检测Auto-Editor：/opt/homebrew/bin/auto-editor
+
+Summary of changes:
+
+```
+  FFmpegSetup.vue
+
+  - Added isMacOS computed, on macOS the "Download FFmpeg" button opens https://formulae.brew.sh/formula/ffmpeg in a new
+    tab
+  - Linux behavior unchanged (still calls backend download_ffmpeg)
+  - Windows behavior unchanged (still uses confirm modal + download)
+
+  AutoEditorSetup.vue
+
+  - Added platform prop
+  - On macOS: hides "Auto Detect" button, replaces "Select Binary" with "Download Auto-Editor" link to
+    https://auto-editor.com/installing, shows a note that auto-detection is unavailable
+  - On Windows/Linux: behavior unchanged
+
+  SettingsPage.vue
+
+  - Passes platform prop to AutoEditorSetup
+
+  i18n (en.ts / zh-CN.ts)
+
+  - Added downloadAutoEditor: "Download Auto-Editor" / "下载 Auto-Editor"
+  - Added macAutoDetectNote: explanation text for macOS users
+
+
+```
+
+```
+feat(settings): 为 macOS 平台添加 Auto-Editor 和 FFmpeg 下载功能
+
+- 在 AutoEditorSetup 组件中新增 platform 属性，根据平台显示不同按钮
+- macOS 平台上隐藏"自动检测"按钮，显示"下载 Auto-Editor"链接指向 https://auto-editor.com/installing
+- macOS 平台上 FFmpeg 的"下载"按钮打开 https://formulae.brew.sh/formula/ffmpeg
+- 添加 macOS 自动检测不可用的提示信息
+- 支持中英文国际化文本
+```
+
+> - 下载ffmpeg按钮无法打开网页，auto-editor可以
+> - macos就是自动检测/opt/homebrew/bin/auto-editor是否存在啊，参见ffmpeg的检测
+> - windows端现在auto-editor检测也有问题（通过setting.json配置了的情况下）始终显示"未配置" + 导航栏右上角没有显示AE信息。还有自动剪辑页短暂出现autoCut.'AutoEditorApi' object has no attribute preview_auto_editor_command'
+> - Windows端的Auto-Editor的自动检测是什么逻辑
+> - windows端也提供“下载Auto-Editor”按钮，下载：https://github.com/wish2333/ff-intelligent-neo/blob/main/auto-editor/auto-editor-windows-x86_64.exe到软件目录\data\auto-editor中，并设计Windows端的自动检测。下载前先验证是否已下载，不要重复下载
+> - 优化：右上角的ffmpeg版本显示限制为最多20个字符，以避免太长影响排版
+> - 修复：切换主题和语言，还有修改默认目标文件夹，会清空settting内容
+
+  Fix 1 - FFmpeg download on macOS: 改用 <a> 标签替代 window.open，与 auto-editor 的 <a> 标签一致，pywebview
+  中可正常打开外部链接。
+
+  Fix 2 - Auto-Editor macOS detection: 在 core/auto_editor_api.py 添加 _find_auto_editor_platform_path()，macOS 上检查
+  /opt/homebrew/bin/auto-editor（Apple Silicon）和 /usr/local/bin/auto-editor（Intel）。get_auto_editor_status
+  在用户未手动配置路径时自动尝试平台路径，自动检测按钮在所有平台均可使用。
+
+根因：之前添加的 _find_auto_editor_platform_path 放在了类内部但没有缩进，导致 Python  将其后面的所有方法（get_auto_editor_status、preview_auto_editor_command 等）当作模块级函数而非类方法。所以  AutoEditorApi 实例没有 preview_auto_editor_command 属性，自动检测也返回的结果无法正确处理。
+
+修复：将 _find_auto_editor_platform_path 移到类定义外部（模块级，indent=0），所有类方法保持 indent=4
+
+  后端 core/auto_editor_api.py
+  - _find_auto_editor_platform_path(): Windows 下检查 data\auto-editor\auto-editor-windows-x86_64.exe
+  - 新增 download_auto_editor() 方法：从 GitHub 下载 exe 到 data\auto-editor\，下载后验证
+    --version，成功后自动保存路径并发射事件
+
+  后端 main.py
+  - 暴露 download_auto_editor bridge 接口
+
+  前端 AutoEditorSetup.vue
+  - Windows 上显示"下载 Auto-Editor"按钮（带 loading 状态），点击后调用 download_auto_editor bridge
+  - "选择二进制文件"按钮在所有平台都保留
+  - macOS 仍为外部链接
+
+  Windows 自动检测流程：点"自动检测" → get_auto_editor_status → 检查 settings.json 路径 → 无则检查
+  data\auto-editor\auto-editor-windows-x86_64.exe → 验证 --version → 返回状态
+
+● 根因：save_settings bridge 直接用前端传来的字段构造 AppSettings，切换语言传 { language: "en" }，切换主题传 { theme:  "dark" }，from_dict 对缺失字段用默认空值，把 ffmpeg_path、auto_editor_path 等全部覆盖为空。
+
+修复：后端 save_settings bridge 现在先 load_settings() 读取现有配置，用 current.to_dict()  合并前端传来的部分字段，再保存。只更新传入的字段，其他保持不变。
+
+```
+feat(auto-editor): 添加 Windows 自动下载和多平台自动检测功能
+
+- 添加 _find_auto_editor_platform_path() 函数用于跨平台路径检测，
+  包括 Windows 应用目录、macOS Homebrew 路径等
+- 实现 download_auto_editor 方法，支持从 GitHub 下载 Windows 
+  版本的 auto-editor 二进制文件到 data/auto-editor 目录
+- 优化 get_auto_editor_status 在未配置路径时自动尝试平台特定路径
+- 修复 save_settings 配置合并逻辑，避免覆盖现有设置
+- 前端添加 Windows 下载按钮和进度显示，优化版本号显示长度
+- 统一 macOS 外部链接处理方式，移除过时的自动检测说明
+```
+
+### CC-Mem
+
+```
+[ff-intelligent-neo] recent context, 2026-04-27 9:48pm GMT+8
+────────────────────────────────────────────────────────────
+
+Legend: session-request | 🔴 bugfix | 🟣 feature | 🔄 refactor | ✅ change | 🔵 discovery | ⚖️ decision
+
+Column Key
+  Read: Tokens to read this observation (cost to learn it now)
+  Work: Tokens spent on work that produced this record ( research, building, deciding)
+
+Context Index: This semantic index (titles, types, files, tokens) is usually sufficient to understand past work.
+
+When you need implementation details, rationale, or debugging context:
+  - Fetch by ID: get_observations([IDs]) for observations visible in this index
+  - Search history: Use the mem-search skill for past decisions, bugs, and deeper research
+  - Trust this index over re-reading code for past decisions and learnings
+
+Context Economics
+  Loading: 120 observations (30,141 tokens to read)
+  Work investment: 14,225 tokens spent on research, building, and decisions
+  Your savings: -112% reduction from reuse
+
+Apr 23, 2026
+
+#S2 ComboInput component enhanced with improved filtering behavior (Apr 23, 12:50 AM)
+
+#S1 Audio transcoding parameter consistency fix - user requested explanation of changes made to ensure passed parameters match command preview (Apr 23, 12:50 AM)
+
+#S3 Frontend Code Review for UX Issues and FFmpeg Preview Optimization (Apr 23, 12:54 AM)
+
+
+Apr 27, 2026
+
+#S4 Auto-Editor Feature Phase 1-4 Implementation and Code Review Fixes (Apr 27, 4:40 AM)
+
+General
+  #3325  8:16 PM  ✅  Task 3 marked as completed  
+  #3326           ✅  Task 2 marked as completed  
+  #3327  8:43 PM  🟣  macOS-specific UI adjustments for FFmpeg and Auto-Editor buttons  
+core/auto_editor_api.py
+  #3330  8:44 PM  🔵  Key UI and API files identified for macOS platform-specific modifications  
+  #3331           🔵  AutoEditorSetup.vue component structure identified for platform-specific changes  
+  #3332  8:45 PM  🔵  Auto-Editor API lacks macOS Homebrew path detection  
+core/auto_editor_runner.py
+  #3333           🔵  Auto-editor runner module identified for command execution logic  
+frontend/src/pages/SettingsPage.vue
+  #3334           🔵  SettingsPage.vue binary selection flow identified for macOS modification  
+core/ffmpeg_setup.py
+  #3335           🔵  Component prop structure identified for platform detection  
+  #3336           🔵  Backend Homebrew path support exists in ffmpeg_setup.py  
+frontend/src/components/settings/FFmpegSetup.vue
+  #3337           🔵  FFmpegSetup.vue platform-specific download button pattern identified  
+core/ffmpeg_setup.py
+  #3338           🔵  macOS Homebrew path infrastructure exists in backend for auto-discovery  
+core/models.py
+  #3339           🔵  AutoEditorSetup.vue lacks platform detection for macOS button changes  
+frontend/src/components/settings/FFmpegSetup.vue
+  #3340           🔵  Platform detection pattern documented in FFmpegSetup.vue for replication  
+core/__init__.py
+  #3342           🔵  AutoEditorSetup.vue lacks platform detection infrastructure  
+main.py
+  #3343  8:46 PM  🔵  main.py implements platform-specific FFmpeg download instructions for macOS  
+frontend/src/components/settings/FFmpegSetup.vue
+  #3344           🔵  Template structure differences identified between FFmpegSetup and AutoEditorSetup  
+core/app_info.py
+  #3345           🔵  Platform detection patterns documented across codebase for macOS implementation  
+frontend/src/components/settings/FFmpegSetup.vue
+  #3346           🔵  Settings UI structure exploration confirms platform detection gaps in AutoEditorSetup  
+core/auto_editor_api.py
+  #3347           🔵  Auto-Editor lacks platform-specific path detection infrastructure  
+General
+  #3350  8:47 PM  🔵  Smart outline tool unable to parse Vue Single File Components  
+frontend/src/components/settings/FFmpegSetup.vue
+  #3352           🔵  Complete component structures reveal platform detection implementation requirements  
+frontend/src/i18n/locales/en.ts
+  #3353           🔵  Internationalization keys identified for download button text  
+  #3354           🔵  AutoEditor internationalization keys located in English locale file  
+frontend/src/i18n/locales/zh-CN.ts
+  #3355           🔵  SettingsPage.vue confirms platform prop missing from AutoEditorSetup component  
+  #3356  8:48 PM  🔵  Internationalization structure confirmed for Auto-Editor and FFmpeg components  
+core/ffmpeg_setup.py
+  #3357           🔵  Platform binary detection function provides template for macOS architecture-specific path checking  
+General
+  #3358           ✅  Implementation tasks created for macOS-specific button behavior changes  
+  #3359           ✅  Implementation phase initiated with four tasks for macOS UI adjustments  
+  #3360  8:55 PM  🟣  macOS-specific settings UI adjustments implemented  
+frontend/src/i18n/locales/en.ts
+  #3361           🟣  i18n strings added for macOS-specific Auto-Editor download UI  
+frontend/src/components/settings/FFmpegSetup.vue
+  #3362           🟣  macOS platform detection added to FFmpegSetup component  
+  #3363           🟣  FFmpeg download button opens Homebrew formula page on macOS  
+frontend/src/components/settings/AutoEditorSetup.vue
+  #3364           🟣  platform prop added to AutoEditorSetup component  
+  #3365           🟣  macOS platform detection added to AutoEditorSetup component  
+  #3366  8:56 PM  🟣  Auto-Editor settings UI updated with macOS-specific buttons and download link  
+frontend/src/pages/SettingsPage.vue
+  #3367           🟣  platform prop passed to AutoEditorSetup component from SettingsPage  
+General
+  #3368           🔵  Frontend TypeScript type check passed with no errors  
+  #3369  8:57 PM  🔵  Frontend build completed successfully validating macOS UI changes  
+  #3370  9:02 PM  🔵  ffmpeg download button broken; auto-editor detection needed  
+core/auto_editor_api.py
+  #3371  9:03 PM  🔵  auto-editor API lacks automatic path detection  
+  #3372           🔵  get_auto_editor_status requires manual path configuration  
+frontend/src/components/settings/FFmpegSetup.vue
+  #3373           🔵  FFmpeg download button uses window.open for macOS  
+  #3374           🔴  Fixed macOS FFmpeg download button by removing broken window.open  
+  #3375           🔴  Fixed macOS FFmpeg download button using native anchor tag  
+core/auto_editor_api.py
+  #3376           🔵  auto_editor_api.py imports os and Path for file system operations  
+  #3377           ✅  Added platform module import for macOS auto-detection  
+  #3378           🟣  Implemented auto-editor platform path detection for macOS  
+  #3379  9:04 PM  🔵  get_auto_editor_status returns early when path is empty  
+  #3380           🟣  Integrated auto-detection into get_auto_editor_status method  
+frontend/src/components/settings/AutoEditorSetup.vue
+  #3381           🔵  AutoEditorSetup.vue uses native anchor tag for macOS download  
+  #3382           ✅  Enabled auto-detect button for macOS in AutoEditorSetup  
+frontend/src/i18n/locales/en.ts
+  #3383           ✅  Removed obsolete macOS auto-detect note translation  
+frontend/src/i18n/locales/zh-CN.ts
+  #3384           ✅  Removed obsolete macOS auto-detect note from Chinese locale  
+..\..\Git\GithubManager\ff-intelligent-neo\core\auto_editor_api.py
+  #3385  9:07 PM  🔵  Auto-editor detection fails on Windows with settings.json configuration  
+  #3386           🔵  Auto-editor subprocess execution uses CREATE_NO_WINDOW flag on Windows  
+..\..\Git\GithubManager\ff-intelligent-neo\settings.json
+  #3387           🔵  settings.json contains no auto_editor_path configuration  
+..\..\Git\GithubManager\ff-intelligent-neo\data\settings.json
+  #3388  9:08 PM  🔵  auto_editor_path configured in data/settings.json pointing to Windows executable  
+General
+  #3389           🔵  Version parsing correctly handles multiple auto-editor output formats  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useAutoEditor.ts
+  #3390           🔵  Auto-editor binary works correctly when tested directly on Windows  
+  #3391  9:09 PM  🔵  Frontend calls get_auto_editor_status API endpoint to detect auto-editor  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\types\autoEditor.ts
+  #3392           🔵  AeStatus interface defines four fields for auto-editor state  
+..\..\Git\GithubManager\ff-intelligent-neo\core\auto_editor_api.py
+  #3393  9:11 PM  🔵  set_auto_editor_path validates binary and saves to AppSettings  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\layout\AppNavbar.vue
+  #3394  9:12 PM  🔵  AppNavbar displays auto-editor status based on available and compatible flags  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useAutoEditor.ts
+  #3395           🔵  useAutoEditor composable subscribes to auto_editor_version_changed events  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\settings\AutoEditorSetup.vue
+  #3396           🔵  AutoEditorSetup component subscribes to auto_editor_version_changed event  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useAutoEditor.ts
+  #3397           🔵  useAutoEditor init() function is exported but never called in frontend  
+..\..\Git\GithubManager\ff-intelligent-neo\main.py
+  #3398  9:13 PM  🔵  Backend exposes auto_editor API methods through main.py bridge wrapper  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\pages\AutoCutPage.vue
+  #3399           🔵  AutoCutPage.vue calls useAutoEditor init() in onMounted hook  
+  #3400  9:15 PM  🔵  AutoCutPage onMounted waits for pywebview bridge before calling init  
+..\..\Git\GithubManager\ff-intelligent-neo\core\auto_editor_api.py
+  #3401           🔵  AutoEditorApi class initialization requires emit, queue, and runner parameters  
+  #3402           🔵  AutoEditorApi class structure verified with proper method indentation  
+  #3403           🔴  Removed misplaced _find_auto_editor_platform_path function from between class methods  
+  #3404  9:16 PM  🔴  AutoEditorApi class structure restored after removing misplaced module-level function  
+  #3405  9:17 PM  🔴  AutoEditorApi class definition confirmed at line 68 with proper structure  
+  #3406           🔴  Added _find_auto_editor_platform_path function before AutoEditorApi class definition  
+  #3407  9:18 PM  🔴  Verified correct indentation structure after _find_auto_editor_platform_path relocation  
+  #3408           🔴  Verified AutoEditorApi class methods accessible after structural fix  
+General
+  #3409  9:20 PM  🔵  Auto-Editor detection logic uses multi-step validation  
+  #3411  9:21 PM  🔵  Found existing download_ffmpeg function in main.py  
+  #3412  9:22 PM  🔵  download_ffmpeg uses static_ffmpeg package with platform detection  
+  #3415           🔵  Centralized path management in core/paths module  
+  #3417           🔵  Frontend download pattern in useSettings composable  
+  #3418  9:23 PM  🔵  Complete frontend download workflow pattern in downloadFfmpeg  
+core/auto_editor_api.py
+  #3419           🟣  Added urllib.request import for auto-editor download functionality  
+  #3420           🟣  Added Windows platform path detection for auto-editor  
+  #3423  9:24 PM  🟣  Implemented download_auto_editor method for Windows  
+General
+  #3425           🔵  Identified API exposure pattern using @expose decorator  
+frontend/src/components/settings/AutoEditorSetup.vue
+  #3429  9:25 PM  🟣  Added isDownloading state to AutoEditorSetup component  
+  #3430           🟣  Added download state cleanup to onVersionChanged handler  
+  #3431           🟣  Implemented handleDownload function for Windows auto-editor download  
+  #3432           🟣  Added Windows download button to AutoEditorSetup template  
+General
+  #3434  9:28 PM  🔵  FFmpeg version display location identified in AppNavbar.vue  
+  #3435           🔵  FFmpeg version display uses template literal in Vue component  
+  #3436           🔴  FFmpeg version display truncated to 20 characters maximum  
+  #3437           🔴  Frontend build verified after FFmpeg version truncation implementation  
+settings.json
+  #3438  9:30 PM  🔵  Settings file cleared unexpectedly  
+..\..\Git\GithubManager\ff-intelligent-neo\data\settings.json
+  #3439           🔵  Settings file contains valid configuration with empty tool paths  
+..\..\Git\GithubManager\ff-intelligent-neo\core\config.py
+  #3440  9:31 PM  🔵  Settings save uses atomic writes to prevent security software interference  
+..\..\Git\GithubManager\ff-intelligent-neo\core\models.py
+  #3441           🔵  AppSettings model defaults all tool paths to empty strings  
+  #3442           🔵  AppSettings defines different defaults for class attributes vs from_dict deserialization  
+..\..\Git\GithubManager\ff-intelligent-neo\core\auto_editor_api.py
+  #3443           🔵  save_settings called from two modules that configure external tool paths  
+..\..\Git\GithubManager\ff-intelligent-neo\core\ffmpeg_setup.py
+  #3444  9:32 PM  🔵  ffmpeg_setup.py uses manual field-by-field copy to preserve settings  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useSettings.ts
+  #3445  9:33 PM  🔵  Frontend useSettings composable manages language field with auto default  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\pages\SettingsPage.vue
+  #3446           🔵  Frontend SettingsPage saves max_workers and default_output_dir but no language save calls found  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\composables\useLocale.ts
+  #3447           🔵  Frontend locale toggle calls save_settings API with only language field  
+..\..\Git\GithubManager\ff-intelligent-neo\main.py
+  #3448           🔵  Backend save_settings API endpoint located in main.py at line 647  
+  #3449           🔵  Backend save_settings API creates new AppSettings from partial dict without merging  
+  #3450  9:34 PM  🔴  Fixed settings cleared by merging partial updates with existing settings  
+frontend/src/composables/useSettings.ts
+  #3451  9:37 PM  🔵  saveSettings function located in useSettings composable  
+  #3452           🔵  saveSettings function implementation details  
+frontend/src/components/settings/OutputFolderInput.vue
+  #3453  9:38 PM  🔴  Fixing default target folder modification issue  
+  #3454           🔴  Fixing default target folder modification issue  
+  #3455           🔴  Fixing default target folder modification issue  
+  #3456  9:39 PM  🔴  Fixing default target folder modification issue  
+core/auto_editor_api.py
+  #3457  9:41 PM  🔵  Located download_auto_editor method in codebase  
+  #3458           🔵  Identified silent download using urllib.request.urlretrieve  
+  #3459           🔴  Added real-time download progress reporting to Windows Auto-Editor download  
+..\..\Git\GithubManager\ff-intelligent-neo\core\auto_editor_api.py
+  #3460  9:44 PM  🔵  Download method implementation in auto_editor_api.py  
+  #3461           🟣  Download duplicate prevention implemented
+```
+
+### 其他修复
+
+- macos端测试自动剪辑添加至队列时报错：autoCut.Invalid input file name for path
+    generation:/Users/huangmiaosen/Movies/E'儿了 上帝视角[星导晶 NIJISANJI] .mp4，但是这个文件在队列页是可以导入的
+  - 修复完成。原来的检查 normalized_input.startswith("/") || "//" in normalized_input 在 macOS/Linux
+      上会把所有绝对路径拦截掉。.. 检查足以防止路径遍历攻击，startswith("/") 和 // 的检查对 Unix 系统的绝对路径是误判。
+
+
+
+### 📝 Commit Message
+
+```
+feat(settings): 完善 Auto-Editor 多平台下载与检测
+
+- 新增 Windows 端一键下载 Auto-Editor 及本地路径自动检测
+- 恢复 macOS 端 Auto-Editor Homebrew 路径自动检测
+- 修复 macOS 下 FFmpeg 下载链接无法打开的问题
+- 修复切换主题/语言导致全部设置项被意外清空的问题
+- 修复后端缩进错误导致的 Auto-Editor API 调用异常
+- 限制导航栏 FFmpeg 版本号显示长度最多 20 字符
+- 修复macOS系统下绝对路径被错误拦截的问题
+```
+
+### 🚀 Release Notes
+
+```
+## 2026-04-27 - 工具链配置体验升级
+
+### ✨ 新增
+- Windows 端支持一键下载 Auto-Editor，免去手动配置路径
+- Windows 与 macOS 端均支持自动检测已安装的 Auto-Editor
+
+### 🐛 修复
+- 修复 macOS 下点击按钮无法打开 FFmpeg 下载页面的问题
+- 修复切换主题、语言或修改默认文件夹时，其他设置项被意外清空的问题
+- 修复 Windows 端 Auto-Editor 配置状态异常及自动剪辑页报错的问题
+
+### ⚡ 优化
+- 优化导航栏版本号显示，过长的版本信息将自动截断，避免界面排版错位
 ```

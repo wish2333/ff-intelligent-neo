@@ -72,6 +72,7 @@ export default {
       autoDetect: "自动检测",
       selectBinaryTitle: "选择 auto-editor 二进制文件",
       currentPath: "当前路径：",
+      downloadAutoEditor: "下载 Auto-Editor",
     },
   },
 

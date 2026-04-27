@@ -72,6 +72,7 @@ export default {
       autoDetect: "Auto Detect",
       selectBinaryTitle: "Select auto-editor binary",
       currentPath: "Current path:",
+      downloadAutoEditor: "Download Auto-Editor",
     },
   },
 
