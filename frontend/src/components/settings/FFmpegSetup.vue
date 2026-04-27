@@ -36,6 +36,7 @@ const statusBadge = computed(() => {
 })
 
 const isWindows = computed(() => props.platform === "win32")
+const isMacOS = computed(() => props.platform === "darwin")
 const installInfo = ref<FfmpegInstallInfo | null>(null)
 
 function onFfmpegVersionChanged(detail: unknown) {
@@ -54,6 +55,10 @@ onUnmounted(() => {
 })
 
 async function handleDownload(): Promise<void> {
+  if (isMacOS.value) {
+    window.open("https://formulae.brew.sh/formula/ffmpeg", "_blank", "noopener")
+    return
+  }
   if (!isWindows.value) {
     const res = await (await import("../../bridge")).call<{ platform: string; instructions: FfmpegInstallInfo }>("download_ffmpeg")
     if (res.success && res.data?.instructions) {

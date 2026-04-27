@@ -258,9 +258,9 @@ Summary of changes:
   - frontend/src/i18n/locales/{en,zh-CN}.ts — added speed/volume i18n keys
 
      Legend: session-request | 🔴 bugfix | 🟣 feature | 🔄 refactor | ✅ change | 🔵 discovery | ⚖️ decision
-    
+        
      Apr 27, 2026
-    
+        
      frontend/src/composables/useAutoEditor.ts
        #2937  1:34 AM  🔴  Removed unused Ref type import from useAutoEditor.ts
        #2938           🔵  Verified TypeScript compilation passes after Ref import removal
@@ -1085,4 +1085,50 @@ fix(settings): 修复配置覆盖与权限拦截，优化剪辑页体验
 
 ### ⚡ 优化
 - 切换 FFmpeg 路径时自动同步并保存 ffprobe 路径，提升重启后的配置可靠性
+```
+
+## 问题3
+
+- macos设置界面调整（不要影响win平台）
+  - “下载FFmpeg”按钮打开https://formulae.brew.sh/formula/ffmpeg
+  - Auto-Editor部分“选择二进制文件”按钮在mac上显示为"下载Auto-Editor"打开https://auto-editor.com/installing
+  - Mac尚无法自动检测Auto-Editor：/opt/homebrew/bin/auto-editor
+
+Summary of changes:
+
+```
+  FFmpegSetup.vue
+
+  - Added isMacOS computed, on macOS the "Download FFmpeg" button opens https://formulae.brew.sh/formula/ffmpeg in a new
+    tab
+  - Linux behavior unchanged (still calls backend download_ffmpeg)
+  - Windows behavior unchanged (still uses confirm modal + download)
+
+  AutoEditorSetup.vue
+
+  - Added platform prop
+  - On macOS: hides "Auto Detect" button, replaces "Select Binary" with "Download Auto-Editor" link to
+    https://auto-editor.com/installing, shows a note that auto-detection is unavailable
+  - On Windows/Linux: behavior unchanged
+
+  SettingsPage.vue
+
+  - Passes platform prop to AutoEditorSetup
+
+  i18n (en.ts / zh-CN.ts)
+
+  - Added downloadAutoEditor: "Download Auto-Editor" / "下载 Auto-Editor"
+  - Added macAutoDetectNote: explanation text for macOS users
+
+
+```
+
+```
+feat(settings): 为 macOS 平台添加 Auto-Editor 和 FFmpeg 下载功能
+
+- 在 AutoEditorSetup 组件中新增 platform 属性，根据平台显示不同按钮
+- macOS 平台上隐藏"自动检测"按钮，显示"下载 Auto-Editor"链接指向 https://auto-editor.com/installing
+- macOS 平台上 FFmpeg 的"下载"按钮打开 https://formulae.brew.sh/formula/ffmpeg
+- 添加 macOS 自动检测不可用的提示信息
+- 支持中英文国际化文本
 ```

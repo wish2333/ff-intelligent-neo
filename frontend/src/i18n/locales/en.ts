@@ -72,6 +72,8 @@ export default {
       autoDetect: "Auto Detect",
       selectBinaryTitle: "Select auto-editor binary",
       currentPath: "Current path:",
+      downloadAutoEditor: "Download Auto-Editor",
+      macAutoDetectNote: "Auto-detection is not available on macOS. Please install via Homebrew or download manually.",
     },
   },
 

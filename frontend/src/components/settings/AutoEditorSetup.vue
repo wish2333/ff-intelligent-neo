@@ -16,6 +16,7 @@ import type { AeStatus } from "../../types/autoEditor"
 
 const props = defineProps<{
   status: AeStatus
+  platform: string
 }>()
 
 const emit = defineEmits<{
@@ -26,6 +27,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const { on } = useBridge()
 const isLoading = ref(false)
+const isMacOS = computed(() => props.platform === "darwin")
 
 const statusBadge = computed(() => {
   if (!props.status.available) {
@@ -101,6 +103,7 @@ async function handleAutoDetect(): Promise<void> {
     <!-- Actions -->
     <div class="flex flex-wrap gap-2">
       <button
+        v-if="!isMacOS"
         class="btn btn-xs btn-primary btn-outline"
         :disabled="isLoading"
         @click="handleAutoDetect"
@@ -108,13 +111,28 @@ async function handleAutoDetect(): Promise<void> {
         <span v-if="isLoading" class="loading loading-spinner loading-xs" />
         {{ t("settings.autoEditor.autoDetect") }}
       </button>
+      <a
+        v-if="isMacOS"
+        href="https://auto-editor.com/installing"
+        target="_blank"
+        rel="noopener"
+        class="btn btn-xs btn-accent btn-outline"
+      >
+        {{ t("settings.autoEditor.downloadAutoEditor") }}
+      </a>
       <button
+        v-else
         class="btn btn-xs btn-outline"
         @click="handleSelectBinary"
       >
         {{ t("settings.autoEditor.selectBinary") }}
       </button>
     </div>
+
+    <!-- macOS auto-detect note -->
+    <p v-if="isMacOS" class="text-xs opacity-60">
+      {{ t("settings.autoEditor.macAutoDetectNote") }}
+    </p>
 
     <!-- Current path (space reserved to avoid layout shift) -->
     <div class="text-xs space-y-1 min-h-[2.5rem]">
