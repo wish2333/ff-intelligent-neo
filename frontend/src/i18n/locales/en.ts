@@ -405,8 +405,6 @@ export default {
   autoCut: {
     title: "Auto Cut",
     description: "Automatically detect and cut silent/motion sections",
-    notConfigured: "Set auto-editor path in Settings",
-    versionIncompatible: "Version {version} not supported (need 30.1.x)",
     statusReady: "Auto-editor Ready",
     editMethod: "Edit Method",
     audio: "Audio",

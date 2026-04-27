@@ -405,8 +405,6 @@ export default {
   autoCut: {
     title: "自动剪辑",
     description: "自动检测并剪裁静音/运动片段",
-    notConfigured: "请在设置中配置 auto-editor 路径",
-    versionIncompatible: "版本 {version} 不受支持（需要 30.1.x）",
     statusReady: "Auto-editor 已就绪",
     editMethod: "编辑方法",
     audio: "音频",

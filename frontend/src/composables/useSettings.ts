@@ -34,6 +34,7 @@ export function useSettings() {
     default_output_dir: "",
     ffmpeg_path: "",
     ffprobe_path: "",
+    auto_editor_path: "",
     theme: "auto",
     language: "auto",
   })

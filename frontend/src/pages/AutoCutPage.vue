@@ -44,7 +44,6 @@ const {
   alertMessage,
   alertType,
   selectedFile,
-  initializing,
   init,
   dispose,
   addToQueue,
@@ -61,18 +60,6 @@ const displayFile = computed(() => {
 const isReady = computed(
   () => autoEditorStatus.value.available && autoEditorStatus.value.compatible,
 )
-
-const statusMessage = computed(() => {
-  if (!autoEditorStatus.value.path) {
-    return t("autoCut.notConfigured")
-  }
-  if (!autoEditorStatus.value.compatible) {
-    return t("autoCut.versionIncompatible", {
-      version: autoEditorStatus.value.version,
-    })
-  }
-  return ""
-})
 
 function handleTabClick(tab: string) {
   activeTab.value = tab
@@ -126,14 +113,6 @@ onUnmounted(() => {
       <p class="text-sm text-base-content/60">{{ t("autoCut.description") }}</p>
     </div>
 
-    <!-- Status bar -->
-    <div
-      v-if="statusMessage && !initializing"
-      class="alert alert-warning py-2 px-4 text-sm"
-    >
-      {{ statusMessage }}
-    </div>
-
     <!-- Alert message -->
     <div
       v-if="alertMessage"
@@ -148,6 +127,7 @@ onUnmounted(() => {
       :model-value="displayFile"
       :placeholder="t('common.dropDefault')"
       accept=".mp4,.mov,.mkv,.m4v,.mp3,.wav,.m4a,.aac"
+      fullscreen-drop
       @update:model-value="handleFilesChanged"
     />
 

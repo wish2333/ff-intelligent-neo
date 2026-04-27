@@ -985,7 +985,7 @@ fix(ui): 修正编码选项显示、布局及滚动条问题
 ### 🚀 Release Notes
 
 ```
-## 2025-04-08 - 编码配置与页面布局修复
+## 2026-04-27 - 编码配置与页面布局修复
 
 ### ✨ 新增
 - 视频编码器新增 AV1 (Intel QSV) 支持
@@ -1004,4 +1004,85 @@ fix(ui): 修正编码选项显示、布局及滚动条问题
 
 ## 问题2
 
-现在在设置页修改ffmpeg相关参数时是否会将auto-editor相关设置清除，反过来呢，请评估一下
+- 现在在设置页修改ffmpeg相关参数时是否会将auto-editor相关设置清除，反过来呢，请评估一下
+  - 目前后端执行出现问题，好像修改setting.json会触发微软电脑管家拦截，看看你现在的设计有没有什么权限问题
+  - ffmpeg修改的同时ffprobe的路径在setting.json中并没有记录（我会有点担忧现在代码里面的ffprobe调用是否都没有指定对应ffprobe）
+- 此外还发现会有额外的“autoCut.Auto-editor path not configured”小字短暂出现（中英文均有），我们已经设计有专门的通知条，不需要这个小字提示了
+- 给自动剪辑这一页也加上全屏拖拽输入吧（参见其余各页的实现）
+
+```
+● 全部修复完成，构建通过。以下是修改摘要：
+
+  修复 1：前端 DTO 缺少 auto_editor_path
+
+  - frontend/src/types/settings.ts — AppSettingsDTO 新增 auto_editor_path: string
+  - frontend/src/composables/useSettings.ts — reactive 对象新增 auto_editor_path: ""
+
+  之前：任何 settings 保存时发送的字典都缺少 auto_editor_path，后端 from_dict() 静默设回空字符串。
+
+  修复 2：switch_ffmpeg 覆盖全部设置
+
+  - core/ffmpeg_setup.py — switch_ffmpeg() 改为先调用 load_settings() 获取当前完整配置，然后逐字段复制为新
+    AppSettings，仅覆盖 ffmpeg_path
+
+  之前：AppSettings(ffmpeg_path=path) 将所有其他字段重置为默认值。
+
+  修复 3：移除 AutoCutPage 冗余状态提示条
+
+  - frontend/src/pages/AutoCutPage.vue — 移除 statusMessage computed 属性和状态栏模板
+  - frontend/src/i18n/locales/en.ts / zh-CN.ts — 移除不再使用的 autoCut.notConfigured 和 autoCut.versionIncompatible 键
+
+  这些提示在 auto-editor 状态尚未就绪时会闪烁出现，与已有的通知条功能重复。
+
+frontend/src/pages/AutoCutPage.vue — 给 <FileDropInput> 添加 fullscreen-drop 属性。该组件内置了全屏拖拽覆盖层的逻辑 — 文档级 dragenter/dragover/dragleave/drop 事件监听 + 固定全屏覆盖层 + "Drop file here" 提示。现在 AutoCutPage 和项目中其他页面（AvsmixForm、FilterForm）的全屏拖拽行为一致。
+
+  修复 1：原子写入 settings.json
+
+  core/config.py — save_settings() 改为先写 .json.tmp 临时文件，再调用 os.replace() 原子替换目标文件。
+
+  - os.replace() 在 Windows 上通过 MoveFileExW 实现，同一文件系统内是原子操作
+  - 缩短了安全软件（微软电脑管家等）可拦截的时间窗口
+  - 失败时自动清理临时文件
+
+  修复 2：切换 FFmpeg 时持久化 ffprobe 路径
+
+  core/ffmpeg_setup.py switch_ffmpeg() — 将 _find_ffprobe_for_ffmpeg(path) 调用移到 AppSettings 构造之前，把发现的
+  ffprobe 路径一并写入 settings.json。
+
+  之前：ffprobe 路径只在内存全局变量 _ffmpeg_override_ffprobe 中保存，settings.json 保留旧值。重启后依赖
+  get_ffprobe_path() 重新推导（通常能找到，但不保证）。
+
+  现在：settings.json 中同时记录 ffmpeg_path 和 ffprobe_path，重启后直接可用。
+
+  关于 ffprobe 调用的担忧：所有消费者（batch_runner.py、task_runner.py、file_info.py、app_info.py）都通过
+  get_ffprobe_path() 获取路径，该函数会优先使用内存覆盖值（运行时切换生效），回退到 settings.json
+  中的持久化路径（重启后正确）。
+```
+
+### 📝 Commit Message
+
+```
+fix(settings): 修复配置覆盖与权限拦截，优化剪辑页体验
+
+- 前端补全 auto_editor_path 字段，防止保存时被静默重置
+- 修复切换 FFmpeg 时覆盖全局配置的问题，并同步持久化 ffprobe 路径
+- settings.json 改用临时文件原子写入，避免触发安全软件拦截
+- 移除自动剪辑页冗余的状态闪烁提示，新增全屏拖拽导入功能
+```
+
+### 🚀 Release Notes
+
+```
+## 2026-04-27 - 配置系统稳定性与自动剪辑页体验提升
+
+### ✨ 新增
+- 自动剪辑页面支持全屏拖拽导入文件，操作与其他页面保持一致
+
+### 🐛 修复
+- 修复修改 FFmpeg 路径会导致其他所有设置（如自动剪辑工具路径）被清空的问题
+- 修复在部分 Windows 环境下保存设置容易触发安全软件拦截的问题
+- 移除自动剪辑页面中多余且重复的路径未配置闪烁提示
+
+### ⚡ 优化
+- 切换 FFmpeg 路径时自动同步并保存 ffprobe 路径，提升重启后的配置可靠性
+```

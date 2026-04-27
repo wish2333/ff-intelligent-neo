@@ -440,17 +440,29 @@ def switch_ffmpeg(path: str) -> dict:
             f"Cannot determine FFmpeg version for: {path}"
         )
 
-    # Save to settings
-    from core.config import save_settings
+    # Find ffprobe alongside the ffmpeg binary
+    ffprobe_path = _find_ffprobe_for_ffmpeg(path)
+
+    # Save to settings (preserve existing fields, update both paths)
+    from core.config import load_settings, save_settings
     from core.models import AppSettings
 
-    settings = AppSettings(ffmpeg_path=path)
-    save_settings(settings)
+    current = load_settings()
+    new_settings = AppSettings(
+        max_workers=current.max_workers,
+        default_output_dir=current.default_output_dir,
+        ffmpeg_path=path,
+        ffprobe_path=ffprobe_path or current.ffprobe_path,
+        auto_editor_path=current.auto_editor_path,
+        theme=current.theme,
+        language=current.language,
+    )
+    save_settings(new_settings)
 
-    # Clear caches so new path takes effect
+    # Set memory overrides so runtime picks up the new paths immediately
     global _ffmpeg_override_path, _ffmpeg_override_ffprobe
     _ffmpeg_override_path = path
-    _ffmpeg_override_ffprobe = _find_ffprobe_for_ffmpeg(path)
+    _ffmpeg_override_ffprobe = ffprobe_path
 
     # Clear app_info version caches
     try:

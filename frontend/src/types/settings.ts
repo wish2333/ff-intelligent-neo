@@ -5,6 +5,7 @@ export interface AppSettingsDTO {
   default_output_dir: string
   ffmpeg_path: string
   ffprobe_path: string
+  auto_editor_path: string
   theme: string
   language: string
 }
