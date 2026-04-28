@@ -21,9 +21,11 @@ const props = withDefaults(defineProps<{
   placeholder?: string
   fullscreenDrop?: boolean
   multiple?: boolean
+  disabled?: boolean
 }>(), {
   fullscreenDrop: false,
   multiple: true,
+  disabled: false,
 })
 
 const emit = defineEmits<{
@@ -60,16 +62,19 @@ function validateExtension(path: string): boolean {
 }
 
 function onDragEnter(e: DragEvent): void {
+  if (props.disabled) return
   e.preventDefault()
   dragCounter++
   if (dragCounter === 1) isDragging.value = true
 }
 
 function onDragOver(e: DragEvent): void {
+  if (props.disabled) return
   e.preventDefault()
 }
 
 function onDragLeave(e: DragEvent): void {
+  if (props.disabled) return
   e.preventDefault()
   dragCounter--
   if (dragCounter === 0) isDragging.value = false
@@ -144,6 +149,7 @@ async function onFullscreenDrop(e: DragEvent): Promise<void> {
 }
 
 async function openFileDialog(): Promise<void> {
+  if (props.disabled) return
   error.value = ""
   try {
     if (props.multiple) {
@@ -224,12 +230,15 @@ onUnmounted(() => {
 
     <!-- Drop zone / display -->
     <div
-      class="flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm transition-colors cursor-pointer"
-      :class="error
+      class="flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm transition-colors"
+      :class="[
+        disabled ? 'opacity-50 cursor-not-allowed border-base-300 bg-base-200' : 'cursor-pointer',
+        !disabled && error
         ? 'border-error bg-error/10'
         : (modelValue
           ? (isDragging ? 'border-primary bg-primary/10' : 'border-base-300 hover:border-base-content/30')
           : (isDragging ? 'border-primary bg-primary/10' : 'border-base-300 hover:border-primary/50 hover:bg-base-200/50'))
+      ]"
       "
       @click="openFileDialog"
     >
@@ -259,7 +268,7 @@ onUnmounted(() => {
 
     <!-- Clear button -->
     <button
-      v-if="modelValue || error"
+      v-if="(modelValue || error) && !disabled"
       class="btn btn-xs btn-ghost btn-square absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
       :title="t('common.clear')"
       @click.stop="clear"

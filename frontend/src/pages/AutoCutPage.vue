@@ -106,7 +106,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 p-4 min-h-0 overflow-y-auto">
+  <div class="page-scroll flex flex-col gap-4 p-4 min-h-0 overflow-y-auto">
     <!-- Page header -->
     <div>
       <h1 class="text-xl font-bold tracking-tight">{{ t("autoCut.title") }}</h1>

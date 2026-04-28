@@ -291,7 +291,7 @@ function handleQualityChange(payload: { quality: number; mode: string } | null) 
           />
         </div>
 
-        <!-- Row 4: EP | MB | Bufsize -->
+        <!-- Row 4: EP | MB -->
         <div class="form-control">
           <label class="label py-1">
             <span class="label-text text-xs">{{ t("config.transcode.encodingPreset") }}</span>
@@ -318,6 +318,22 @@ function handleQualityChange(payload: { quality: number; mode: string } | null) 
           />
         </div>
 
+        <div class="invisible" aria-hidden="true"></div>
+
+        <!-- Row 5: PF | Bufsize -->
+        <div class="form-control">
+          <label class="label py-1">
+            <span class="label-text text-xs">{{ t("config.transcode.pixelFormat") }}</span>
+          </label>
+          <ComboInput
+            :model-value="config.pixel_format"
+            :suggestions="PIXEL_FORMAT_SUGGESTIONS"
+            :placeholder="t('config.transcode.placeholders.pixelFormat')"
+            @update:model-value="config.pixel_format = $event"
+            :disabled="!isVideoReencode()"
+          />
+        </div>
+
         <div class="form-control">
           <label class="label py-1">
             <span class="label-text text-xs">{{ t("config.transcode.bufferSize") }}</span>
@@ -331,20 +347,6 @@ function handleQualityChange(payload: { quality: number; mode: string } | null) 
           />
         </div>
 
-        <!-- Row 5: PF -->
-        <div class="form-control">
-          <label class="label py-1">
-            <span class="label-text text-xs">{{ t("config.transcode.pixelFormat") }}</span>
-          </label>
-          <ComboInput
-            :model-value="config.pixel_format"
-            :suggestions="PIXEL_FORMAT_SUGGESTIONS"
-            :placeholder="t('config.transcode.placeholders.pixelFormat')"
-            @update:model-value="config.pixel_format = $event"
-            :disabled="!isVideoReencode()"
-          />
-        </div>
-        <div class="invisible" aria-hidden="true"></div>
         <div class="invisible" aria-hidden="true"></div>
       </div>
     </div>

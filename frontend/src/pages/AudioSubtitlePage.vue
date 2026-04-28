@@ -54,7 +54,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-1 flex-col gap-4 p-4 overflow-y-auto">
+  <div class="page-scroll flex flex-1 flex-col gap-4 p-4 overflow-y-auto">
     <h1 class="text-xl font-bold tracking-tight">{{ t("avMix.title") }}</h1>
     <p class="text-sm text-base-content/60">
       {{ t("avMix.description") }}

@@ -124,7 +124,7 @@ async function handleMoveDown(taskId: string): Promise<void> {
 
 <template>
   <div
-    class="flex min-h-0 flex-1 flex-col gap-3 p-4 overflow-y-auto"
+    class="page-scroll flex min-h-0 flex-1 flex-col gap-3 p-4 overflow-y-auto"
     @dragenter="fileDrop.onDragEnter"
     @dragover="fileDrop.onDragOver"
     @dragleave="fileDrop.onDragLeave"

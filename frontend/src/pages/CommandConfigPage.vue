@@ -99,7 +99,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex flex-1 flex-col gap-4 p-4 overflow-y-auto">
+  <div class="page-scroll flex flex-1 flex-col gap-4 p-4 overflow-y-auto">
     <!-- Command Preview at TOP -->
     <CommandPreview
       :command-text="commandText"

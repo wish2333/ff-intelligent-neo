@@ -43,3 +43,29 @@ export function formatResolution(width: number | undefined, height: number | und
   if (!width || !height) return ""
   return `${width}x${height}`
 }
+
+/**
+ * Format bit rate string (e.g. "5000000" -> "5.0 Mbps").
+ */
+export function formatBitRate(bitRate: string): string {
+  if (!bitRate) return ""
+  const bps = parseInt(bitRate, 10)
+  if (isNaN(bps) || bps <= 0) return bitRate
+  if (bps >= 1_000_000) return `${(bps / 1_000_000).toFixed(1)} Mbps`
+  if (bps >= 1_000) return `${(bps / 1_000).toFixed(0)} kbps`
+  return `${bps} bps`
+}
+
+/**
+ * Format channel count to display string (e.g. 2 -> "stereo", 6 -> "5.1").
+ */
+export function formatChannels(channels: number): string {
+  if (!channels || channels <= 0) return ""
+  const names: Record<number, string> = {
+    1: "mono",
+    2: "stereo",
+    6: "5.1",
+    8: "7.1",
+  }
+  return names[channels] ?? `${channels} ch`
+}
