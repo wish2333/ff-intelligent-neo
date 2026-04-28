@@ -182,7 +182,7 @@ export function useAutoEditor() {
         commandPreview.value = res.data.display
       } else {
         commandPreview.value = ""
-        if (res.error) {
+        if (res.error && !initializing.value) {
           alertMessage.value = res.error
           alertType.value = "error"
           clearAlert()
