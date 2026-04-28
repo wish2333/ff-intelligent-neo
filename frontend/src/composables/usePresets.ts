@@ -24,8 +24,8 @@ export function usePresets() {
       } else {
         error.value = res.error || "Failed to load presets"
       }
-    } catch (e: any) {
-      error.value = e.message || "Failed to load presets"
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : "Failed to load presets"
     } finally {
       loading.value = false
     }
@@ -47,8 +47,8 @@ export function usePresets() {
       }
       error.value = res.error || "Failed to save preset"
       return null
-    } catch (e: any) {
-      error.value = e.message || "Failed to save preset"
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : "Failed to save preset"
       return null
     } finally {
       loading.value = false
@@ -66,8 +66,8 @@ export function usePresets() {
       }
       error.value = res.error || "Failed to delete preset"
       return false
-    } catch (e: any) {
-      error.value = e.message || "Failed to delete preset"
+    } catch (e: unknown) {
+      error.value = e instanceof Error ? e.message : "Failed to delete preset"
       return false
     } finally {
       loading.value = false

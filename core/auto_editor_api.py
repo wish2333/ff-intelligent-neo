@@ -17,6 +17,7 @@ import subprocess
 import sys
 import urllib.request
 import uuid
+import hashlib
 from pathlib import Path
 
 from core.auto_editor_runner import (
@@ -26,11 +27,33 @@ from core.auto_editor_runner import (
 )
 from core.config import load_settings, save_settings
 from core.logging import get_logger
+from core.events import QUEUE_CHANGED, AUTO_EDITOR_VERSION_CHANGED, AUTO_EDITOR_DOWNLOAD_PROGRESS
 from core.models import AppSettings, Task, TaskConfig
 
 logger = get_logger()
 
 _VERSION_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)")
+
+# SHA-256 hash of the auto-editor binary. Empty string means skip check (dev mode).
+# Update this when the binary is updated. Compute with:
+#   uv run python -c "import hashlib; print(hashlib.sha256(open('path/to/binary','rb').read()).hexdigest())"
+_AUTO_EDITOR_SHA256 = ""
+
+
+def _verify_sha256(filepath: Path, expected: str) -> bool:
+    """Verify file integrity by SHA-256. Returns True if match or skip."""
+    if not expected:
+        return True
+    sha = hashlib.sha256()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            sha.update(chunk)
+    actual = sha.hexdigest()
+    if actual != expected:
+        logger.error("[download] SHA-256 mismatch: expected={}, got={}", expected, actual)
+        return False
+    logger.info("[download] SHA-256 verified: {}", actual[:16])
+    return True
 
 
 def _run_subprocess(
@@ -98,6 +121,7 @@ class AutoEditorApi:
         self._emit = emit
         self._queue = queue
         self._runner = runner
+        self._pending_auto_editor_tasks: dict[str, dict] = {}
 
     # ------------------------------------------------------------------
     # Path management
@@ -160,7 +184,7 @@ class AutoEditorApi:
             save_settings(new_settings)
 
             version_str = ".".join(str(v) for v in version_parts)
-            self._emit("auto_editor_version_changed", {
+            self._emit(AUTO_EDITOR_VERSION_CHANGED, {
                 "version": version_str,
                 "path": str(resolved),
                 "status": "ready",
@@ -286,7 +310,7 @@ class AutoEditorApi:
                 if result.returncode == 0:
                     version_str = result.stdout.strip()
                     print(f"[auto-editor] Already exists: {dest_path} (v{version_str})")
-                    self._emit("auto_editor_version_changed", {
+                    self._emit(AUTO_EDITOR_VERSION_CHANGED, {
                         "version": version_str,
                         "path": str(dest_path),
                         "status": "ready",
@@ -301,7 +325,7 @@ class AutoEditorApi:
             logger.info("[download] dest={}", dest_path)
             print(f"[auto-editor] Downloading from {url}")
 
-            self._emit("auto_editor_download_progress", {
+            self._emit(AUTO_EDITOR_DOWNLOAD_PROGRESS, {
                 "status": "downloading",
                 "message": "Downloading auto-editor...",
             })
@@ -328,6 +352,11 @@ class AutoEditorApi:
             logger.info("[download] saved, size={:.1f} MB", size_mb)
             print(f"[auto-editor] Saved to {dest_path} ({size_mb:.1f} MB)")
 
+            # Verify download integrity
+            if not _verify_sha256(dest_path, _AUTO_EDITOR_SHA256):
+                dest_path.unlink(missing_ok=True)
+                return {"success": False, "error": "Download integrity check failed (SHA-256 mismatch)"}
+
             # Validate the downloaded binary
             print("[auto-editor] Validating binary...")
             result = _run_subprocess([str(dest_path), "--version"], timeout=10)
@@ -338,7 +367,7 @@ class AutoEditorApi:
 
             version_str = result.stdout.strip()
             print(f"[auto-editor] OK, version {version_str}")
-            self._emit("auto_editor_version_changed", {
+            self._emit(AUTO_EDITOR_VERSION_CHANGED, {
                 "version": version_str,
                 "path": str(dest_path),
                 "status": "ready",
@@ -492,23 +521,25 @@ class AutoEditorApi:
                 task_type="auto_editor",
             )
             task.output_path = str(output_path)
-            task.config = TaskConfig(output_dir=output_dir)
-
-            # Enqueue task
-            self._queue.add_task(task)
-
-            self._emit("queue_changed", self._queue.get_summary())
-
-            # Store auto-editor params for execution time
-            if not hasattr(self, "_pending_auto_editor_tasks"):
-                self._pending_auto_editor_tasks = {}
-            self._pending_auto_editor_tasks[task_id] = {
+            ae_params = {
                 "input_file": str(validated_path),
                 "params": params,
                 "auto_editor_path": auto_editor_path,
                 "output_path": str(output_path),
                 "output_dir": output_dir,
             }
+            task.config = TaskConfig(
+                output_dir=output_dir,
+                auto_editor_params=ae_params,
+            )
+
+            # Enqueue task
+            self._queue.add_task(task)
+
+            self._emit(QUEUE_CHANGED, self._queue.get_summary())
+
+            # Store auto-editor params for execution time (in-memory fast path)
+            self._pending_auto_editor_tasks[task_id] = ae_params
 
             return {
                 "success": True,
@@ -592,8 +623,7 @@ class AutoEditorApi:
             self._runner.stop_task(task_id)
 
             # Cleanup pending params
-            if hasattr(self, "_pending_auto_editor_tasks"):
-                self._pending_auto_editor_tasks.pop(task_id, None)
+            self._pending_auto_editor_tasks.pop(task_id, None)
 
             return {"success": True, "data": None}
         except Exception as exc:
@@ -612,12 +642,14 @@ class AutoEditorApi:
             {success: bool, error?: str}.
         """
         try:
-            if not hasattr(self, "_pending_auto_editor_tasks"):
-                self._pending_auto_editor_tasks = {}
-
             pending = self._pending_auto_editor_tasks.get(task_id)
             if not pending:
-                return {"success": False, "error": "No pending auto-editor task data"}
+                # Fall back to task config (recovery after restart)
+                task = self._queue.get_task(task_id)
+                if task and task.config.auto_editor_params:
+                    pending = task.config.auto_editor_params
+                else:
+                    return {"success": False, "error": "No pending auto-editor task data"}
 
             args = build_command(
                 input_file=pending["input_file"],

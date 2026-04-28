@@ -12,6 +12,8 @@ import { call } from "../../bridge"
 
 const { t } = useI18n()
 
+let alertTimer: ReturnType<typeof setTimeout> | null = null
+
 const props = defineProps<{
   modelValue: string[]
 }>()
@@ -58,7 +60,8 @@ async function addFiles() {
     }
   } catch (err) {
     alertMessage.value = t("common.operationFailed") + ": " + (err as Error).message
-    setTimeout(() => { alertMessage.value = "" }, 3000)
+    if (alertTimer) clearTimeout(alertTimer)
+    alertTimer = setTimeout(() => { alertMessage.value = "" }, 3000)
   }
 }
 
@@ -147,6 +150,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  if (alertTimer) clearTimeout(alertTimer)
   fsDragCounter = 0
   document.removeEventListener("dragenter", onFsDragEnter)
   document.removeEventListener("dragover", onFsDragOver)

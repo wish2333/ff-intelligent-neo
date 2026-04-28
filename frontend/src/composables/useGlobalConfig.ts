@@ -138,23 +138,24 @@ export function useGlobalConfig() {
   }
 
   function loadFromTaskConfig(config: TaskConfigDTO) {
-    if (config.transcode) Object.assign(transcode, config.transcode)
-    if (config.filters) Object.assign(filters, config.filters)
+    // Use spread defaults to prevent stale fields from partial configs
+    if (config.transcode) Object.assign(transcode, { ...DEFAULT_TRANSCODE, ...config.transcode })
+    if (config.filters) Object.assign(filters, { ...DEFAULT_FILTER, ...config.filters })
     if (config.clip) {
-      Object.assign(clip, config.clip)
+      Object.assign(clip, { ...DEFAULT_CLIP, ...config.clip })
       activeMode.value = "clip"
     }
     if (config.merge) {
-      Object.assign(merge, config.merge)
+      Object.assign(merge, { ...DEFAULT_MERGE, ...config.merge })
       activeMode.value = "merge"
     }
     if (config.avsmix) {
-      Object.assign(avsmix, config.avsmix)
+      Object.assign(avsmix, { ...DEFAULT_AVSMIX, ...config.avsmix })
       activeMode.value = "avsmix"
     }
     // Phase 3.5: load custom command config
     if (config.custom_command) {
-      Object.assign(customCommand, config.custom_command)
+      Object.assign(customCommand, { ...DEFAULT_CUSTOM, ...config.custom_command })
       activeMode.value = "custom"
     }
   }

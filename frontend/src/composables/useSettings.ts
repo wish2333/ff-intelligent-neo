@@ -7,6 +7,7 @@
 
 import { ref, reactive } from "vue"
 import { call } from "../bridge"
+import { logError } from "../utils/logger"
 import type { AppSettingsDTO } from "../types/settings"
 
 export interface FfmpegVersionDTO {
@@ -50,7 +51,7 @@ export function useSettings() {
         Object.assign(settings, res.data)
       }
     } catch (err) {
-      console.error("[useSettings] fetchSettings error:", err)
+      logError("useSettings", "fetchSettings error", err)
     }
   }
 
@@ -63,7 +64,7 @@ export function useSettings() {
       }
       return res.success
     } catch (err) {
-      console.error("[useSettings] saveSettings error:", err)
+      logError("useSettings", "saveSettings error", err)
       return false
     }
   }
@@ -75,7 +76,7 @@ export function useSettings() {
         ffmpegVersions.value = res.data
       }
     } catch (err) {
-      console.error("[useSettings] fetchFfmpegVersions error:", err)
+      logError("useSettings", "fetchFfmpegVersions error", err)
     }
   }
 
@@ -93,7 +94,7 @@ export function useSettings() {
       }
       return res.success
     } catch (err) {
-      console.error("[useSettings] switchFfmpeg error:", err)
+      logError("useSettings", "switchFfmpeg error", err)
       return false
     }
   }
@@ -108,7 +109,7 @@ export function useSettings() {
       }
       return null
     } catch (err) {
-      console.error("[useSettings] selectFfmpegBinary error:", err)
+      logError("useSettings", "selectFfmpegBinary error", err)
       return null
     }
   }
@@ -126,7 +127,7 @@ export function useSettings() {
       await fetchAppInfo()
       return ffmpegStatus.value === "ready"
     } catch (err) {
-      console.error("[useSettings] detectFfmpeg error:", err)
+      logError("useSettings", "detectFfmpeg error", err)
       ffmpegStatus.value = "not_found"
       return false
     }
@@ -140,7 +141,7 @@ export function useSettings() {
         ffmpegStatus.value = res.data.ffmpeg_path ? "ready" : "not_found"
       }
     } catch (err) {
-      console.error("[useSettings] fetchAppInfo error:", err)
+      logError("useSettings", "fetchAppInfo error", err)
     }
   }
 
@@ -157,7 +158,7 @@ export function useSettings() {
       ffmpegStatus.value = "not_found"
       return false
     } catch (err) {
-      console.error("[useSettings] downloadFfmpeg error:", err)
+      logError("useSettings", "downloadFfmpeg error", err)
       ffmpegStatus.value = "not_found"
       return false
     }

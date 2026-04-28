@@ -6,12 +6,15 @@
  * Phase 3.5.2: Side-by-side Start/End, H:MM:SS:ms split inputs.
  */
 
-import { computed, ref, watch } from "vue"
+import { computed, onUnmounted, ref, watch } from "vue"
 import { useI18n } from "vue-i18n"
 import { call } from "../../bridge"
 import type { ClipConfigDTO } from "../../types/config"
 
 const { t } = useI18n()
+
+let alertTimer: ReturnType<typeof setTimeout> | null = null
+onUnmounted(() => { if (alertTimer) clearTimeout(alertTimer) })
 
 const props = defineProps<{
   config: ClipConfigDTO
@@ -111,7 +114,8 @@ watch(
         }
       } catch (err) {
         alertMessage.value = t("common.operationFailed") + ": " + (err as Error).message
-        setTimeout(() => { alertMessage.value = "" }, 3000)
+        if (alertTimer) clearTimeout(alertTimer)
+        alertTimer = setTimeout(() => { alertMessage.value = "" }, 3000)
       }
     }
   },

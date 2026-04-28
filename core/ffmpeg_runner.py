@@ -24,6 +24,15 @@ _SPEED_RE = re.compile(r"speed=\s*(\S+)")
 _FPS_RE = re.compile(r"fps=\s*(\S+)")
 
 
+def _close_pipe(pipe) -> None:
+    """Safely close a subprocess pipe, suppressing errors."""
+    if pipe and not pipe.closed:
+        try:
+            pipe.close()
+        except Exception:
+            pass
+
+
 def _parse_time_to_seconds(match: re.Match) -> float:
     h = int(match.group(1))
     m = int(match.group(2))
@@ -135,10 +144,8 @@ def run_single(
                 if on_log:
                     on_log(stripped)
 
-                # Append to task log (keep last 500 lines)
-                task.log_lines.append(stripped)
-                if len(task.log_lines) > 500:
-                    task.log_lines = task.log_lines[-500:]
+                # Append to task log (thread-safe, keeps last 500 lines)
+                task.append_log(stripped)
 
                 # Parse speed and fps from every line
                 speed_match = _SPEED_RE.search(line)
@@ -197,6 +204,7 @@ def run_single(
                 except Exception:
                     pass
                 reader_thread.join(timeout=2)
+                _close_pipe(proc.stderr)
                 return False, "Cancelled"
 
             returncode = proc.poll()
@@ -210,6 +218,7 @@ def run_single(
         returncode = -1
 
     reader_thread.join(timeout=2)
+    _close_pipe(proc.stderr)
 
     if returncode == 0:
         if on_progress:

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, computed } from "vue"
 import { waitForPyWebView, call } from "../bridge"
+import { logError } from "../utils/logger"
 import { useSettings } from "../composables/useSettings"
 import { useAutoEditor } from "../composables/useAutoEditor"
 import { useI18n } from "vue-i18n"
@@ -28,7 +29,7 @@ onMounted(async () => {
     s.fetchAppInfo()
     await ae.fetchStatus()
   } catch (err) {
-    console.error("[SettingsPage] mount failed:", err)
+    logError("SettingsPage", "mount failed", err)
   }
 })
 

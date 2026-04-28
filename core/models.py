@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
@@ -285,6 +286,7 @@ class TaskConfig:
     merge: MergeConfig | None = None
     avsmix: AudioSubtitleConfig | None = None
     custom_command: CustomCommandConfig | None = None
+    auto_editor_params: dict | None = None
     output_dir: str = ""
 
     def to_dict(self) -> dict:
@@ -295,6 +297,7 @@ class TaskConfig:
             "merge": self.merge.to_dict() if self.merge else None,
             "avsmix": self.avsmix.to_dict() if self.avsmix else None,
             "custom_command": self.custom_command.to_dict() if self.custom_command else None,
+            "auto_editor_params": self.auto_editor_params,
             "output_dir": self.output_dir,
         }
 
@@ -309,6 +312,7 @@ class TaskConfig:
             merge=MergeConfig.from_dict(data["merge"]) if data.get("merge") else None,
             avsmix=AudioSubtitleConfig.from_dict(data["avsmix"]) if data.get("avsmix") else None,
             custom_command=CustomCommandConfig.from_dict(data["custom_command"]) if data.get("custom_command") else None,
+            auto_editor_params=data.get("auto_editor_params"),
             output_dir=data.get("output_dir", ""),
         )
 
@@ -368,6 +372,19 @@ class Task:
     )
     started_at: str = ""
     completed_at: str = ""
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def append_log(self, line: str) -> None:
+        """Thread-safe append to log_lines, keeping last 500 entries."""
+        with self.lock:
+            self.log_lines.append(line)
+            if len(self.log_lines) > 500:
+                self.log_lines = self.log_lines[-500:]
+
+    def set_progress(self, progress: TaskProgress) -> None:
+        """Thread-safe progress update."""
+        with self.lock:
+            self.progress = progress
 
     def can_transition(self, new_state: TaskState) -> bool:
         return new_state in VALID_TRANSITIONS.get(self.state, set())
@@ -394,10 +411,12 @@ class Task:
         return old_state
 
     def update_progress(self, progress: TaskProgress) -> None:
-        self.progress = progress
+        self.set_progress(progress)
 
     def to_dict(self) -> dict:
         """Serialize to dict for JSON persistence and bridge transfer."""
+        with self.lock:
+            log_snapshot = self.log_lines[-100:]
         return {
             "id": self.id,
             "file_path": self.file_path,
@@ -410,7 +429,7 @@ class Task:
             "progress": self.progress.to_dict(),
             "output_path": self.output_path,
             "error": self.error,
-            "log_lines": self.log_lines[-100:],
+            "log_lines": log_snapshot,
             "created_at": self.created_at,
             "started_at": self.started_at,
             "completed_at": self.completed_at,

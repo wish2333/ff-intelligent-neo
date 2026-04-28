@@ -6,12 +6,14 @@
  * to save current config or delete the selected preset.
  */
 
-import { ref, computed, onMounted } from "vue"
+import { onUnmounted, ref, computed, onMounted } from "vue"
 import { useI18n } from "vue-i18n"
 import { call } from "../../bridge"
 import type { PresetDTO } from "../../types/preset"
 
 const { t } = useI18n()
+let alertTimer: ReturnType<typeof setTimeout> | null = null
+onUnmounted(() => { if (alertTimer) clearTimeout(alertTimer) })
 
 const emit = defineEmits<{
   (e: "select", preset: PresetDTO): void
@@ -43,7 +45,8 @@ async function fetchPresets() {
     }
   } catch (err) {
     alertMessage.value = t("common.operationFailed") + ": " + (err as Error).message
-    setTimeout(() => { alertMessage.value = "" }, 3000)
+    if (alertTimer) clearTimeout(alertTimer)
+    alertTimer = setTimeout(() => { alertMessage.value = "" }, 3000)
   } finally {
     loading.value = false
   }
@@ -93,7 +96,7 @@ defineExpose({ fetchPresets, setSelectedId: (id: string) => { selectedId.value =
       </h2>
 
       <!-- Preset dropdown -->
-      <div class="flex gap-2 mb-2">
+      <div class="flex items-center gap-2 mb-2">
         <select
           v-model="selectedId"
           @change="handleSelect"
@@ -126,6 +129,7 @@ defineExpose({ fetchPresets, setSelectedId: (id: string) => { selectedId.value =
             </option>
           </optgroup>
         </select>
+        <slot name="dropdown-actions" />
       </div>
 
       <!-- Selected preset description -->

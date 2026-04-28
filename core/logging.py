@@ -6,6 +6,7 @@ import sys
 
 from loguru import logger
 from core.paths import get_log_dir
+from core.events import LOG_LINE
 
 # Remove default handler to avoid duplicate output
 logger.remove()
@@ -27,8 +28,8 @@ try:
         level="DEBUG",
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
     )
-except Exception:
-    pass  # File logging is best-effort; console still works
+except Exception as exc:
+    print(f"[logging] WARNING: File logging disabled - {exc}", file=sys.stderr)
 
 # Frontend sink placeholder - will be added when bridge is ready
 _frontend_sink_id: int | None = None
@@ -46,9 +47,9 @@ def setup_frontend_sink(emit_fn) -> None:
             record = message.record
             level = record["level"].name
             line = f"[{level}] {record['message']}"
-            emit_fn("log_line", {"line": line})
-        except Exception:
-            pass
+            emit_fn(LOG_LINE, {"line": line})
+        except Exception as exc:
+            print(f"[logging] Frontend sink error (suppressed): {exc}", file=sys.stderr)
 
     _frontend_sink_id = logger.add(
         _sink,

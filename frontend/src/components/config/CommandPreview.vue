@@ -6,10 +6,12 @@
  * and displays any validation errors/warnings below it.
  */
 
-import { ref } from "vue"
+import { onUnmounted, ref } from "vue"
 import { useI18n } from "vue-i18n"
 
 const { t } = useI18n()
+let copyTimer: ReturnType<typeof setTimeout> | null = null
+onUnmounted(() => { if (copyTimer) clearTimeout(copyTimer) })
 
 interface ValidationItem {
   param: string
@@ -48,7 +50,8 @@ function copyCommand(commandText: string) {
 
 function showCopied() {
   copied.value = true
-  setTimeout(() => { copied.value = false }, 1500)
+  if (copyTimer) clearTimeout(copyTimer)
+  copyTimer = setTimeout(() => { copied.value = false }, 1500)
 }
 
 function formatItem(item: ValidationItem): string {

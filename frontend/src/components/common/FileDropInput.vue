@@ -12,6 +12,7 @@
 import { ref, computed, onMounted, onUnmounted } from "vue"
 import { useI18n } from "vue-i18n"
 import { call } from "../../bridge"
+import { logError } from "../../utils/logger"
 
 const { t } = useI18n()
 
@@ -175,7 +176,7 @@ async function openFileDialog(): Promise<void> {
       }
     }
   } catch (err) {
-    console.error("[FileDropInput] file dialog failed:", err)
+    logError("FileDropInput", "file dialog failed", err)
     error.value = t("common.fileDialogFailed")
   }
 }

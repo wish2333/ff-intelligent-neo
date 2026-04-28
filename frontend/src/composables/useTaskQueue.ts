@@ -7,6 +7,8 @@
 
 import { ref, computed } from "vue"
 import { call } from "../bridge"
+import { logError } from "../utils/logger"
+import { EVENT_TASK_STATE_CHANGED, EVENT_QUEUE_CHANGED, EVENT_TASK_INFO_UPDATED } from "../utils/events"
 import { useBridge } from "./useBridge"
 import type { TaskDTO, QueueSummary, TaskState } from "../types/task"
 import type { TaskConfigDTO } from "../types/config"
@@ -74,11 +76,11 @@ export function useTaskQueue() {
         tasks.value = [...existing, ...res.data]
         await fetchSummary()
       } else {
-        console.error("[useTaskQueue] add_tasks failed:", res.error)
+        logError("useTaskQueue", "add_tasks failed", res.error)
       }
       return res.success && res.data ? res.data : []
     } catch (err) {
-      console.error("[useTaskQueue] addTasks exception:", err)
+      logError("useTaskQueue", "addTasks exception", err)
       return []
     }
   }
@@ -161,7 +163,7 @@ export function useTaskQueue() {
     selectedIds.value = next
   })
 
-  on("task_state_changed", (detail: unknown) => {
+  on(EVENT_TASK_STATE_CHANGED, (detail: unknown) => {
     const payload = detail as Record<string, unknown>
     if (typeof payload.task_id !== "string") return
     if (typeof payload.new_state !== "string") return
@@ -179,11 +181,21 @@ export function useTaskQueue() {
     }
   })
 
-  on("queue_changed", (detail: unknown) => {
-    summary.value = detail as QueueSummary
+  on(EVENT_QUEUE_CHANGED, (detail: unknown) => {
+    if (detail && typeof detail === "object") {
+      const d = detail as Record<string, unknown>
+      summary.value = {
+        pending: typeof d.pending === "number" ? d.pending : 0,
+        running: typeof d.running === "number" ? d.running : 0,
+        paused: typeof d.paused === "number" ? d.paused : 0,
+        completed: typeof d.completed === "number" ? d.completed : 0,
+        failed: typeof d.failed === "number" ? d.failed : 0,
+        cancelled: typeof d.cancelled === "number" ? d.cancelled : 0,
+      }
+    }
   })
 
-  on("task_info_updated", (detail: unknown) => {
+  on(EVENT_TASK_INFO_UPDATED, (detail: unknown) => {
     const payload = detail as Record<string, unknown>
     if (typeof payload.task_id !== "string") return
     const task_id = payload.task_id as string

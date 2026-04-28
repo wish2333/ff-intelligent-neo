@@ -10,6 +10,7 @@
 
 import { ref, watch } from "vue"
 import { call, onEvent } from "../bridge"
+import { EVENT_AUTO_EDITOR_VERSION_CHANGED } from "../utils/events"
 import type { AeStatus, AdvancedOptions } from "../types/autoEditor"
 
 const PREVIEW_DEBOUNCE_MS = 300
@@ -238,7 +239,7 @@ export function useAutoEditor() {
   // --- Event listener for version changes ---
   function setupEventListeners(): () => void {
     return onEvent<{ version: string; path: string; status: string }>(
-      "auto_editor_version_changed",
+      EVENT_AUTO_EDITOR_VERSION_CHANGED,
       () => {
         fetchStatus()
       },

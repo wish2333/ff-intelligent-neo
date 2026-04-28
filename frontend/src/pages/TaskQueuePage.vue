@@ -8,6 +8,7 @@
 import { onMounted, ref, computed } from "vue"
 import { useI18n } from "vue-i18n"
 import { call, waitForPyWebView } from "../bridge"
+import { logError } from "../utils/logger"
 import { useTaskQueue } from "../composables/useTaskQueue"
 import { useTaskControl } from "../composables/useTaskControl"
 import { useTaskProgress } from "../composables/useTaskProgress"
@@ -43,7 +44,7 @@ onMounted(async () => {
     await waitForPyWebView()
     await Promise.all([queue.fetchTasks(), queue.fetchSummary()])
   } catch (err) {
-    console.error("[TaskQueuePage] mount failed:", err)
+    logError("TaskQueuePage", "mount failed", err)
   } finally {
     isReady.value = true
   }
@@ -55,13 +56,13 @@ async function handleAddFiles(): Promise<void> {
   try {
     const res = await call<string[]>("select_files")
     if (!res.success) {
-      console.error("[TaskQueuePage] select_files failed:", res.error)
+      logError("TaskQueuePage", "select_files failed", res.error)
       return
     }
     if (!res.data || res.data.length === 0) return
     await queue.addTasks(res.data, globalConfig.toTaskConfig())
   } catch (err) {
-    console.error("[TaskQueuePage] handleAddFiles error:", err)
+    logError("TaskQueuePage", "handleAddFiles error", err)
   }
 }
 
@@ -72,7 +73,7 @@ async function handleDrop(): Promise<void> {
       await queue.addTasks(paths, globalConfig.toTaskConfig())
     }
   } catch (err) {
-    console.error("[TaskQueuePage] handleDrop error:", err)
+    logError("TaskQueuePage", "handleDrop error", err)
   }
 }
 
@@ -92,7 +93,7 @@ async function handleStartAllPending(): Promise<void> {
       await control.startTask(task.id, cfg)
     }
   } catch (err) {
-    console.error("[TaskQueuePage] handleStartAllPending error:", err)
+    logError("TaskQueuePage", "handleStartAllPending error", err)
   }
 }
 

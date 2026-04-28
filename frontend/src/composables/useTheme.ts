@@ -48,7 +48,8 @@ export function useTheme() {
       await waitForPyWebView()
       const res = await call<{ theme: string }>("get_settings")
       if (res.success && res.data) {
-        currentTheme.value = (res.data.theme as ThemeValue) ?? "auto"
+        const raw = res.data.theme ?? "auto"
+        currentTheme.value = raw === "light" || raw === "dark" || raw === "auto" ? raw : "auto"
       }
     } catch {
       // Default to auto if settings unavailable

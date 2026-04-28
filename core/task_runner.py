@@ -20,6 +20,7 @@ from core.command_builder import build_command, build_output_path
 from core.ffmpeg_runner import run_single
 from core.ffmpeg_setup import get_ffmpeg_path, get_ffprobe_path
 from core.logging import get_logger
+from core.events import TASK_STATE_CHANGED, QUEUE_CHANGED, TASK_PROGRESS, TASK_LOG
 from core.models import Task, TaskProgress, TaskState
 from core.process_control import resume_process, suspend_process, kill_process_tree
 from core.task_queue import TaskQueue
@@ -125,12 +126,12 @@ class TaskRunner:
         if not ffmpeg_path:
             task.error = "FFmpeg binary not found"
             self._queue.transition_task(task_id, "failed")
-            self._emit("task_state_changed", {
+            self._emit(TASK_STATE_CHANGED, {
                 "task_id": task_id,
                 "old_state": "pending",
                 "new_state": "failed",
             })
-            self._emit("queue_changed", self._queue.get_summary())
+            self._emit(QUEUE_CHANGED, self._queue.get_summary())
             return False
 
         # Create cancel event for this task
@@ -139,12 +140,12 @@ class TaskRunner:
             self._cancel_events[task_id] = cancel_event
 
         old_state = self._queue.transition_task(task_id, "running")
-        self._emit("task_state_changed", {
+        self._emit(TASK_STATE_CHANGED, {
             "task_id": task_id,
             "old_state": old_state or "pending",
             "new_state": "running",
         })
-        self._emit("queue_changed", self._queue.get_summary())
+        self._emit(QUEUE_CHANGED, self._queue.get_summary())
 
         # Build output path
         output_path = build_output_path(
@@ -157,24 +158,36 @@ class TaskRunner:
 
         # For concat_protocol and ts_concat merge modes, create a temp list file
         temp_list_path: str | None = None
-        if task.config.merge and task.config.merge.merge_mode in ("concat_protocol", "ts_concat"):
-            list_content = "\n".join(
-                f"file '{path}'" for path in task.config.merge.file_list
-            )
-            tmp = tempfile.NamedTemporaryFile(
-                mode="w", suffix=".txt", delete=False, encoding="utf-8"
-            )
-            tmp.write(list_content)
-            tmp.close()
-            temp_list_path = tmp.name
-            args = [temp_list_path if a == "list.txt" else a for a in args]
+        try:
+            if task.config.merge and task.config.merge.merge_mode in ("concat_protocol", "ts_concat"):
+                def _escape_concat_path(p: str) -> str:
+                    escaped = p.replace("\\", "/").replace("'", "'\\''")
+                    return f"'{escaped}'"
+                list_content = "\n".join(
+                    f"file {_escape_concat_path(path)}" for path in task.config.merge.file_list
+                )
+                tmp = tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".txt", delete=False, encoding="utf-8"
+                )
+                tmp.write(list_content)
+                tmp.close()
+                temp_list_path = tmp.name
+                args = [temp_list_path if a == "list.txt" else a for a in args]
 
-        # Submit to thread pool (pass temp_list_path for cleanup)
-        assert self._executor is not None
-        self._executor.submit(
-            self._run_task, task, ffmpeg_path, ffprobe_path, args, cancel_event,
-            temp_list_path,
-        )
+            # Submit to thread pool (pass temp_list_path for cleanup)
+            assert self._executor is not None
+            self._executor.submit(
+                self._run_task, task, ffmpeg_path, ffprobe_path, args, cancel_event,
+                temp_list_path,
+            )
+        except Exception:
+            # Clean up temp file if submission fails
+            if temp_list_path:
+                try:
+                    os.unlink(temp_list_path)
+                except OSError:
+                    pass
+            raise
         return True
 
     def stop_task(self, task_id: str) -> bool:
@@ -197,12 +210,12 @@ class TaskRunner:
         # Transition state
         if task.state in ("pending", "running", "paused"):
             old_state = self._queue.transition_task(task_id, "cancelled")
-            self._emit("task_state_changed", {
+            self._emit(TASK_STATE_CHANGED, {
                 "task_id": task_id,
                 "old_state": old_state or task.state,
                 "new_state": "cancelled",
             })
-            self._emit("queue_changed", self._queue.get_summary())
+            self._emit(QUEUE_CHANGED, self._queue.get_summary())
 
         # Cleanup
         with self._lock:
@@ -259,21 +272,21 @@ class TaskRunner:
 
                 old_state = self._queue.transition_task(task_id, "failed")
                 task.error = f"Suspend failed: {exc}"
-                self._emit("task_state_changed", {
+                self._emit(TASK_STATE_CHANGED, {
                     "task_id": task_id,
                     "old_state": old_state or "running",
                     "new_state": "failed",
                 })
-                self._emit("queue_changed", self._queue.get_summary())
+                self._emit(QUEUE_CHANGED, self._queue.get_summary())
                 return False
 
         old_state = self._queue.transition_task(task_id, "paused")
-        self._emit("task_state_changed", {
+        self._emit(TASK_STATE_CHANGED, {
             "task_id": task_id,
             "old_state": old_state or "running",
             "new_state": "paused",
         })
-        self._emit("queue_changed", self._queue.get_summary())
+        self._emit(QUEUE_CHANGED, self._queue.get_summary())
         logger.info("Task {} paused", task_id)
         return True
 
@@ -295,12 +308,12 @@ class TaskRunner:
                 # Mark as failed since process died while paused
                 old_state = self._queue.transition_task(task_id, "failed")
                 task.error = "Process exited while paused"
-                self._emit("task_state_changed", {
+                self._emit(TASK_STATE_CHANGED, {
                     "task_id": task_id,
                     "old_state": old_state or "paused",
                     "new_state": "failed",
                 })
-                self._emit("queue_changed", self._queue.get_summary())
+                self._emit(QUEUE_CHANGED, self._queue.get_summary())
                 return False
 
             try:
@@ -312,12 +325,12 @@ class TaskRunner:
                 return False
 
         old_state = self._queue.transition_task(task_id, "running")
-        self._emit("task_state_changed", {
+        self._emit(TASK_STATE_CHANGED, {
             "task_id": task_id,
             "old_state": old_state or "paused",
             "new_state": "running",
         })
-        self._emit("queue_changed", self._queue.get_summary())
+        self._emit(QUEUE_CHANGED, self._queue.get_summary())
         logger.info("Task {} resumed", task_id)
         return True
 
@@ -331,19 +344,20 @@ class TaskRunner:
             return False
 
         # Clear error and reset progress but keep log_lines
-        task.error = ""
-        task.progress = TaskProgress()
-        task.output_path = ""
-        task.started_at = ""
-        task.completed_at = ""
+        with task.lock:
+            task.error = ""
+            task.progress = TaskProgress()
+            task.output_path = ""
+            task.started_at = ""
+            task.completed_at = ""
 
         old_state = self._queue.transition_task(task_id, "pending")
-        self._emit("task_state_changed", {
+        self._emit(TASK_STATE_CHANGED, {
             "task_id": task_id,
             "old_state": old_state or "failed",
             "new_state": "pending",
         })
-        self._emit("queue_changed", self._queue.get_summary())
+        self._emit(QUEUE_CHANGED, self._queue.get_summary())
 
         # Re-submit for execution with latest config
         return self.start_task(task_id, config=config)
@@ -359,20 +373,21 @@ class TaskRunner:
             return False
 
         # Clear all runtime data
-        task.error = ""
-        task.progress = TaskProgress()
-        task.output_path = ""
-        task.log_lines = []
-        task.started_at = ""
-        task.completed_at = ""
+        with task.lock:
+            task.error = ""
+            task.progress = TaskProgress()
+            task.output_path = ""
+            task.log_lines = []
+            task.started_at = ""
+            task.completed_at = ""
 
         old_state = self._queue.transition_task(task_id, "pending")
-        self._emit("task_state_changed", {
+        self._emit(TASK_STATE_CHANGED, {
             "task_id": task_id,
             "old_state": old_state or task.state,
             "new_state": "pending",
         })
-        self._emit("queue_changed", self._queue.get_summary())
+        self._emit(QUEUE_CHANGED, self._queue.get_summary())
         return True
 
     # ------------------------------------------------------------------
@@ -455,12 +470,12 @@ class TaskRunner:
             self._cancel_events[task_id] = cancel_event
 
         old_state = self._queue.transition_task(task_id, "running")
-        self._emit("task_state_changed", {
+        self._emit(TASK_STATE_CHANGED, {
             "task_id": task_id,
             "old_state": old_state or "pending",
             "new_state": "running",
         })
-        self._emit("queue_changed", self._queue.get_summary())
+        self._emit(QUEUE_CHANGED, self._queue.get_summary())
 
         assert self._executor is not None
         self._executor.submit(
@@ -486,13 +501,13 @@ class TaskRunner:
         task_id = task.id
 
         def _on_progress(progress: TaskProgress) -> None:
-            self._emit("task_progress", {
+            self._emit(TASK_PROGRESS, {
                 "task_id": task_id,
                 "progress": progress.to_dict(),
             })
 
         def _on_log(line: str) -> None:
-            self._emit("task_log", {
+            self._emit(TASK_LOG, {
                 "task_id": task_id,
                 "line": line,
             })
@@ -521,12 +536,12 @@ class TaskRunner:
                 self._cancel_events.pop(task_id, None)
             task.error = str(e)
             self._queue.transition_task(task_id, "failed")
-            self._emit("task_state_changed", {
+            self._emit(TASK_STATE_CHANGED, {
                 "task_id": task_id,
                 "old_state": "running",
                 "new_state": "failed",
             })
-            self._emit("queue_changed", self._queue.get_summary())
+            self._emit(QUEUE_CHANGED, self._queue.get_summary())
             return
 
         with self._procs_lock:
@@ -551,9 +566,7 @@ class TaskRunner:
                 else:
                     log_line = segment.get("message", "")
                     if log_line:
-                        task.log_lines.append(log_line)
-                        if len(task.log_lines) > 500:
-                            task.log_lines = task.log_lines[-500:]
+                        task.append_log(log_line)
                         _on_log(log_line)
         except Exception:
             logger.exception("Error reading auto-editor output (task {})", task_id)
@@ -614,12 +627,12 @@ class TaskRunner:
             logger.debug("Task {} race: skip {} transition", task_id, new_state)
             return
 
-        self._emit("task_state_changed", {
+        self._emit(TASK_STATE_CHANGED, {
             "task_id": task_id,
             "old_state": old_state,
             "new_state": new_state,
         })
-        self._emit("queue_changed", self._queue.get_summary())
+        self._emit(QUEUE_CHANGED, self._queue.get_summary())
 
     def _run_task(
         self,
@@ -657,13 +670,13 @@ class TaskRunner:
         task_id = task.id
 
         def _on_progress(progress: TaskProgress) -> None:
-            self._emit("task_progress", {
+            self._emit(TASK_PROGRESS, {
                 "task_id": task_id,
                 "progress": progress.to_dict(),
             })
 
         def _on_log(line: str) -> None:
-            self._emit("task_log", {
+            self._emit(TASK_LOG, {
                 "task_id": task_id,
                 "line": line,
             })
@@ -708,9 +721,9 @@ class TaskRunner:
             logger.debug("Task {} race: skip {} transition", task_id, new_state)
             return
 
-        self._emit("task_state_changed", {
+        self._emit(TASK_STATE_CHANGED, {
             "task_id": task_id,
             "old_state": old_state,
             "new_state": new_state,
         })
-        self._emit("queue_changed", self._queue.get_summary())
+        self._emit(QUEUE_CHANGED, self._queue.get_summary())

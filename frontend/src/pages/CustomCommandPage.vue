@@ -9,12 +9,14 @@
  * v2.2.0: Added ffprobe file analysis with parsed/raw display modes.
  */
 
-import { computed, onMounted, ref } from "vue"
+import { computed, onMounted, onUnmounted, ref } from "vue"
 import { useI18n } from "vue-i18n"
 import { useGlobalConfig } from "../composables/useGlobalConfig"
 import { useCommandPreview } from "../composables/useCommandPreview"
 import { useFileProbe } from "../composables/useFileProbe"
 import { useFileFormats } from "../composables/useFileFormats"
+let copyRawTimer: ReturnType<typeof setTimeout> | null = null
+onUnmounted(() => { if (copyRawTimer) clearTimeout(copyRawTimer) })
 import {
   formatDuration,
   formatFileSize,
@@ -70,7 +72,8 @@ async function copyRawJson() {
   try {
     await navigator.clipboard.writeText(probeResult.value.raw)
     copiedRaw.value = true
-    setTimeout(() => { copiedRaw.value = false }, 2000)
+    if (copyRawTimer) clearTimeout(copyRawTimer)
+    copyRawTimer = setTimeout(() => { copiedRaw.value = false }, 2000)
   } catch {
     // clipboard API may not be available in all contexts
   }

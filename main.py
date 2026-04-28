@@ -23,8 +23,11 @@ from pywebvue import App, Bridge, expose
 from core.logging import get_logger, setup_frontend_sink
 from core.ffmpeg_setup import ensure_ffmpeg, get_ffmpeg_path
 from core.config import load_settings
+from core.events import QUEUE_CHANGED, TASK_STATE_CHANGED
 
 logger = get_logger()
+
+_init_lock = threading.RLock()
 
 
 class FFmpegApi(Bridge):
@@ -48,23 +51,25 @@ class FFmpegApi(Bridge):
     @property
     def _queue(self):
         from core.task_queue import TaskQueue
-        if not hasattr(self, "_queue_inst"):
-            self._queue_inst = TaskQueue()
-            self._queue_inst.load_state()
-            self._queue_inst.set_on_change(self._on_queue_change)
-        return self._queue_inst
+        with _init_lock:
+            if not hasattr(self, "_queue_inst"):
+                self._queue_inst = TaskQueue()
+                self._queue_inst.load_state()
+                self._queue_inst.set_on_change(self._on_queue_change)
+            return self._queue_inst
 
     @property
     def _runner(self):
         from core.task_runner import TaskRunner
-        if not hasattr(self, "_runner_inst"):
-            settings = load_settings()
-            self._runner_inst = TaskRunner(self._queue, self._emit)
-            self._runner_inst.start(max_workers=settings.max_workers)
-        return self._runner_inst
+        with _init_lock:
+            if not hasattr(self, "_runner_inst"):
+                settings = load_settings()
+                self._runner_inst = TaskRunner(self._queue, self._emit)
+                self._runner_inst.start(max_workers=settings.max_workers)
+            return self._runner_inst
 
     def _on_queue_change(self, summary: dict) -> None:
-        self._emit("queue_changed", summary)
+        self._emit(QUEUE_CHANGED, summary)
 
     # ------------------------------------------------------------------
     # FFmpeg setup
@@ -422,12 +427,12 @@ class FFmpegApi(Bridge):
                 return {"success": False, "error": "Task not found or not running"}
             task.error = "Simulated failure for testing"
             self._runner._queue.transition_task(task_id, "failed")
-            self._runner._emit("task_state_changed", {
+            self._runner._emit(TASK_STATE_CHANGED, {
                 "task_id": task_id,
                 "old_state": "running",
                 "new_state": "failed",
             })
-            self._runner._emit("queue_changed", self._runner._queue.get_summary())
+            self._runner._emit(QUEUE_CHANGED, self._runner._queue.get_summary())
             return {"success": True, "data": None}
         except Exception as exc:
             return {"success": False, "error": str(exc)}
@@ -551,7 +556,7 @@ class FFmpegApi(Bridge):
             result = subprocess.run(
                 [ffmpeg_path, "-encoders"],
                 capture_output=True, text=True, timeout=30,
-                creationflags=0x08000000 if sys.platform == "win32" else 0,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
             encoders = []
             for line in result.stdout.splitlines():
@@ -568,14 +573,15 @@ class FFmpegApi(Bridge):
         """Get the duration of a media file in seconds using ffprobe."""
         try:
             import subprocess
-            ffprobe_path = get_ffmpeg_path().replace("ffmpeg", "ffprobe")
+            from core.ffmpeg_setup import get_ffprobe_path as _get_probe
+            ffprobe_path = _get_probe()
             if not ffprobe_path or not file_path:
                 return {"success": False, "error": "Invalid file path"}
             result = subprocess.run(
                 [ffprobe_path, "-v", "error", "-show_entries",
                  "format=duration", "-of", "csv=p=0", file_path],
                 capture_output=True, text=True, timeout=30,
-                creationflags=0x08000000 if sys.platform == "win32" else 0,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
             duration = float(result.stdout.strip())
             return {"success": True, "data": duration}
@@ -657,7 +663,7 @@ class FFmpegApi(Bridge):
     @expose
     def save_settings(self, settings: dict) -> dict:
         try:
-            from core.config import load_settings, save_settings as _save
+            from core.config import load_settings, save_settings
             from core.models import AppSettings
             current = load_settings()
             merged = {
@@ -665,7 +671,7 @@ class FFmpegApi(Bridge):
                 **settings,
             }
             s = AppSettings.from_dict(merged)
-            _save(s)
+            save_settings(s)
             return {"success": True, "data": None}
         except Exception as exc:
             logger.exception("save_settings failed: {}", exc)

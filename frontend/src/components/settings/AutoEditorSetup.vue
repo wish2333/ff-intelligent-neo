@@ -12,6 +12,7 @@ import { ref, computed, onMounted, onUnmounted } from "vue"
 import { useI18n } from "vue-i18n"
 import { call } from "../../bridge"
 import { useBridge } from "../../composables/useBridge"
+import { EVENT_AUTO_EDITOR_VERSION_CHANGED } from "../../utils/events"
 import type { AeStatus } from "../../types/autoEditor"
 
 const props = defineProps<{
@@ -53,7 +54,7 @@ function onVersionChanged(): void {
 }
 
 onMounted(() => {
-  on("auto_editor_version_changed", onVersionChanged)
+  on(EVENT_AUTO_EDITOR_VERSION_CHANGED, onVersionChanged)
 })
 
 onUnmounted(() => {

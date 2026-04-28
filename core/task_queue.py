@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 from datetime import datetime
 from pathlib import Path
@@ -203,10 +204,22 @@ class TaskQueue:
                 "saved_at": datetime.now().isoformat(),
                 "tasks": to_save,
             }
-            path.write_text(
-                json.dumps(data, indent=2, ensure_ascii=False),
-                encoding="utf-8",
+            # Atomic write: temp file + os.replace (prevents corruption on crash)
+            import tempfile as _tempfile
+            fd, tmp_path = _tempfile.mkstemp(
+                dir=path.parent, suffix=".tmp", prefix="queue_"
             )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2, ensure_ascii=False)
+                    f.write("\n")
+                os.replace(tmp_path, str(path))
+            except Exception:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+                raise
         except OSError as exc:
             _logger.error("Failed to save queue state: {}", exc)
 

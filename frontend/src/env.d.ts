@@ -11,3 +11,6 @@ interface PyWebView {
 interface Window {
   pywebview?: PyWebView;
 }
+
+
+/// <reference types="vite/client" />

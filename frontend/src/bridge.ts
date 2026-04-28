@@ -6,6 +6,17 @@ export interface ApiResponse<T = unknown> {
   error?: string;
 }
 
+const BRIDGE_CALL_TIMEOUT_MS = 30_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Bridge call timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 function getRawApi(): PyWebViewApi {
   const pw = window.pywebview;
   if (!pw || !pw.api) {
@@ -60,7 +71,7 @@ export async function call<T = unknown>(
   if (typeof fn !== "function") {
     return { success: false, error: `Method '${method}' not found on bridge` };
   }
-  return (await fn(...args)) as ApiResponse<T>;
+  return withTimeout(fn(...args) as Promise<ApiResponse<T>>, BRIDGE_CALL_TIMEOUT_MS)
 }
 
 /**

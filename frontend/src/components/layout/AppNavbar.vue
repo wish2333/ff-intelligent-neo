@@ -4,6 +4,7 @@ import { call, onEvent, waitForPyWebView } from "../../bridge"
 import { useTheme } from "../../composables/useTheme"
 import { useLocale } from "../../composables/useLocale"
 import { useI18n } from "vue-i18n"
+import { EVENT_AUTO_EDITOR_VERSION_CHANGED } from "../../utils/events"
 
 const { t } = useI18n()
 const ffmpegStatus = ref<"unknown" | "ready" | "not_found">("unknown")
@@ -79,7 +80,7 @@ onMounted(async () => {
     version: string
     path: string
     status: string
-  }>("auto_editor_version_changed", (detail) => {
+  }>(EVENT_AUTO_EDITOR_VERSION_CHANGED, (detail) => {
     aeStatus.value = detail.status === "ready" ? "ready" : "not_found"
     aeVersion.value = detail.version
   })

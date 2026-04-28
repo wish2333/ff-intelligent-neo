@@ -1,6 +1,6 @@
 [project]
 name = "ff-intelligent-neo"
-version = "2.2.1"
+version = "2.2.2"
 description = "FFmpeg batch processing desktop tool"
 requires-python = ">=3.11"
 dependencies = [

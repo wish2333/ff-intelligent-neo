@@ -7,6 +7,7 @@
 
 import { ref } from "vue"
 import { useBridge } from "./useBridge"
+import { EVENT_TASK_PROGRESS } from "../utils/events"
 import type { TaskProgressDTO } from "../types/task"
 
 export function useTaskProgress() {
@@ -23,7 +24,7 @@ export function useTaskProgress() {
     return logsMap.value[taskId] ?? []
   }
 
-  on("task_progress", (detail: unknown) => {
+  on(EVENT_TASK_PROGRESS, (detail: unknown) => {
     const payload = detail as Record<string, unknown>
     if (typeof payload.task_id !== "string") return
     if (typeof payload.progress !== "object" || payload.progress === null) return

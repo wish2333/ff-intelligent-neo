@@ -113,7 +113,13 @@ onMounted(async () => {
       ref="presetSelectorRef"
       @select="handlePresetSelect"
       @save="handlePresetSave"
-    />
+    >
+      <template #dropdown-actions>
+        <button class="btn btn-ghost btn-sm" @click="handleReset">
+          {{ t("config.resetAll") }}
+        </button>
+      </template>
+    </PresetSelector>
 
     <!-- Tab Bar -->
     <div role="tablist" class="tabs tabs-bordered">
@@ -147,13 +153,6 @@ onMounted(async () => {
       v-if="activeMode === 'merge'"
       :config="merge"
     />
-
-    <!-- Reset -->
-    <div class="flex justify-end">
-      <button class="btn btn-ghost btn-sm" @click="handleReset">
-        {{ t("config.resetAll") }}
-      </button>
-    </div>
 
     <!-- Preset Editor Modal -->
     <PresetEditor

@@ -7,6 +7,7 @@ priority-based automatic filter ordering.
 
 from __future__ import annotations
 
+import os
 import re
 import shlex as _shlex
 from dataclasses import dataclass
@@ -1249,12 +1250,17 @@ def build_output_path(
     if same_dir and not timestamp:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    stem = src.stem
+    # Sanitize stem to strip any path separators (prevent traversal)
+    stem = Path(src.stem).name
     if same_dir:
         filename = f"{stem}-{timestamp}{ext}"
     else:
         filename = f"{stem}{ext}"
 
     if output_dir:
-        return str(Path(output_dir) / filename)
+        result = Path(output_dir).resolve() / filename
+        parent = Path(output_dir).resolve()
+        if not str(result).startswith(str(parent) + ("" if str(parent).endswith(os.sep) else os.sep)):
+            raise ValueError(f"Output path escapes target directory: {result}")
+        return str(result)
     return str(src.parent / filename)

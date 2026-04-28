@@ -1,0 +1,9 @@
+{accept}
+{count}
+{error}
+{index}
+{minutes}
+{name}
+{seconds}
+{type}
+{version}

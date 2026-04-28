@@ -8,7 +8,7 @@
  * in-flight guard, removed deep:true watch.
  */
 
-import { ref, watch, type Ref } from "vue"
+import { ref, watch, onScopeDispose, type Ref } from "vue"
 import { call } from "../bridge"
 import type { TaskConfigDTO } from "../types/config"
 
@@ -84,6 +84,15 @@ export function useCommandPreview(configRef: Ref<TaskConfigDTO>) {
 
   // Watch config changes without deep:true (configRef is computed, Vue tracks deps)
   watch(configRef, scheduleUpdate, { immediate: true })
+
+  onScopeDispose(() => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer)
+      debounceTimer = null
+    }
+    requestId += 1
+    validatingFlag = false
+  })
 
   return {
     commandText,
