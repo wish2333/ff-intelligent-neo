@@ -107,6 +107,191 @@
 3950 " 🔵 Reset All button pattern exists in CommandConfigPage but not in SettingsPage
 3951 " 🟣 PresetSelector component enhanced with dropdown-actions slot
 
+```
+  #3952  2:30 AM  🔵  macOS ffprobe detection uses platform-specific Homebrew paths  
+..\..\Git\GithubManager\ff-intelligent-neo\core\models.py
+  #3953           🔵  AppSettings model stores separate ffprobe_path configuration  
+..\..\Git\GithubManager\ff-intelligent-neo\main.py
+  #3954  2:31 AM  🔵  API endpoints depend on ffprobe for media analysis  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\components\settings\FFmpegSetup.vue
+  #3955           🔵  Frontend FFmpegSetup component manages binary configuration UI  
+  #3956           🔵  Frontend provides platform-specific FFmpeg installation guidance  
+..\..\Git\GithubManager\ff-intelligent-neo\core\ffmpeg_setup.py
+  #3957           🔴  Fixed macOS FFmpeg path detection to check both Homebrew locations  
+  #3958           🔴  Removed unused machine architecture detection after Homebrew path fix  
+  #3959           🔵  Platform module import now unused after architecture detection removal  
+  #3960           🔄  Removed unused platform module import from ffmpeg_setup.py  
+General
+  #3961  2:37 AM  🔴  Mac frontend error on auto-editing and custom pages  
+  #3962           🔵  Frontend page files located  
+  #3963           🔵  Auto-editor codebase structure mapped  
+frontend/src/router.ts
+  #3964           🔵  Router configuration identifies error-prone pages  
+frontend/src/pages/AutoCutPage.vue
+  #3965           🔵  AutoCutPage.vue component structure  
+General
+  #3966  2:38 AM  🔵  Vue SFC parsing limitation encountered  
+  #3967           🔵  AutoCutPage component uses icon rendering with dynamic attributes  
+frontend/src/pages/CustomCommandPage.vue
+  #3968           🔵  CustomCommandPage.vue component structure  
+General
+  #3969           🔵  DOM element creation patterns searched  
+frontend/src/components/config/CommandPreview.vue
+  #3970           🔵  Only one document.createElement call found in frontend  
+  #3971           🔵  CommandPreview createElement uses valid element name  
+General
+  #3972           🔵  Dynamic component patterns absent from codebase  
+  #3973           🔵  Extensive SVG usage found across frontend components  
+  #3974           🔵  No string concatenation in DOM creation patterns  
+  #3975           🔵  No v-html usage found in frontend codebase  
+  #3976  2:39 AM  🔵  Lazy loading and async imports identified in router  
+frontend/src/pages/AutoCutPage.vue
+  #3977           🔵  AutoCutPage template structure examined  
+General
+  #3978           🔵  CustomCommandPage template spans 245 lines  
+frontend/src/pages/CustomCommandPage.vue
+  #3979           🔵  CustomCommandPage template structure with inline SVG  
+General
+  #3980  2:40 AM  🔵  SVG attributes properly formatted in static templates  
+frontend/src/utils/events.ts
+  #3981           🔵  Event constants and dynamic component patterns examined  
+General
+  #3982           🔵  No manual render functions or h() calls found  
+  #3983           🔵  CustomCommandPage probe data usage patterns  
+  #3984           🔵  CustomCommandPage textarea v-model binding  
+frontend/src/components/config/CommandPreview.vue
+  #3985  2:41 AM  🔵  Agent investigation identifies InvalidCharacterError sources  
+General
+  #3986           🔵  Only one createElement call confirmed in codebase  
+frontend/src/composables/useTheme.ts
+  #3987           🔵  No dynamic component rendering found; single setAttribute call confirmed  
+General
+  #3988           🔵  No dangerous HTML manipulation methods found  
+  #3989           🔵  SVG elements and path attributes verified as properly formatted  
+  #3990           🔵  No dynamic HTML rendering or text node manipulation found  
+https://github.com/nextcloud/richdocuments/issues/5490
+  #3991  3:23 AM  🔵  Vue.js InvalidCharacterError with @canAssign in Safari/Firefox  
+General
+  #3992  3:33 AM  🔴  Mac-specific frontend error in auto-edit and custom pages  
+  #3993  3:34 AM  🔵  InvalidCharacterError investigation initiated on macOS builds  
+frontend/src/components/config/CommandPreview.vue
+  #3994           🔵  Located source files for macOS InvalidCharacterError  
+frontend/src/pages/AutoCutPage.vue
+  #3995           🔵  AutoCutPage and CustomCommandPage file structure identified  
+  #3996  3:35 AM  🔵  File size analysis for InvalidCharacterError investigation  
+frontend/src/components/config/CommandPreview.vue
+  #3997           🔵  Historical investigation reveals @canAssign InvalidCharacterError root cause  
+..\..\Git\GithubManager\ff-intelligent-neo\frontend\src\main.ts
+  #3998           ✅  Added Vue global error handler to main.ts  
+frontend/src/pages/AutoCutPage.vue
+  #3999           🔵  AutoCutPage.vue source code examined for InvalidCharacterError  
+frontend/src/pages/CustomCommandPage.vue
+  #4000           🔵  CustomCommandPage.vue source code examined  
+frontend/src/components/config/CommandPreview.vue
+  #4001  3:36 AM  🔵  CommandPreview.vue source code examined; createElement call confirmed safe  
+frontend/src/components/auto-cut/BasicTab.vue
+  #4002           🔵  BasicTab and AdvancedTab components examined; no DOM manipulation found  
+frontend/src/components/common/FileDropInput.vue
+  #4003  3:37 AM  🔵  FileDropInput.vue component examined; no DOM element creation issues found  
+frontend/src/composables/useAutoEditor.ts
+  #4004           🔵  useAutoEditor composable examined; no DOM manipulation in first 150 lines  
+frontend/src/components/common/FileDropInput.vue
+  #4005           🔵  FileDropInput.vue additional lines examined; file validation logic reviewed  
+  #4006           🔵  FileDropInput.vue template section examined; drag event handlers confirmed  
+  #4007  3:38 AM  🔵  FileDropInput.vue template class bindings examined; complex conditional styling found  
+main.ts
+  #4008           🔴  Vue InvalidCharacterError fixed in AutoCutPage component  
+frontend/src/main.ts
+  #4009  3:39 AM  🔵  Vue error handler configured in main.ts  
+main.ts
+  #4010  3:43 AM  🔴  Fixed setAttribute call causing display race condition  
+src/main.ts
+  #4011  3:45 AM  🔵  Vue.js setAttribute Error with Invalid Attribute Name  
+frontend/src/main.ts
+  #4012  3:46 AM  🔵  Debug Instrumentation Added to Track Invalid Attribute Name  
+src/main.ts
+  #4013  3:48 AM  🔵  Vue.js invalid attribute error on Tailwind-styled DIV  
+frontend/src/components/common/FileDropInput.vue
+  #4014           🔵  FileDropInput component uses Vue 3 Composition API with defineProps  
+  #4015           🔵  Invalid empty string attribute found in FileDropInput template  
+  #4016  3:50 AM  🔴  Removed invalid empty string attribute from FileDropInput template  
+  #4017           🔴  FileDropInput.vue fix verified - empty string attribute removed  
+  #4018           🔴  FileDropInput.vue invalid attribute bug resolved and verified  
+  #4019           🔵  Empty string attribute confirmed at line 243 in FileDropInput.vue  
+  #4020           🔴  Removed invalid empty string attribute from FileDropInput.vue template  
+frontend/src/main.ts
+  #4021           🔄  Removed debug instrumentation from main.ts after bug fix  
+app.spec
+  #4022  3:54 AM  🔵  Build configuration file discovered  
+pyproject.toml
+  #4023           🔵  Python project build system identified  
+scripts/pre_build.py
+  #4024           🔵  Build scripts directory structure found  
+build/app/ff-intelligent-neo.exe
+  #4025           🔵  Project architecture revealed as Python desktop app with Vue frontend  
+pyproject.toml
+  #4026           🔵  Project identified as FFmpeg batch processing desktop tool  
+frontend/vite.config.ts
+  #4027           🔵  Frontend build configuration uses Vite with Vue and Tailwind  
+frontend/package.json
+  #4028           🔵  Frontend build process and pre-build automation identified  
+.gitignore
+  #4029           🔵  Build artifacts and generated files identified in .gitignore  
+app.spec
+  #4030  3:55 AM  🔵  PyInstaller spec file structure revealed  
+build.py
+  #4031           🔵  Comprehensive cross-platform build script discovered  
+dist/
+  #4032           🔵  Current build output format is Windows x64 .7z archives  
+app.spec
+  #4033           🔵  Existing cross-platform infrastructure identified  
+dist/ff-intelligent-neo-use/
+  #4034           🔵  Current PyInstaller onedir build structure confirmed  
+  #4035  3:56 AM  🔵  Frontend assets not visible at PyInstaller output root level  
+app.spec
+  #4036           🔵  PyInstaller data collection uses COLLECT with binaries and datas  
+  #4037           🔵  Frontend assets are bundled into PyInstaller via datas configuration  
+  #4038  3:57 AM  🔵  Build system architecture fully documented by exploration agent  
+General
+  #4039           🔵  No macOS app bundle assets exist in project  
+C:\Users\10411\.claude\plans\glowing-swimming-ocean.md
+  #4040  3:58 AM  ⚖️  Implementation plan created for macOS .app bundle packaging  
+  #4041           ⚖️  Plan approved and exiting plan mode for implementation  
+app.spec
+  #4042           🟣  Version reading helper added to app.spec  
+  #4043           🟣  macOS .app bundle BUNDLE block added to app.spec  
+build.py
+  #4044           🟣  macOS .app packaging implementation completed  
+app.spec
+  #4045           🟣  macOS .app packaging implementation verified  
+frontend/src/pages/AutoCutPage.vue
+  #4046  4:02 AM  🔵  Auto-editor status briefly shows "not configured" error on macOS  
+frontend/src/composables/useAutoEditor.ts
+  #4047           🔵  Root cause identified: autoEditorStatus initialization race condition  
+  #4048           🔵  Initializing flag exists but not used in AutoCutPage  
+frontend/src/pages/AutoCutPage.vue
+  #4049  4:03 AM  🔴  Fixed auto-editor status flash by adding initialization check  
+frontend/src/composables/useAutoEditor.ts
+  #4050           🔵  Alert system architecture in useAutoEditor composable  
+frontend/src/pages/AutoCutPage.vue
+  #4051           🔴  Fixed auto-editor initialization race condition on macOS  
+main.py
+  #4052           🔵  Error message "auto-editor path not config" originates from frontend  
+frontend/src/i18n/locales/zh-CN.ts
+  #4053           🔵  Chinese translation confirms "notConfigured" error text  
+core/auto_editor_api.py
+  #4054           🔵  Backend returns "Auto-editor path not configured" error when path empty  
+frontend/src/composables/useAutoEditor.ts
+  #4055           🔵  useAutoEditor has watch with immediate:true triggering initial status fetch  
+  #4056           🔵  Immediate watch triggers updatePreview on component mount  
+  #4057  4:04 AM  🔵  Preview update debounced by 300ms with immediate execution  
+  #4058           🔴  Fixed auto-editor initialization race condition by checking initializing flag  
+  #4059  4:09 AM  🔵  Alert flashing mechanism in auto editor preview  
+  #4060           🔵  Race condition between immediate watch and initialization flag  
+  #4061           🔴  Fixed red text flashing by using availability check instead of initialization flag  
+  #4062           🔴  Removed immediate watch trigger to prevent premature preview updates
+```
+
 ### 📝 Commit Message
 
 ```
@@ -118,20 +303,24 @@ fix(core): 全面修复安全与稳定性隐患
 - 前端：强化类型检查，替换不安全的类型断言与隐式 any
 - 修复队列页无限加载与 auto-editor 预览失败问题
 - UI：调整"重置全部"按钮位置至预设选项栏右侧
+- 修复：移除了FileDropInput.vue组件中click事件处理程序后的无效引号
 ```
 
 ### 🚀 Release Notes
 
 ```
-## 2025-01-18 - 应用稳定性与安全性全面加固
+## 2026-04-29 - 应用稳定性与安全性全面加固
 
 ### 🐛 修复
 - 修复进入任务队列页面时出现的无限加载问题
 - 修复 auto-editor 自动检测报错及命令预览无法正常显示的问题
 - 修复快速切换页面时可能导致的界面卡顿与内存占用异常
+- 移除了FileDropInput.vue组件中click事件处理程序后的无效引号
+- 修复初始化时错误提示显示问题
 
 ### ⚡ 优化
 - 全面提升后台任务处理的安全性与异常容错能力，避免任务意外中断
 - 优化前端组件状态管理，提升页面响应速度与运行稳定性
 - 调整界面布局：将"重置全部"按钮移动至预设选项栏右侧，操作更符合直觉
+- 添加macOS应用打包配置和版本读取功能
 ```

@@ -169,7 +169,10 @@ def _build_onedir(with_ffmpeg: bool = False) -> None:
     if result.returncode != 0:
         _error("PyInstaller build failed")
 
-    _info(f"Build complete -> {PROJECT_ROOT / 'dist' / 'app'}")
+    if sys.platform == "darwin":
+        _info(f"Build complete -> {PROJECT_ROOT / 'dist' / 'FF Intelligent.app'}")
+    else:
+        _info(f"Build complete -> {PROJECT_ROOT / 'dist' / 'app'}")
 
 
 # ========== desktop: onefile ==========

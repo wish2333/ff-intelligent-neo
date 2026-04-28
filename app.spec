@@ -4,10 +4,22 @@
 # ============================================================
 
 import os
+import re
 import sys
 from pathlib import Path
 
 project_root = Path(SPECPATH)
+
+
+def _read_version() -> str:
+    """Read version from pyproject.toml."""
+    toml = project_root / "pyproject.toml"
+    if toml.exists():
+        for line in toml.read_text(encoding="utf-8").splitlines():
+            m = re.match(r'version\s*=\s*"([^"]+)"', line.strip())
+            if m:
+                return m.group(1)
+    return "0.0.0"
 
 
 # ========== [MODIFY] Entry point ==========
@@ -120,3 +132,19 @@ coll = COLLECT(
     upx_exclude=[],
     name=APP_NAME,
 )
+
+if sys.platform == "darwin":
+    app = BUNDLE(
+        exe,
+        coll,
+        name="FF Intelligent.app",
+        icon=ICON,
+        bundle_identifier="com.wish2333.ff-intelligent-neo",
+        info_plist={
+            "NSHighResolutionCapable": True,
+            "LSMinimumSystemVersion": "12.0",
+            "CFBundleShortVersionString": _read_version(),
+            "CFBundleName": "FF Intelligent",
+            "NSHumanReadableCopyright": "Copyright 2024 wish2333",
+        },
+    )

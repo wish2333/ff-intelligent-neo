@@ -240,7 +240,6 @@ onUnmounted(() => {
           ? (isDragging ? 'border-primary bg-primary/10' : 'border-base-300 hover:border-base-content/30')
           : (isDragging ? 'border-primary bg-primary/10' : 'border-base-300 hover:border-primary/50 hover:bg-base-200/50'))
       ]"
-      "
       @click="openFileDialog"
     >
       <!-- Empty state -->

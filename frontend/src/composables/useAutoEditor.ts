@@ -169,6 +169,8 @@ export function useAutoEditor() {
   }
 
   async function updatePreview(): Promise<void> {
+    if (!autoEditorStatus.value.available) return
+
     validating.value = true
     try {
       const params = buildParams()
@@ -182,11 +184,6 @@ export function useAutoEditor() {
         commandPreview.value = res.data.display
       } else {
         commandPreview.value = ""
-        if (res.error) {
-          alertMessage.value = res.error
-          alertType.value = "error"
-          clearAlert()
-        }
       }
     } catch {
       commandPreview.value = ""
@@ -233,7 +230,6 @@ export function useAutoEditor() {
       if (debounceTimer) clearTimeout(debounceTimer)
       debounceTimer = setTimeout(updatePreview, PREVIEW_DEBOUNCE_MS)
     },
-    { immediate: true },
   )
 
   // --- Event listener for version changes ---
@@ -261,6 +257,10 @@ export function useAutoEditor() {
       await fetchStatus()
     } finally {
       initializing.value = false
+    }
+    // Trigger initial preview after status is confirmed
+    if (autoEditorStatus.value.available) {
+      updatePreview()
     }
     unsubscribeVersion = setupEventListeners()
   }
