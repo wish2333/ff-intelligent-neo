@@ -114,7 +114,7 @@ class TaskRunner:
             task.config = TaskConfig(
                 transcode=incoming.transcode,
                 filters=incoming.filters,
-                clip=current.clip or incoming.clip,
+                clip=incoming.clip or current.clip,
                 merge=current.merge or incoming.merge,
                 avsmix=current.avsmix or incoming.avsmix,
                 custom_command=current.custom_command or incoming.custom_command,
@@ -154,7 +154,7 @@ class TaskRunner:
         task.output_path = output_path
 
         # Build FFmpeg args
-        args = build_command(task.config, task.file_path, output_path)
+        args = build_command(task.config, task.file_path, output_path, task.duration_seconds)
 
         # For concat_protocol and ts_concat merge modes, create a temp list file
         temp_list_path: str | None = None

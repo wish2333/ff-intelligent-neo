@@ -171,9 +171,7 @@ bun.lock
 package-lock.json
 
 # Claude Code
-runCC-GLM.*
-runCC-OR.*
-runCC-DS.*
+runCC-*
 CLAUDE.md
 .claude/settings.local.json
 

@@ -50,7 +50,7 @@ const DEFAULT_FILTER: FilterConfigDTO = {
 }
 
 const DEFAULT_CLIP: ClipConfigDTO = {
-  clip_mode: "extract",
+  clip_mode: "cut",
   start_time: "",
   end_time_or_duration: "",
   use_copy_codec: true,
@@ -116,10 +116,15 @@ export function useGlobalConfig() {
     if (merge.intro_path || merge.outro_path) {
       base.merge = { ...merge }
     }
+    // Clip is an auxiliary config that layers onto transcode/filters.
+    // Include it whenever data is filled, unless in merge or custom mode.
+    if (clip.start_time || clip.end_time_or_duration) {
+      if (mode !== "merge" && mode !== "custom") {
+        base.clip = { ...clip }
+      }
+    }
     // Only include the mode-specific sub-config based on active mode
-    if (mode === "clip" && (clip.start_time || clip.end_time_or_duration)) {
-      base.clip = { ...clip }
-    } else if (mode === "merge") {
+    if (mode === "merge") {
       // Only set merge if not already set by intro/outro above
       if (!base.merge) {
         base.merge = { ...merge }
@@ -129,7 +134,7 @@ export function useGlobalConfig() {
     } else if (mode === "custom") {
       base.custom_command = { ...customCommand }
     }
-    // mode === "transcode" / "filters" -> only transcode + filters
+    // mode === "transcode" / "filters" / "clip" -> transcode + filters + optional clip
     return base
   })
 

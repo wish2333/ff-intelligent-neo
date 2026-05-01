@@ -35,7 +35,7 @@ export interface FilterConfigDTO {
 }
 
 export interface ClipConfigDTO {
-  clip_mode: "extract" | "cut"
+  clip_mode: "cut" | "extract" | "cut_no_accurate" | "extract_no_accurate"
   start_time: string
   end_time_or_duration: string
   use_copy_codec: boolean
