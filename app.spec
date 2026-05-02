@@ -38,6 +38,10 @@ datas = [(str(_frontend_dist), "frontend_dist")]
 _presets_dir = project_root / "presets"
 datas.append((str(_presets_dir), "presets"))
 
+# Bundle version info
+_pyproject = project_root / "pyproject.toml"
+datas.append((str(_pyproject), "."))
+
 
 # ========== FFmpeg binaries ==========
 # Only bundle FFmpeg when BUNDLE_FFMPEG env var is set (set by build.py --with-ffmpeg)
