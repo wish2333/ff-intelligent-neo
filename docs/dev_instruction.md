@@ -521,7 +521,34 @@ Persistence:
 
 ### 7.3 FFmpeg Command Builder (Plugin Registry)
 
-New encoders/filters registered at module level in `command_builder.py`:
+<!-- v2.2.3-CHANGE: Added _INPUT_OPTIONS auto-split and clip merge notes -->
+
+Transcode params and filters use the plugin registry pattern in `command_builder.py`:
+
+```python
+_register_transcode_param(
+    "my_param",
+    build=lambda val, tc, ctx: ["-my_flag", val],
+    validate=lambda val, tc, ctx: (
+        [{"level": "error", "message": f"Invalid: {val}"}]
+        if val and val not in VALID_OPTIONS
+        else []
+    ),
+)
+
+_register_filter(
+    "my_filter",
+    priority=5,
+    build_vf=lambda val, fc, ctx: [f"myfilter={val}"],
+    build_af=lambda val, fc, ctx: [],
+    validate=lambda val, fc, ctx: [...],
+    needs_complex=False,
+)
+```
+
+**v2.2.3 Custom command input/output split**: `_split_input_output_args()` uses `_INPUT_OPTIONS` whitelist to automatically place input-side options (`-ss`, `-accurate_seek`, etc.) before `-i` and output-side options after.
+
+**v2.2.3 Clip merge**: When `use_copy_codec=false`, clip time args are injected into the main command chain via `_build_clip_time_args()` instead of dispatching to a standalone `build_clip_command()`.
 
 ```python
 _register_transcode_param(
@@ -739,8 +766,8 @@ kill_process_tree(pid)  # taskkill /F /T on Windows, os.killpg on Unix
 |------|---------|----------------|
 | `main.py` | API class, app entry | 850 |
 | `core/models.py` | All data models | 530 |
-| `core/command_builder.py` | FFmpeg command plugin registry | 1250 |
-| `core/task_runner.py` | Task execution engine | 720 |
+| `core/command_builder.py` | FFmpeg command plugin registry + clip merge + custom cmd split | 1340 |
+| `core/task_runner.py` | Task execution engine (passes file_duration to build_command) | 730 |
 | `core/auto_editor_api.py` | Auto-editor API delegation | 520 |
 | `core/ffmpeg_setup.py` | 6-tier binary discovery | 480 |
 | `core/task_queue.py` | Task persistence + state machine | 280 |

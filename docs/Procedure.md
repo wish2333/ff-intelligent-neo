@@ -41,6 +41,8 @@
 | v2.2.0 / Phase 4 | Auto-Editor 编码器查询流程 | 新增 Advanced Tab 编码器动态查询与范围列表管理 |
 | v2.2.0 / Phase 5 | Auto-Editor 路径设置流程（Settings 页面） | 新增 Settings 页面 auto-editor 配置流程 |
 | v2.2.0 / Phase 5 | Auto-Editor 任务队列集成流程 | 新增 auto-editor 任务在队列中的展示与控制 |
+| v2.2.3 | 视频剪辑流程（修改） | 模式扩展（4种）、配置合并（clip+transcode）、范围截断、清空按钮 |
+| v2.2.3 | 自定义命令流程（修改） | 输入/输出选项自动分割（_INPUT_OPTIONS 白名单） |
 
 ---
 
@@ -337,37 +339,48 @@ sequenceDiagram
 
 ### 视频剪辑流程
 
-<!-- v2.1.0-CHANGE: Phase 3 新增 -->
+<!-- v2.1.0-CHANGE: Phase 3 新增, v2.2.3-CHANGE: 模式扩展+配置合并 -->
 
 ```mermaid
 sequenceDiagram
     participant User as 用户
     participant ClipForm as ClipForm.vue
+    participant Config as useGlobalConfig
     participant Preview as CommandPreview
     participant Main as main.py
 
-    User->>ClipForm: 选择剪辑模式 (extract/cut)
-    alt extract 模式
+    User->>ClipForm: 选择剪辑模式 (cut/extract/cut_no_accurate/extract_no_accurate)
+    alt extract / extract_no_accurate 模式
         User->>ClipForm: 输入开始时间 + 片尾时长
         ClipForm->>Main: get_file_duration(file_path)
         Main-->>ClipForm: { duration: 3600.5 }
         Note over ClipForm: end_time = duration - tail_duration
-    else cut 模式
-        User->>ClipForm: 输入开始时间 + 结束时间
+    else cut / cut_no_accurate 模式
+        User->>ClipForm: 输入开始时间 + 结束时间（至少填一个）
     end
-    ClipForm->>Preview: 更新配置
-    Preview->>Main: build_command(config)
-    Main-->>Preview: ffmpeg -hide_banner -y -ss START -to END -accurate_seek -i "input" [-c copy] "output"
+    Note over ClipForm: 时间输入超范围自动截断 + 清空按钮
+    ClipForm->>Config: clip 配置合并到全局 config（不再互斥）
+    Config->>Preview: 更新配置（clip + transcode + filters 合并）
+    Preview->>Main: build_command(config, file_duration)
+    alt use_copy_codec = true
+        Main-->>Preview: ffmpeg -hide_banner -y -ss START -to END [-accurate_seek] -i "input" -c copy "output"
+    else use_copy_codec = false
+        Main-->>Preview: ffmpeg -hide_banner -y -ss START -to END [-accurate_seek] -i "input" [转码参数] [滤镜] "output"
+    end
 ```
 
 #### 流程说明
 
 1. 用户在命令配置页的"剪辑"选项卡中操作
-2. 选择 extract 模式：输入开始时间和片尾时长，后端自动获取文件时长并计算结束时间
-3. 选择 cut 模式：直接输入开始和结束时间戳
-4. 时间格式转换：UI 的 `H:mm:ss.fff` 转换为 FFmpeg 的 `HH:MM:SS.mmm`（第8个冒号替换为点号）
-5. 默认使用 `-c copy` 无损快速剪辑，禁用时使用当前 TranscodeConfig 重新编码
-6. 命令预览实时更新
+2. 选择剪辑模式：cut（时间范围，默认）、extract（去头尾）、以及对应的不精准版本（no_accurate，不添加 `-accurate_seek`）
+3. extract 模式：输入开始时间和片尾时长，后端通过 `file_duration` 自动计算结束时间
+4. cut 模式：直接输入开始和结束时间戳，至少填写一个即可
+5. 时间格式转换：UI 的 `H:mm:ss.fff` 转换为 FFmpeg 的 `HH:MM:SS.mmm`
+6. 时间输入超范围值自动截断（H 0-99、MM 0-59、SS 0-59、ms 0-999），支持一键清空
+7. clip 配置与 transcode/filters 合并：时间参数（`-ss`/`-to`）注入到主命令链的 `-i` 之前
+8. use_copy_codec 模式走独立路径（仅 clip，不含转码/滤镜）
+9. 非_copy_codec 模式合并转码参数和滤镜链
+10. 命令预览实时更新
 
 ---
 
@@ -523,7 +536,7 @@ sequenceDiagram
 
 ### 自定义命令流程
 
-<!-- v2.1.0-CHANGE: Phase 3.5 新增 -->
+<!-- v2.1.0-CHANGE: Phase 3.5 新增, v2.2.3-CHANGE: 输入/输出选项自动分割 -->
 
 ```mermaid
 sequenceDiagram
@@ -531,14 +544,18 @@ sequenceDiagram
     participant Page as CustomCommandPage.vue
     participant Config as useGlobalConfig
     participant Preview as Preview display
+    participant Builder as command_builder.py
 
     User->>Page: 进入 /custom-command 页面
     Page->>Config: activeMode = "custom"
     User->>Page: 输入 FFmpeg 参数 (textarea)
     User->>Page: 选择输出扩展名
-    Note over Preview: 实时预览: ffmpeg -hide_banner -y -i "input" {args} -y "output{ext}"
+    Page->>Builder: build_command_preview(config)
+    Builder->>Builder: _split_input_output_args(raw_args)
+    Note over Builder: 输入选项(-ss,-accurate_seek等)自动放在 -i 前<br/>输出选项(-c:v,-b:v等)自动放在 -i 后
+    Note over Preview: 实时预览: ffmpeg -hide_banner -y [输入选项] -i "input" [输出选项] "output{ext}"
     User->>Config: toTaskConfig() 包含 custom_command 配置
-    Config->>Config: 优先使用 custom_command，跳过其他模式
+    Config->>Config: custom_command 与 clip 互斥，但 transcode/filters 由用户自行控制
 ```
 
 #### 流程说明
@@ -547,9 +564,12 @@ sequenceDiagram
 2. 页面设置 `activeMode = "custom"`
 3. 用户在 textarea 中输入原始 FFmpeg 参数
 4. 可选择输出文件扩展名（默认 .mp4）
-5. 页面实时显示完整命令预览（不调用 build_command）
-6. `toTaskConfig()` 在 activeMode 为 custom 时优先生成 custom_command 配置
-7. 实际执行时直接拼接用户参数，不经过常规命令构建流程
+5. 页面实时显示完整命令预览
+6. 后端 `build_custom_command` 自动识别输入/输出选项：
+   - 已知输入选项（`_INPUT_OPTIONS` 白名单：`-ss`, `-accurate_seek`, `-f`, `-r` 等）放在 `-i` 之前
+   - 其余参数作为输出选项放在 `-i` 之后
+7. `toTaskConfig()` 在 activeMode 为 custom 时优先生成 custom_command 配置
+8. custom_command 与 clip 互斥（用户直接控制完整命令），但 transcode/filters 不受影响
 
 ---
 
