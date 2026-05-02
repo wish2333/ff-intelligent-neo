@@ -275,16 +275,24 @@
 
 ### 视频剪辑规则
 
+<!-- v2.1.0-CHANGE: Phase 3 新增, v2.2.3-CHANGE: 模式扩展+配置合并+验证放宽 -->
+
 | 规则 | 说明 |
 |------|------|
-| 提取模式 | 需要获取文件时长（ffprobe），end_time = duration - tail_duration |
-| 精确剪切 | 用户直接指定 start 和 end 时间戳 |
-| 时间格式 | UI: `H:mm:ss.fff`，FFmpeg: `HH:MM:SS.mmm`（第8个字符冒号替换为点号） |
-| -accurate_seek | 始终启用，优先可靠性而非帧精度 |
-| copy 模式 | 默认 `-c copy` 无损快速剪辑，要求编码参数一致 |
-| 非 copy 模式 | 禁用 copy 时使用当前 TranscodeConfig 重新编码 |
-| 时间验证 | start_time < end_time（cut 模式），start_time < file_duration（extract 模式） |
-| 与其他功能互斥 | 剪辑功能独立于转码/滤镜配置，不在同一命令中叠加 |
+| 默认模式 | cut（时间范围），v2.2.3 由 extract 改为 cut |
+| 可选模式 | cut / extract / cut_no_accurate / extract_no_accurate（v2.2.3 新增后两者） |
+| cut 模式 | 用户指定 start 和 end 时间戳，至少填一个 |
+| extract 模式 | 需要获取 file_duration（task_runner 通过 probe_file 传递），end_time = duration - tail_duration |
+| 不精准模式 | cut_no_accurate / extract_no_accurate 不添加 `-accurate_seek`，适用于某些编码器的帧对齐问题 |
+| 时间格式 | UI: `H:mm:ss.fff`，FFmpeg: `HH:MM:SS.mmm` |
+| copy 模式 | 默认 `-c copy` 无损快速剪辑，走独立命令路径（不含转码/滤镜） |
+| 非 copy 模式 | 剪辑时间参数合并到主命令链（`-ss`/`-to` 在 `-i` 之前），可与转码/滤镜共同使用 |
+| 配置合并 | clip 与 transcode/filters 不再互斥，时间参数注入主命令链（v2.2.3）；clip 与 custom_command/merge 仍互斥 |
+| 时间验证 | 至少填写 start_time 或 end_time_or_duration 其中一个（v2.2.3 放宽，原要求两端都填） |
+| 空值处理 | 未填写的时间字段不生成对应参数（不传递空字符串 `-ss ""`） |
+| 范围截断 | H(0-99)、MM(0-59)、SS(0-59)、ms(0-999)，超范围值自动截断（v2.2.3） |
+| 清空操作 | 标题行"清空"按钮一键清空所有时间字段（v2.2.3） |
+| 重置继承 | 任务"重置"后剪辑参数使用 incoming（当前配置），与 transcode/filters 一致（v2.2.3 修复） |
 <!-- v2.1.0-CHANGE: Phase 3.5 新增条件包含规则 -->
 | 条件包含 | 当 start_time 和 end_time_or_duration 均为空时，不生成剪辑命令参数，也不传递 clip 配置给 build_command |
 
@@ -338,16 +346,21 @@
 
 ### 自定义命令规则
 
-<!-- v2.1.0-CHANGE: Phase 3.5 新增自定义命令规则 -->
+<!-- v2.1.0-CHANGE: Phase 3.5 新增自定义命令规则, v2.2.3-CHANGE: 输入/输出选项自动分割 -->
 
 | 规则 | 说明 |
 |------|------|
 | 独立页面 | CustomCommandPage 独立路由 `/custom-command` |
 | 输入方式 | 原始 FFmpeg 参数文本域，用户自由输入 |
 | 输出扩展 | 可选择输出文件扩展名（默认 .mp4） |
-| 命令模板 | `ffmpeg -hide_banner -y -i "input.mp4" {用户参数} -y "output{ext}"` |
-| 预览 | 实时预览完整命令，但不调用 build_command（参数由用户直接控制） |
+| 选项分割 | 后端 `_split_input_output_args()` 自动将用户参数分为输入选项和输出选项（v2.2.3） |
+| 输入选项 | 已知 FFmpeg 输入选项（`_INPUT_OPTIONS` 白名单：`-ss`, `-accurate_seek`, `-f`, `-r` 等 30+ 个）自动放在 `-i` 之前 |
+| 输出选项 | 非输入选项的参数视为输出选项，放在 `-i` 之后 |
+| -y 参数 | 仅由 runner 统一添加，build_custom_command 不再重复添加（v2.2.3 修复） |
+| 命令模板 | `ffmpeg -hide_banner -y [输入选项] -i "input.mp4" [输出选项] -y "output{ext}"` |
+| 预览 | 实时预览完整命令，通过 build_command_preview 生成 |
 | 优先级 | activeMode="custom" 时，toTaskConfig 优先生成 custom_command 配置 |
+| 与 clip 互斥 | custom_command 与 clip 互斥（用户直接控制完整命令，不接受注入的 clip 参数） |
 
 ### 命令路径引用规则
 
@@ -383,6 +396,8 @@
 | 可选性 | StartTime 和 EndTime 均为可选（至少提供一个才生成剪辑命令） |
 | 对齐布局 | StartTime 和 EndTime 在 ClipForm 中并排显示（md:grid-cols-2） |
 | 占位符 | H(0-99), MM(0-59), SS(0-59), ms(0-999) |
+| 范围截断 | buildTimeString 新增 clamp 函数，超范围值自动截断（v2.2.3） |
+| 清空按钮 | 标题行右侧"清空"按钮，一键清空开始/结束时间（v2.2.3） |
 
 ### 命令预览规则
 

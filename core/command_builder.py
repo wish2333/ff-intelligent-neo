@@ -567,10 +567,10 @@ def _build_overlay_expr(position: str, margin: int) -> list[str]:
 
 
 def _convert_time_to_ffmpeg(time_str: str) -> str:
-    """Convert UI time format (H:mm:ss.fff) to FFmpeg format (HH:MM:SS.mmm).
+    """Convert UI time format (H:mm:ss.fff) to FFmpeg format (H:mm:ss.mmm).
 
-    Replaces the 8th character (colon before ms) with a period.
-    Input:  "0:01:30:500" -> Output: "0:01:30.500"
+    Replaces the 8th character (dot before ms) with a period (no-op if already correct).
+    Input:  "0:01:30.500" -> Output: "0:01:30.500" (unchanged)
     """
     if not time_str or len(time_str) < 9:
         return time_str
@@ -658,13 +658,43 @@ def _build_aspect_convert_filter(
 # ---------------------------------------------------------------------------
 
 
+def _build_clip_time_args(
+    clip, file_duration: float = 0.0,
+) -> list[str]:
+    """Build FFmpeg input-side time arguments (-ss, -to, -accurate_seek) from clip config."""
+    args: list[str] = []
+    if not clip:
+        return args
+
+    if clip.start_time:
+        args.extend(["-ss", _convert_time_to_ffmpeg(clip.start_time)])
+
+    if clip.end_time_or_duration:
+        if clip.clip_mode in ("extract", "extract_no_accurate"):
+            if file_duration > 0:
+                end_seconds = file_duration - _parse_time_to_seconds(clip.end_time_or_duration)
+                h = int(end_seconds // 3600)
+                m = int((end_seconds % 3600) // 60)
+                s = end_seconds % 60
+                end = f"{h}:{m:02d}:{s:06.3f}"
+                args.extend(["-to", end])
+        else:
+            args.extend(["-to", _convert_time_to_ffmpeg(clip.end_time_or_duration)])
+
+    if clip.start_time or clip.end_time_or_duration:
+        if clip.clip_mode in ("cut", "extract"):
+            args.append("-accurate_seek")
+
+    return args
+
+
 def build_clip_command(
     config: TaskConfig,
     input_path: str,
     output_path: str,
     file_duration: float = 0.0,
 ) -> list[str]:
-    """Build FFmpeg command for video clipping (extract/cut modes).
+    """Build FFmpeg command for video clipping with copy codec (no transcode/filters).
 
     Args:
         config: Task configuration (uses clip sub-config).
@@ -674,22 +704,12 @@ def build_clip_command(
     """
     clip = config.clip
     if not clip:
-        return build_command(config, input_path, output_path)
+        return build_command(config, input_path, output_path, file_duration)
 
-    start = _convert_time_to_ffmpeg(clip.start_time)
+    args = _build_clip_time_args(clip, file_duration)
 
-    # Calculate end time
-    if clip.clip_mode == "extract":
-        end_seconds = file_duration - _parse_time_to_seconds(clip.end_time_or_duration)
-        h = int(end_seconds // 3600)
-        m = int((end_seconds % 3600) // 60)
-        s = end_seconds % 60
-        end = f"{h}:{m:02d}:{s:06.3f}"
-    else:
-        end = _convert_time_to_ffmpeg(clip.end_time_or_duration)
-
-    # -hide_banner -y added by runner
-    args = ["-ss", start, "-to", end, "-accurate_seek", "-i", _subprocess_quote(input_path)]
+    # Add input
+    args.extend(["-i", _subprocess_quote(input_path)])
 
     if clip.use_copy_codec:
         args.extend(["-c", "copy"])
@@ -897,12 +917,56 @@ def build_merge_intro_outro_command(
     return args
 
 
+# Known FFmpeg input options (must appear before -i)
+_INPUT_OPTIONS: frozenset[str] = frozenset({
+    "-ss", "-t", "-to", "-accurate_seek", "-noaccurate_seek",
+    "-f", "-r", "-s", "-aspect", "-bits_per_raw_sample",
+    "-thread_queue_size", "-seek_timestamp", "-vsync",
+    "-dts_delta_threshold", "-dts_error_threshold",
+    "-init_hw_device", "-filter_hw_device",
+    "-re", "-loop", "-shortest",
+    "-hwaccel", "-hwaccel_device", "-hwaccel_output_format",
+    "-probesize", "-analyzeduration",
+    "-discard", "-start_at_zero",
+})
+
+
+def _split_input_output_args(raw_args: str) -> tuple[list[str], list[str]]:
+    """Split raw FFmpeg args into input options and output options.
+
+    Input options (known flags that must appear before -i) are placed
+    before -i, everything else goes after -i (treated as output options).
+    """
+    args = _shlex.split(raw_args)
+    input_opts: list[str] = []
+    output_opts: list[str] = []
+
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg.startswith("-") and arg in _INPUT_OPTIONS:
+            # Collect this input option and its value (if next arg is not an option)
+            input_opts.append(arg)
+            i += 1
+            if i < len(args) and not args[i].startswith("-"):
+                input_opts.append(args[i])
+                i += 1
+        else:
+            output_opts.append(arg)
+            i += 1
+
+    return input_opts, output_opts
+
+
 def build_custom_command(
     config: TaskConfig,
     input_path: str,
     output_path: str,
 ) -> list[str]:
     """Build FFmpeg command from raw user-provided arguments.
+
+    Input options (e.g., -ss, -accurate_seek) are automatically
+    placed before -i; all other options are placed after -i.
 
     Args:
         config: Task configuration (uses custom_command sub-config).
@@ -913,11 +977,15 @@ def build_custom_command(
     if not cc:
         return build_command(config, input_path, output_path)
 
-    # -hide_banner -y added by runner
-    args = ["-i", _subprocess_quote(input_path)]
-    if cc.raw_args.strip():
-        args.extend(_shlex.split(cc.raw_args.strip()))
-    args.extend(["-y", _subprocess_quote(output_path)])
+    # -hide_banner -y added by runner, so don't add -y here
+    # Split user args into input options (before -i) and output options (after -i)
+    input_opts, output_opts = _split_input_output_args(cc.raw_args.strip())
+
+    args = []
+    args.extend(input_opts)
+    args.extend(["-i", _subprocess_quote(input_path)])
+    args.extend(output_opts)
+    args.append(_subprocess_quote(output_path))
     return args
 
 
@@ -930,6 +998,7 @@ def build_command(
     config: TaskConfig,
     input_path: str,
     output_path: str,
+    file_duration: float = 0.0,
 ) -> list[str]:
     """Build the full FFmpeg argument list (without the binary name).
 
@@ -941,22 +1010,28 @@ def build_command(
         config: Task configuration containing transcode and filter params.
         input_path: Source media file path.
         output_path: Destination file path.
+        file_duration: Total file duration in seconds (needed for extract mode).
 
     Returns:
         List of arguments to pass to subprocess.Popen.
     """
     # Dispatch to mode-specific builders
-    # Phase 3.5: custom command checked first
+    # Phase 3.5: custom command checked first (user controls full command)
     if config.custom_command:
         return build_custom_command(config, input_path, output_path)
-    # Phase 3.5: only dispatch clip when inputs are filled
-    if config.clip and (config.clip.start_time or config.clip.end_time_or_duration):
-        return build_clip_command(config, input_path, output_path)
     # Phase 3.5.2: intro/outro takes a single content file and wraps it
     if config.merge and (config.merge.intro_path or config.merge.outro_path):
         return build_merge_intro_outro_command(config, input_path, output_path)
     if config.merge and len(config.merge.file_list) >= 2:
         return build_merge_command(config, output_path)
+    # Clip with copy codec: standalone path (no transcode/filters needed)
+    if config.clip and (config.clip.start_time or config.clip.end_time_or_duration) and config.clip.use_copy_codec:
+        return build_clip_command(config, input_path, output_path, file_duration)
+
+    # Clip time args: inject before -i so they apply to the input side
+    clip_time_args: list[str] = []
+    if config.clip and (config.clip.start_time or config.clip.end_time_or_duration):
+        clip_time_args = _build_clip_time_args(config.clip, file_duration)
 
     tc = config.transcode
     fc = config.filters
@@ -970,7 +1045,8 @@ def build_command(
         aspect_args, aspect_inputs = _build_aspect_convert_filter(
             fc.aspect_convert, fc.target_resolution, fc.bg_image_path,
         )
-        args = ["-i", _subprocess_quote(input_path)]
+        args = list(clip_time_args)
+        args.extend(["-i", _subprocess_quote(input_path)])
         args.extend(aspect_inputs)
         args.extend(transcode_args)
         args.extend(aspect_args)
@@ -1028,7 +1104,8 @@ def build_command(
             if avsmix.subtitle_language:
                 map_directives.extend(["-metadata:s:s:0", f"language={avsmix.subtitle_language}"])
 
-        args = ["-i", _subprocess_quote(input_path)]
+        args = list(clip_time_args)
+        args.extend(["-i", _subprocess_quote(input_path)])
         args.extend(extra_inputs)
         args.extend(avsmix_inputs)
         args.extend(transcode_args)
@@ -1037,8 +1114,9 @@ def build_command(
         args.extend(["-y", _subprocess_quote(output_path)])
         return args
 
-    # --- assemble: input, extra inputs, transcode, filters, output ---
-    args = ["-i", _subprocess_quote(input_path)]
+    # --- assemble: clip time args, input, extra inputs, transcode, filters, output ---
+    args = list(clip_time_args)
+    args.extend(["-i", _subprocess_quote(input_path)])
     args.extend(extra_inputs)
     args.extend(transcode_args)
     args.extend(filter_args)
@@ -1080,7 +1158,7 @@ def build_command_preview(config: TaskConfig) -> str:
     if config.merge:
         return ""
 
-    args = build_command(config, "input.mp4", f"output{ext}")
+    args = build_command(config, "input.mp4", f"output{ext}", 0.0)
     return "ffmpeg " + " ".join(args)
 
 
@@ -1171,17 +1249,13 @@ def validate_config(
     # Validate clip config (only when clip is provided with inputs filled)
     if config.clip and (config.clip.start_time or config.clip.end_time_or_duration):
         clip = config.clip
-        if not clip.start_time:
-            issues.append({
-                "level": "error",
-                "param": "start_time",
-                "message": "Clip start time is required.",
-            })
-        if not clip.end_time_or_duration:
+        # At least one of start_time or end_time_or_duration is filled (ensured by outer if)
+        # If extract mode, end_time_or_duration is used as tail duration to remove
+        if clip.clip_mode == "extract" and not clip.end_time_or_duration:
             issues.append({
                 "level": "error",
                 "param": "end_time_or_duration",
-                "message": "Clip end time or duration is required.",
+                "message": "Tail duration is required for extract mode.",
             })
 
     # Validate merge config

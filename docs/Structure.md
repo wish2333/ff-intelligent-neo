@@ -18,6 +18,26 @@
 | v2.1.0 / Phase 3.5.1 | 路径引用修复 | 移除 shlex.quote，改用 _subprocess_quote |
 | v2.1.0 / Phase 3.5.1 | 滤镜互斥修复 | Rotate 和 Aspect Convert 互斥逻辑 |
 | v2.1.0 / Phase 3.5.2 | SplitDropZone 组件 | 左右分屏全屏拖拽组件 |
+| v2.2.0 | auto-editor 集成 | 新增 auto_editor_api.py、auto_editor_runner.py、AutoCutPage、BasicTab/AdvancedTab |
+| v2.2.0 | FFprobe 分析 | 新增 useFileProbe composable、CustomCommandPage 集成 ffprobe 展示 |
+| v2.2.0 | macOS 支持 | 新增 FFmpeg/FFprobe 自动下载、Homebrew 路径检测 |
+| v2.2.0 | 安全加固 | 路径穿越防护（output dir）、原子写入（queue_state.json）、SHA-256 下载校验 |
+| v2.2.0 | 事件常量化 | 新增 core/events.py、utils/events.ts，替换所有裸事件字符串 |
+| v2.2.1 | 线程安全 | Task 模型加锁、append_log/set_progress 线程安全方法、可重入初始化锁 |
+| v2.2.1 | 前端稳定性 | Timer 清理（5 组件）、onScopeDispose（useCommandPreview）、类型断言替换 |
+| v2.2.1 | Bridge 增强 | 30s 超时包装（withTimeout）、事件字段 typeof 校验 |
+| v2.2.1 | 死代码清理 | 删除 core/batch_runner.py（309 行） |
+| v2.2.1 | 日志工具 | 新增 utils/logger.ts（dev-only），替换 17 处 console.error |
+| v2.2.2 | macOS 打包 | app.spec 新增 BUNDLE 块，支持 .app 应用包输出 |
+| v2.2.2 | 错误处理 | main.ts 新增 Vue 全局错误处理器 app.config.errorHandler |
+| v2.2.2 | auto-editor 竞态 | useAutoEditor 移除 immediate watch、使用 availability check 防闪烁 |
+| v2.2.2 | FileDropInput 修复 | 移除模板中空字符串动态属性（InvalidCharacterError） |
+| v2.2.3 | 剪辑模式扩展 | ClipConfig 默认 cut，新增 cut_no_accurate / extract_no_accurate |
+| v2.2.3 | 剪辑配置合并 | clip 不再与 transcode/filters 互斥，时间参数合并到主命令链 |
+| v2.2.3 | 自定义命令重构 | _INPUT_OPTIONS 白名单自动分割输入/输出选项，修复 -y 重复 |
+| v2.2.3 | 命令构建修复 | file_duration 传递、验证放宽（单端可选）、dataclasses.replace 合并子配置 |
+| v2.2.3 | 剪辑 UI 增强 | 时间输入范围自动截断、一键清空按钮 |
+| v2.2.3 | 输出格式 | TranscodeForm 新增 M4A 格式选项 |
 | v2.1.0 / Phase 3.5.2 | Merge 独立提交 | 隔离 merge 配置，不引用全局单例 |
 | v2.1.0 / Phase 4 | i18n 国际化架构 | vue-i18n、翻译键命名空间、useLocale |
 | v2.1.0 / Phase 4 | 数据目录统一 | 新增 core/paths.py 集中路径管理 |
@@ -82,7 +102,7 @@ ff-intelligent-neo/
 │   │   │   ├── config/     # 配置相关组件
 │   │   │   │   ├── FilterForm.vue     # 滤镜配置表单
 │   │   │   │   ├── EncoderSelect.vue  # 编码器分组选择（Phase 3）
-│   │   │   │   ├── ClipForm.vue       # 视频剪辑配置（Phase 3, 3.5.2 时间拆分）
+│   │   │   │   ├── ClipForm.vue       # 视频剪辑配置（Phase 3, 3.5.2 时间拆分, v2.2.3 范围限制+清空）
 │   │   │   │   ├── AvsmixForm.vue     # 音频字幕混合配置（Phase 3）
 │   │   │   │   ├── MergeFileList.vue  # 拼接文件列表（Phase 3）
 │   │   │   │   ├── MergePanel.vue     # 拼接配置面板（Phase 3）
@@ -443,7 +463,21 @@ const res = await call<{
 | `build_merge_intro_outro_command()` | 片头片尾拼接：3-input filter_complex concat | Phase 3.5 |
 | `build_custom_command()` | 自定义命令：直接注入用户原始参数 | Phase 3.5 |
 
-**命令构建优先级**: custom_command > clip > merge > 默认转码
+**命令构建优先级**: custom_command > merge > 默认转码（clip 不再独占，时间参数合并到主命令链）
+
+<!-- v2.2.3-CHANGE: 自定义命令输入/输出选项自动分割 -->
+**v2.2.3 自定义命令重构**:
+- 新增 `_INPUT_OPTIONS: frozenset[str]` 已知 FFmpeg 输入选项白名单
+- 新增 `_split_input_output_args(raw_args)` 自动分割输入/输出选项
+- 输入选项（`-ss`, `-accurate_seek`, `-f` 等）自动放在 `-i` 之前
+- 输出选项（`-c:v`, `-b:v` 等）自动放在 `-i` 之后
+- 移除 `build_custom_command` 中重复的 `-y`（统一由 runner 添加）
+
+<!-- v2.2.3-CHANGE: 剪辑与转码合并 -->
+**v2.2.3 剪辑合并**:
+- clip 不再 dispatch 到独立的 `build_clip_command`（use_copy_codec 除外）
+- 新增 `_build_clip_time_args()` 辅助函数提取可复用的剪辑时间参数
+- clip 时间参数（`-ss`/`-to`/`-accurate_seek`）合并到主命令链的 `-i` 之前
 
 **Phase 3.5 扩展 - 转码参数注册**:
 
@@ -506,7 +540,7 @@ class FilterConfig:
 ```python
 @dataclass(frozen=True)
 class ClipConfig:
-    clip_mode: str = "extract"          # extract / cut
+    clip_mode: str = "cut"              # cut / extract / cut_no_accurate / extract_no_accurate
     start_time: str = ""
     end_time_or_duration: str = ""
     use_copy_codec: bool = True
@@ -913,7 +947,7 @@ VC -> QM -> QV -> Resolution -> Framerate -> VB -> MB -> Bufsize -> EP -> PF -> 
 
 #### ClipForm.vue
 
-<!-- v2.1.0-CHANGE: Phase 3.5.2 时间拆分 -->
+<!-- v2.1.0-CHANGE: Phase 3.5.2 时间拆分, v2.2.3-CHANGE: 范围限制+清空+新模式 -->
 
 **时间输入**: H:MM:SS.ms 四个独立数字输入框
 
@@ -924,6 +958,10 @@ VC -> QM -> QV -> Resolution -> Framerate -> VB -> MB -> Bufsize -> EP -> PF -> 
 | 可选性 | StartTime 和 EndTime 均为可选（至少提供一个才生成剪辑命令） |
 | 对齐布局 | StartTime 和 EndTime 在 ClipForm 中并排显示（md:grid-cols-2） |
 | 占位符 | H(0-99), MM(0-59), SS(0-59), ms(0-999) |
+| 范围截断 | buildTimeString 新增 clamp 函数，超范围值自动截断（v2.2.3） |
+| 清空按钮 | 标题行右侧"清空"按钮，一键清空开始/结束时间（v2.2.3） |
+| 剪辑模式 | cut / extract / cut_no_accurate / extract_no_accurate（v2.2.3 新增后两者） |
+| 默认模式 | cut（v2.2.3 由 extract 改为 cut） |
 
 ---
 

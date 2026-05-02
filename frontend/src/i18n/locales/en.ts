@@ -263,10 +263,13 @@ export default {
 
     clip: {
       title: "Video Clip",
-      description: "Cut or extract segments. Clip mode is independent of transcode/filter settings.",
+      description: "Cut or extract segments. Time params are layered on top of transcode/filter settings.",
       clipMode: "Clip Mode",
+      clearInputs: "Clear",
       extractMode: "Extract (remove head/tail)",
       cutMode: "Precise Cut (time range)",
+      cutModeNoAccurate: "Fast Cut (time range, no accurate seek)",
+      extractModeNoAccurate: "Fast Extract (remove head/tail, no accurate seek)",
       startTime: "Start Time",
       endTime: "End Time",
       tailDuration: "Tail Duration (to remove)",

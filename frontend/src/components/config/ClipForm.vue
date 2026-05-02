@@ -21,10 +21,11 @@ const props = defineProps<{
   filePath?: string
 }>()
 
-const isExtractMode = computed(() => props.config.clip_mode === "extract")
-const endLabel = computed(() =>
-  isExtractMode.value ? t("config.clip.tailDuration") : t("config.clip.endTime"),
-)
+const isExtractMode = computed(() => props.config.clip_mode === "extract" || props.config.clip_mode === "extract_no_accurate")
+const endLabel = computed(() => {
+  if (isExtractMode.value) return t("config.clip.tailDuration")
+  return t("config.clip.endTime")
+})
 
 const fileDuration = ref(0)
 
@@ -42,9 +43,18 @@ function parseTimeFields(timeStr: string): { h: number; mm: number; ss: number; 
   }
 }
 
+function clamp(val: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, Math.round(val) || 0))
+}
+
 function buildTimeString(h: number, mm: number, ss: number, ms: number): string {
   if (!h && !mm && !ss && !ms) return ""
-  return `${h}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}.${String(ms).padStart(3, "0")}`
+  return `${clamp(h, 0, 99)}:${String(clamp(mm, 0, 59)).padStart(2, "0")}:${String(clamp(ss, 0, 59)).padStart(2, "0")}.${String(clamp(ms, 0, 999)).padStart(3, "0")}`
+}
+
+function clearClipInputs() {
+  props.config.start_time = ""
+  props.config.end_time_or_duration = ""
 }
 
 // Start time fields
@@ -127,7 +137,12 @@ watch(
   <div class="card bg-base-200 shadow-sm border border-base-300">
     <div class="card-body p-4">
       <div v-if="alertMessage" class="alert alert-error py-1 px-3 text-xs mb-2">{{ alertMessage }}</div>
-      <h2 class="card-title text-sm font-semibold mb-3">{{ t("config.clip.title") }}</h2>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="card-title text-sm font-semibold">{{ t("config.clip.title") }}</h2>
+        <button class="btn btn-ghost btn-xs text-base-content/50" @click="clearClipInputs">
+          {{ t("config.clip.clearInputs") }}
+        </button>
+      </div>
       <p class="text-xs text-base-content/60 mb-3">
         {{ t("config.clip.description") }}
       </p>
@@ -141,8 +156,10 @@ watch(
           v-model="config.clip_mode"
           class="select select-bordered select-sm w-full"
         >
-          <option value="extract">{{ t("config.clip.extractMode") }}</option>
           <option value="cut">{{ t("config.clip.cutMode") }}</option>
+          <option value="extract">{{ t("config.clip.extractMode") }}</option>
+          <option value="cut_no_accurate">{{ t("config.clip.cutModeNoAccurate") }}</option>
+          <option value="extract_no_accurate">{{ t("config.clip.extractModeNoAccurate") }}</option>
         </select>
       </div>
 

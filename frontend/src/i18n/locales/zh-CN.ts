@@ -263,10 +263,13 @@ export default {
 
     clip: {
       title: "视频剪辑",
-      description: "裁剪或提取片段。剪辑模式独立于转码/滤镜设置。",
+      description: "裁剪或提取片段，时间参数将叠加到转码/滤镜设置中。",
       clipMode: "剪辑模式",
+      clearInputs: "清空",
       extractMode: "提取（去除头尾）",
       cutMode: "精确裁剪（时间范围）",
+      cutModeNoAccurate: "快速裁剪（时间范围，不精准）",
+      extractModeNoAccurate: "快速提取（去除头尾，不精准）",
       startTime: "开始时间",
       endTime: "结束时间",
       tailDuration: "尾部时长（要去除的）",

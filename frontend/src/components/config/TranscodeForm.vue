@@ -27,7 +27,7 @@ const props = defineProps<{
 const { supportedEncoders } = useGlobalConfig()
 
 const OUTPUT_FORMAT_SUGGESTIONS = [
-  ".mp4", ".mkv", ".avi", ".mov", ".mp3", ".aac", ".flac", ".wav",
+  ".mp4", ".mkv", ".avi", ".mov", ".mp3", ".m4a", ".aac", ".flac", ".wav",
 ]
 
 const QUALITY_MODE_SUGGESTIONS = computed(() => [

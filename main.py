@@ -141,6 +141,7 @@ class FFmpegApi(Bridge):
         try:
             from core.file_info import probe_file
             from core.models import Task, TaskConfig, TranscodeConfig, FilterConfig
+            import dataclasses
 
             tc_data = (config or {}).get("transcode", {})
             fc_data = (config or {}).get("filters", {})
@@ -181,42 +182,26 @@ class FFmpegApi(Bridge):
             )
             task_config = TaskConfig(transcode=tc, filters=fc, output_dir=output_dir)
 
-            # Phase 3: attach sub-configs if present
+            # Phase 3: attach sub-configs if present (use dataclasses.replace to preserve other sub-configs)
             clip_data = (config or {}).get("clip")
             if clip_data and (clip_data.get("start_time") or clip_data.get("end_time_or_duration")):
                 from core.models import ClipConfig
-                task_config = TaskConfig(
-                    transcode=tc, filters=fc,
-                    clip=ClipConfig.from_dict(clip_data),
-                    output_dir=output_dir,
-                )
+                task_config = dataclasses.replace(task_config, clip=ClipConfig.from_dict(clip_data))
 
             merge_data = (config or {}).get("merge")
             if merge_data and len(merge_data.get("file_list", [])) >= 2:
                 from core.models import MergeConfig
-                task_config = TaskConfig(
-                    transcode=tc, filters=fc,
-                    merge=MergeConfig.from_dict(merge_data),
-                    output_dir=output_dir,
-                )
+                task_config = dataclasses.replace(task_config, merge=MergeConfig.from_dict(merge_data))
 
             avsmix_data = (config or {}).get("avsmix")
             if avsmix_data and (avsmix_data.get("external_audio_path") or avsmix_data.get("subtitle_path")):
                 from core.models import AudioSubtitleConfig
-                task_config = TaskConfig(
-                    transcode=tc, filters=fc,
-                    avsmix=AudioSubtitleConfig.from_dict(avsmix_data),
-                    output_dir=output_dir,
-                )
+                task_config = dataclasses.replace(task_config, avsmix=AudioSubtitleConfig.from_dict(avsmix_data))
 
             custom_data = (config or {}).get("custom_command")
             if custom_data and custom_data.get("raw_args"):
                 from core.models import CustomCommandConfig
-                task_config = TaskConfig(
-                    transcode=tc, filters=fc,
-                    custom_command=CustomCommandConfig.from_dict(custom_data),
-                    output_dir=output_dir,
-                )
+                task_config = dataclasses.replace(task_config, custom_command=CustomCommandConfig.from_dict(custom_data))
 
             # Determine tasks to add (without probing - use placeholder data)
             tasks: list[Task] = []

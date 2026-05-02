@@ -1,6 +1,6 @@
 Field Name,Type,Default,Required,Description,Validation Rules
-clip_mode,enum,"extract",Yes,"Video clipping mode","Values: extract (remove head/tail by duration), cut (precise start-end range)"
-start_time,str,"",No,Start time of clip,"Format: 'H:MM:SS.mmm'. UI uses 4 separate number inputs (H, MM, SS, ms). Leave empty to skip."
-end_time_or_duration,str,"",No,"End time (cut mode) or tail duration (extract mode),"Format: 'H:MM:SS.mmm'. UI uses 4 separate number inputs. Leave empty to skip."
-use_copy_codec,bool,True,No,"Use -c copy for lossless fast clipping,"True = no re-encode (fast, requires same codec), False = re-encode with current transcode settings"
-file_duration,float,"",No,"Source file total duration in seconds,"Retrieved via ffprobe. Used in extract mode to display file length"
+clip_mode,enum,"cut",Yes,"Video clipping mode","Values: cut (precise start-end range, default), extract (remove head/tail by duration), cut_no_accurate (cut without -accurate_seek), extract_no_accurate (extract without -accurate_seek). v2.2.3: default changed from extract to cut, added _no_accurate variants"
+start_time,str,"",No,Start time of clip,"Format: 'H:MM:SS.mmm'. UI uses 4 separate number inputs (H, MM, SS, ms). Leave empty to skip. Range: H(0-99), MM(0-59), SS(0-59), ms(0-999) auto-clamped (v2.2.3)"
+end_time_or_duration,str,"",No,"End time (cut mode) or tail duration (extract mode),"Format: 'H:MM:SS.mmm'. UI uses 4 separate number inputs. Leave empty to skip. At least one of start_time or end_time_or_duration must be filled (v2.2.3 relaxed). Range auto-clamped (v2.2.3)"
+use_copy_codec,bool,True,No,"Use -c copy for lossless fast clipping,"True = no re-encode (fast, requires same codec), standalone path without transcode/filters; False = clip time args merged into main command chain with transcode/filters (v2.2.3 changed)"
+file_duration,float,"",No,"Source file total duration in seconds,"Retrieved via ffprobe (probe_file), passed through task_runner to build_command to build_clip_command (v2.2.3 fixed transmission)"
