@@ -172,7 +172,7 @@ package-lock.json
 
 # Claude Code
 runCC-*
-CLAUDE.md
+CLAUDE-*
 .claude/settings.local.json
 
 # Mac OS
