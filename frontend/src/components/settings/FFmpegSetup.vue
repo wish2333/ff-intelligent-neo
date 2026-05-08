@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue"
 import type { FfmpegVersionDTO } from "../../composables/useSettings"
-import type { FfmpegInstallInfo } from "../../types/settings"
 import { useI18n } from "vue-i18n"
 import { useBridge } from "../../composables/useBridge"
 
@@ -37,7 +36,6 @@ const statusBadge = computed(() => {
 
 const isWindows = computed(() => props.platform === "win32")
 const isMacOS = computed(() => props.platform === "darwin")
-const installInfo = ref<FfmpegInstallInfo | null>(null)
 
 function onFfmpegVersionChanged(detail: unknown) {
   const payload = detail as Record<string, unknown>
@@ -55,13 +53,6 @@ onUnmounted(() => {
 })
 
 async function handleDownload(): Promise<void> {
-  if (!isWindows.value && !isMacOS.value) {
-    const res = await (await import("../../bridge")).call<{ platform: string; instructions: FfmpegInstallInfo }>("download_ffmpeg")
-    if (res.success && res.data?.instructions) {
-      installInfo.value = res.data.instructions
-    }
-    return
-  }
   showConfirm.value = false
   isDownloading.value = true
   emit("download")
@@ -109,40 +100,39 @@ async function handleDownload(): Promise<void> {
         {{ t("ffmpeg.downloadFfmpeg") }}
       </button>
 
-      <!-- macOS: Open Homebrew page -->
-      <a
+      <!-- macOS: Download button (same flow as Windows) -->
+      <button
         v-else-if="isMacOS"
-        href="https://formulae.brew.sh/formula/ffmpeg"
-        target="_blank"
-        rel="noopener"
         class="btn btn-xs btn-accent btn-outline"
+        :disabled="status === 'detecting' || isDownloading"
+        @click="showConfirm = true"
       >
+        <span v-if="isDownloading" class="loading loading-spinner loading-xs" />
         {{ t("ffmpeg.downloadFfmpeg") }}
-      </a>
+      </button>
 
-      <!-- Linux: Platform install info -->
+      <!-- Linux: Download button (same flow as Windows) -->
       <button
         v-else
         class="btn btn-xs btn-accent btn-outline"
-        :disabled="status === 'detecting'"
-        @click="handleDownload"
+        :disabled="status === 'detecting' || isDownloading"
+        @click="showConfirm = true"
       >
+        <span v-if="isDownloading" class="loading loading-spinner loading-xs" />
         {{ t("ffmpeg.downloadFfmpeg") }}
       </button>
     </div>
 
-    <!-- Platform install instructions -->
-    <div v-if="installInfo" class="text-xs space-y-1 mt-2">
-      <p>{{ t("ffmpeg.notAvailable") }}</p>
-      <code class="block mt-1 px-2 py-1 bg-base-300 rounded text-sm">{{ installInfo.command }}</code>
-      <a
-        v-if="installInfo.url"
-        :href="installInfo.url"
-        target="_blank"
-        rel="noopener"
-        class="link text-xs"
-      >{{ installInfo.method }}</a>
-    </div>
+    <!-- macOS: Homebrew alternative -->
+    <a
+      v-if="isMacOS"
+      href="https://formulae.brew.sh/formula/ffmpeg"
+      target="_blank"
+      rel="noopener"
+      class="link text-xs opacity-50 hover:opacity-100"
+    >
+      {{ t("ffmpeg.orInstallViaHomebrew") }}
+    </a>
 
     <!-- Version list -->
     <div v-if="versions.length > 0" class="space-y-1">

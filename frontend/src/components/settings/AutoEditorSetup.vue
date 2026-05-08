@@ -29,7 +29,9 @@ const { t } = useI18n()
 const { on } = useBridge()
 const isLoading = ref(false)
 const isDownloading = ref(false)
-const isMacOS = computed(() => props.platform === "darwin")
+const showConfirm = ref(false)
+
+const isWindows = computed(() => props.platform === "win32")
 
 const statusBadge = computed(() => {
   if (!props.status.available) {
@@ -47,8 +49,6 @@ const statusBadge = computed(() => {
 })
 
 function onVersionChanged(): void {
-  // Status is managed by parent via useAutoEditor.fetchStatus()
-  // Just stop loading spinners on any version change event
   isLoading.value = false
   isDownloading.value = false
 }
@@ -65,7 +65,12 @@ async function handleSelectBinary(): Promise<void> {
   emit("select-binary")
 }
 
+function openConfirmDialog(): void {
+  showConfirm.value = true
+}
+
 async function handleDownload(): Promise<void> {
+  showConfirm.value = false
   isDownloading.value = true
   try {
     const res = await call<{ path: string }>("download_auto_editor")
@@ -83,7 +88,6 @@ async function handleAutoDetect(): Promise<void> {
   isLoading.value = true
   try {
     const res = await call<AeStatus>("get_auto_editor_status")
-    // Parent will handle status update via event or refetch
     if (res.success && res.data?.path) {
       emit("set-path", res.data.path)
     }
@@ -128,9 +132,20 @@ async function handleAutoDetect(): Promise<void> {
         {{ t("settings.autoEditor.autoDetect") }}
       </button>
 
-      <!-- macOS: external download link -->
+      <!-- Windows: download button with confirm dialog -->
+      <button
+        v-if="isWindows"
+        class="btn btn-xs btn-accent btn-outline"
+        :disabled="isDownloading"
+        @click="openConfirmDialog"
+      >
+        <span v-if="isDownloading" class="loading loading-spinner loading-xs" />
+        {{ t("settings.autoEditor.downloadAutoEditor") }}
+      </button>
+
+      <!-- macOS/Linux: external download link -->
       <a
-        v-if="isMacOS"
+        v-else
         href="https://auto-editor.com/installing"
         target="_blank"
         rel="noopener"
@@ -138,17 +153,6 @@ async function handleAutoDetect(): Promise<void> {
       >
         {{ t("settings.autoEditor.downloadAutoEditor") }}
       </a>
-
-      <!-- Windows: download button -->
-      <button
-        v-else-if="!isMacOS"
-        class="btn btn-xs btn-accent btn-outline"
-        :disabled="isDownloading"
-        @click="handleDownload"
-      >
-        <span v-if="isDownloading" class="loading loading-spinner loading-xs" />
-        {{ t("settings.autoEditor.downloadAutoEditor") }}
-      </button>
 
       <button
         class="btn btn-xs btn-outline"
@@ -165,5 +169,25 @@ async function handleAutoDetect(): Promise<void> {
         <p class="truncate opacity-50" :title="status.path">{{ status.path }}</p>
       </template>
     </div>
+
+    <!-- Download confirmation modal -->
+    <dialog class="modal" :class="{ 'modal-open': showConfirm }">
+      <div class="modal-box">
+        <h3 class="text-lg font-bold">{{ t("settings.autoEditor.confirmDownload") }}</h3>
+        <p class="py-4">
+          {{ status.available
+            ? t("settings.autoEditor.confirmRedownloadDesc", { version: status.version })
+            : t("settings.autoEditor.confirmDownloadDesc")
+          }}
+        </p>
+        <div class="modal-action">
+          <button class="btn btn-sm btn-ghost" @click="showConfirm = false">{{ t("common.cancel") }}</button>
+          <button class="btn btn-sm btn-accent" @click="handleDownload">{{ t("common.confirm") }}</button>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button @click="showConfirm = false">{{ t("common.close") }}</button>
+      </form>
+    </dialog>
   </div>
 </template>

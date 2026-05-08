@@ -30,6 +30,7 @@ export default {
     noVersionsFound: "未找到 FFmpeg 版本。点击「自动检测」或「选择...」来设置 FFmpeg。",
     confirmDownload: "确认下载",
     confirmDownloadDesc: "这将下载 FFmpeg 并覆盖当前版本。是否继续？",
+    orInstallViaHomebrew: "或通过 Homebrew 安装",
   },
 
   settings: {
@@ -73,6 +74,9 @@ export default {
       selectBinaryTitle: "选择 auto-editor 二进制文件",
       currentPath: "当前路径：",
       downloadAutoEditor: "下载 Auto-Editor",
+      confirmDownload: "确认下载",
+      confirmDownloadDesc: "将下载 Auto-Editor 到应用目录。是否继续？",
+      confirmRedownloadDesc: "Auto-Editor 已安装（v{version}）。将重新下载并覆盖当前版本。是否继续？",
     },
   },
 

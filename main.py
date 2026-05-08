@@ -722,14 +722,16 @@ class FFmpegApi(Bridge):
 
     @expose
     def download_ffmpeg(self) -> dict:
-        """Download FFmpeg using static_ffmpeg package (Windows only).
+        """Download FFmpeg using static_ffmpeg package.
 
-        On non-Windows platforms, returns install instructions instead.
+        Supported on Windows and macOS. Linux returns install instructions.
+        Frozen (packaged) environments block all downloads.
         """
         self._ensure_loguru()
 
-        # Non-Windows: return platform-specific install instructions
-        if sys.platform != "win32":
+        # Fallback: return platform-specific install instructions
+        # (static_ffmpeg may not support all platforms)
+        if sys.platform not in ("win32", "darwin", "linux"):
             return {
                 "success": False,
                 "error": "download_not_supported",

@@ -58,13 +58,13 @@
 | 平台 | 行为 | 说明 |
 |------|------|------|
 | Windows (win32) | 显示 "Download FFmpeg" 按钮 | 使用 static_ffmpeg 包下载预编译二进制 |
-| macOS (darwin) | 显示 homebrew 安装提示 | "brew install ffmpeg"，附带 brew.sh 链接 |
-| Linux (ubuntu/debian) | 显示 apt 安装提示 | "sudo apt install ffmpeg" |
-| Linux (fedora) | 显示 dnf 安装提示 | "sudo dnf install ffmpeg" |
-| Linux (arch/manjaro) | 显示 pacman 安装提示 | "sudo pacman -S ffmpeg" |
-| Linux (其他) | 显示通用提示 | "Install ffmpeg via your package manager" |
+| macOS (darwin) | 显示 "Download FFmpeg" 按钮 + Homebrew 备选链接 | 使用 static_ffmpeg 包下载预编译二进制（支持 darwin / darwin_arm64），Homebrew 作为备选方案 |
+| Linux (ubuntu/debian) | 显示 "Download FFmpeg" 按钮 | 使用 static_ffmpeg 包下载预编译二进制（支持 linux / linux_arm64） |
+| Linux (fedora) | 显示 "Download FFmpeg" 按钮 | 使用 static_ffmpeg 包下载预编译二进制 |
+| Linux (arch/manjaro) | 显示 "Download FFmpeg" 按钮 | 使用 static_ffmpeg 包下载预编译二进制 |
+| Linux (其他) | 显示 "Download FFmpeg" 按钮 | 使用 static_ffmpeg 包下载预编译二进制 |
 | 打包环境 | 所有平台禁用下载 | is_frozen() 时 static_ffmpeg 不可用 |
-| 后端守卫 | download_ffmpeg() 检查 sys.platform | 非 Windows 返回 download_not_supported 错误 + 安装指引 |
+| 后端守卫 | download_ffmpeg() 检查 sys.platform | 所有桌面平台（Win/macOS/Linux）走 static_ffmpeg 下载 |
 
 ### FFmpeg 下载超时规则
 
