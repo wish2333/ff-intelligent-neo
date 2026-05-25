@@ -310,6 +310,8 @@ export default {
       clickOrDragOutro: "点击或拖拽片尾视频到此处",
       activeNotice: "片头/片尾已启用。添加到队列的所有任务将自动添加片头/片尾。",
       inactiveNotice: "未设置片头/片尾。所有任务将正常处理文件。",
+      avsmixWarning: "注意：若任务同时启用了「音频/字幕混流」，片头片尾管线将忽略音频/字幕设置。",
+      mergePageHint: "如需将多个不同视频拼接在一起，请使用左侧导航栏的「视频合并」专用页面。",
     },
 
     encoder: {
@@ -357,7 +359,7 @@ export default {
       transcode: "转码",
       filters: "滤镜",
       clip: "剪辑",
-      merge: "合并",
+      merge: "片头片尾",
     },
 
     resetAll: "重置全部",

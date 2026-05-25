@@ -21,7 +21,7 @@ import type { MergeConfigDTO, TaskConfigDTO } from "../types/config"
 const { t } = useI18n()
 
 const router = useRouter()
-const { transcode, filters, activeMode } = useGlobalConfig()
+const { transcode, filters, activeMode, createBaseTaskConfig } = useGlobalConfig()
 const queue = useTaskQueue()
 
 // Local merge config - independent from Config page's merge settings
@@ -94,10 +94,8 @@ async function handleAddToQueue(): Promise<void> {
   // Build CLEAN merge-only config: inherits transcode/filters but NOT global merge (intro/outro)
   // MergePage uses its OWN merge config completely independently
   const taskCfg: TaskConfigDTO = {
-    transcode: { ...transcode },
-    filters: { ...filters },
+    ...createBaseTaskConfig(),
     merge: { ...mergeConfig },
-    output_dir: "",
   }
   // Merge adds ONE task with the merge.file_list embedded in the config
   const added = await queue.addTasks([mergeConfig.file_list[0]], taskCfg)

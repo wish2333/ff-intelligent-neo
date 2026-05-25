@@ -142,26 +142,41 @@ export function useGlobalConfig() {
     return configRef.value
   }
 
+  function createBaseTaskConfig(): TaskConfigDTO {
+    return {
+      transcode: { ...transcode },
+      filters: { ...filters },
+      output_dir: "",
+    }
+  }
+
   function loadFromTaskConfig(config: TaskConfigDTO) {
-    // Use spread defaults to prevent stale fields from partial configs
+    // Reset sub-configs to prevent stale fields from partial configs
+    Object.assign(clip, DEFAULT_CLIP)
+    Object.assign(merge, DEFAULT_MERGE)
+    Object.assign(avsmix, DEFAULT_AVSMIX)
+    Object.assign(customCommand, DEFAULT_CUSTOM)
+    activeMode.value = "transcode"
+
     if (config.transcode) Object.assign(transcode, { ...DEFAULT_TRANSCODE, ...config.transcode })
     if (config.filters) Object.assign(filters, { ...DEFAULT_FILTER, ...config.filters })
-    if (config.clip) {
-      Object.assign(clip, { ...DEFAULT_CLIP, ...config.clip })
-      activeMode.value = "clip"
-    }
-    if (config.merge) {
-      Object.assign(merge, { ...DEFAULT_MERGE, ...config.merge })
-      activeMode.value = "merge"
-    }
-    if (config.avsmix) {
-      Object.assign(avsmix, { ...DEFAULT_AVSMIX, ...config.avsmix })
-      activeMode.value = "avsmix"
-    }
-    // Phase 3.5: load custom command config
+
+    // Priority-based activeMode: custom > merge(concat) > avsmix > clip > merge(intro/outro) > transcode
     if (config.custom_command) {
       Object.assign(customCommand, { ...DEFAULT_CUSTOM, ...config.custom_command })
       activeMode.value = "custom"
+    } else if (config.merge && config.merge.file_list?.length >= 2) {
+      Object.assign(merge, { ...DEFAULT_MERGE, ...config.merge })
+      activeMode.value = "merge"
+    } else if (config.avsmix) {
+      Object.assign(avsmix, { ...DEFAULT_AVSMIX, ...config.avsmix })
+      activeMode.value = "avsmix"
+    } else if (config.clip) {
+      Object.assign(clip, { ...DEFAULT_CLIP, ...config.clip })
+      activeMode.value = "clip"
+    } else if (config.merge) {
+      // Intro/outro only -- stays on transcode page, merge config loaded as global setting
+      Object.assign(merge, { ...DEFAULT_MERGE, ...config.merge })
     }
   }
 
@@ -210,6 +225,7 @@ export function useGlobalConfig() {
     supportedEncoders,
     configRef,
     toTaskConfig,
+    createBaseTaskConfig,
     loadFromTaskConfig,
     resetTranscode,
     resetFilters,

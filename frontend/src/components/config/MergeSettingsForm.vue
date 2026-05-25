@@ -79,6 +79,14 @@ async function handleClickOutro() {
         {{ t("config.mergeSettings.description") }}
       </p>
 
+      <div class="alert alert-info alert-sm text-xs mb-3">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <div>
+          <p>{{ t("config.mergeSettings.avsmixWarning") }}</p>
+          <p>{{ t("config.mergeSettings.mergePageHint") }}</p>
+        </div>
+      </div>
+
       <!-- Intro / Outro -->
       <SplitDropZone
         :left-label="t('config.mergeSettings.introVideo')"

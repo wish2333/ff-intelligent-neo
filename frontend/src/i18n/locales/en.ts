@@ -310,6 +310,8 @@ export default {
       clickOrDragOutro: "Click or drag outro video here",
       activeNotice: "Intro/outro is active. All tasks added to the queue will be wrapped with intro/outro.",
       inactiveNotice: "No intro/outro set. All tasks will process files normally.",
+      avsmixWarning: "Note: If a task also has Audio/Subtitle Mix enabled, the intro/outro pipeline will ignore audio/subtitle settings.",
+      mergePageHint: "To concatenate multiple videos, use the dedicated Video Merge page in the left navigation.",
     },
 
     encoder: {
@@ -357,7 +359,7 @@ export default {
       transcode: "Transcode",
       filters: "Filters",
       clip: "Clip",
-      merge: "Merge",
+      merge: "Intro / Outro",
     },
 
     resetAll: "Reset All",

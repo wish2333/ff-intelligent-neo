@@ -1288,6 +1288,25 @@ def validate_config(
                 "message": "Subtitle language code is recommended for proper playback.",
             })
 
+    # Cross-check: merge + avsmix coexistence
+    if config.avsmix and config.merge:
+        has_intro_outro = config.merge.intro_path or config.merge.outro_path
+        has_concat = len(config.merge.file_list) >= 2
+        if has_concat:
+            issues.append({
+                "level": "error",
+                "param": "merge",
+                "message": "Multi-file concat and audio/subtitle mixing cannot coexist. "
+                           "Process merge first, then apply audio/subtitle to the result.",
+            })
+        elif has_intro_outro:
+            issues.append({
+                "level": "warning",
+                "param": "avsmix",
+                "message": "Intro/outro wrapping will ignore audio/subtitle settings. "
+                           "The intro/outro pipeline uses its own audio normalization.",
+            })
+
     errors = [{"param": i.get("param", ""), "message": i["message"]} for i in issues if i["level"] == "error"]
     warnings = [{"param": i.get("param", ""), "message": i["message"]} for i in issues if i["level"] == "warning"]
 

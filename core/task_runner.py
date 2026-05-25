@@ -107,15 +107,23 @@ class TaskRunner:
         if config is not None:
             incoming = TaskConfig.from_dict(config)
             current = task.config
-            # Preserve the task's sub-configs (merge, avsmix, clip, custom_command)
-            # so that a merge task added from MergePage keeps its own merge config
-            # rather than being overwritten by the global config (which may only
-            # have intro/outro from the Config page).
+
+            # Merge resolution: 3-tier priority
+            # 1. Multi-file concat tasks always keep their own merge config
+            # 2. Tasks with their own intro/outro keep theirs (local wins)
+            # 3. Tasks with no merge config inherit global intro/outro
+            has_local_concat = current.merge and len(current.merge.file_list) >= 2
+            if has_local_concat:
+                resolved_merge = current.merge
+            else:
+                has_local_intro_outro = current.merge and (current.merge.intro_path or current.merge.outro_path)
+                resolved_merge = current.merge if has_local_intro_outro else incoming.merge
+
             task.config = TaskConfig(
                 transcode=incoming.transcode,
                 filters=incoming.filters,
                 clip=incoming.clip or current.clip,
-                merge=current.merge or incoming.merge,
+                merge=resolved_merge,
                 avsmix=current.avsmix or incoming.avsmix,
                 custom_command=current.custom_command or incoming.custom_command,
                 output_dir=incoming.output_dir or current.output_dir,
