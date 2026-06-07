@@ -1,133 +1,128 @@
 # 更新记录 v2.2.5
 
 - 日期: 2026-06-07
-- 分支: dev-2.2.4
-- 类型: 修复 (fix) + 功能 (feat)
+- 分支: dev-2.2.5
+- 类型: 修复 (fix) + 新功能 (feat)
 
 ---
 
 ## 变更概述
 
-修复音视频混流页字幕功能的 map 索引错误，新增字幕压制模式（Burn Mode），支持将 ASS 特效字幕烧录到视频中。
+修复音视频混流页字幕 map 索引硬编码错误，新增字幕压制（burn）模式，将特效字幕烧录到画面中。
 
-## 问题背景
+---
 
-用户在音视频混流页选择字幕文件后执行任务时，FFmpeg 报错：
+## v2.2.5 变更详情
 
-```
-Invalid input file index: 2.
-Failed to set value '2:s' for option 'map': Invalid argument
-```
-
-根因分析发现三个问题：
-1. **map 索引硬编码**: 代码始终使用 `-map 2:s`，但当没有外挂音频时字幕实际是 input #1
-2. **仅支持软嵌入**: 当前只支持将字幕作为独立轨道嵌入容器（`-c:s mov_text`），无法压制 ASS 特效字幕
-3. **缺少模式选择**: UI 没有提供字幕处理模式的选择
-
-## 变更详情
-
-### 1. 修复 embed 模式 map 索引计算 (BUG FIX)
+### 1. 修复字幕 map 索引硬编码错误 (CRITICAL)
 
 **文件**: `core/command_builder.py`
 
-- 原: 硬编码 `map_directives.extend(["-map", "2:s", ...])`
-- 新: 动态计算 `sub_idx`，无外挂音频时为 `1:s`，有外挂音频时为 `2:s`
+- embed 模式下字幕 map 索引原硬编码为 `2:s`，当音频文件和字幕文件输入顺序变化时会导致 FFmpeg 报错
+- 改为根据实际输入文件数量动态计算字幕流的 map 索引
 
-```python
-sub_idx = 1  # input #0 is video
-if avsmix.external_audio_path:
-    sub_idx = 2  # input #1 is external audio
-map_directives.extend(["-map", f"{sub_idx}:s", "-c:s", "mov_text"])
-```
+### 2. 新增字幕压制（burn）模式 (feat)
 
-### 2. 新增 subtitle_mode 字段 (FEATURE)
+**文件**: `core/models.py`, `core/command_builder.py`, `frontend/src/pages/AudioSubtitlePage.vue`, `frontend/src/types/config.ts`, `frontend/src/i18n/locales/zh-CN.ts`, `frontend/src/i18n/locales/en.ts`
 
-**文件**: `core/models.py`, `frontend/src/types/config.ts`, `frontend/src/composables/useGlobalConfig.ts`
+- `AudioSubtitleConfig` 新增 `subtitle_mode` 字段，支持两种模式:
+  - `embed` - 软字幕封装（原有行为）
+  - `burn` - 字幕压制，使用 FFmpeg `subtitles` 滤镜将字幕烧录到画面中
+- burn 模式自动移除 `-c:v copy` 以确保视频重新编码
+- 新增 `_ffmpeg_filter_escape_path` 辅助函数处理 Windows 路径中的特殊字符（方括号等）
+- 新增 `_inject_subtitle_burn_filter` 支持字幕压制滤镜与现有滤镜链（裁剪/水印等）组合使用
+- 前端音视频混流页新增字幕模式单选选择器，支持中英文切换
 
-- `AudioSubtitleConfig` 新增 `subtitle_mode: str = "embed"` 字段
-- 可选值: `"embed"`（软字幕嵌入）或 `"burn"`（压制到画面）
-- `from_dict()` 使用 `.get("subtitle_mode", "embed")` 保证向后兼容已保存的配置
-
-### 3. 实现 burn 模式命令构建 (FEATURE)
+### 3. 简化 build_avsmix_command 逻辑 (refactor)
 
 **文件**: `core/command_builder.py`
 
-新增三个辅助函数:
+- `build_avsmix_command` 委托给 `build_command`，避免重复的命令构建逻辑
 
-- `_ffmpeg_filter_escape_path(path)`: 转义路径用于 FFmpeg 滤镜语法
-  - `\` → `/`（跨平台兼容）
-  - `'` → `'\\''`（处理路径中的单引号）
-  - `:` → `\:`（转义 FFmpeg 滤镜分隔符）
-  - 外层用单引号包裹
-- `_inject_subtitle_burn_filter(filter_args, burn_filter)`: 将字幕滤镜注入已有的 filter_args
-  - 有 `-vf` 时追加到链尾
-  - 有 `-filter_complex`（水印）时插入到 overlay 之前的视频链中
-  - 无滤镜时新建 `-vf`
-- `_remove_copy_codec_pair(args, codec_flag)`: 移除 `-c:v copy` 键值对，因为 burn 模式强制需要重新编码
+---
 
-burn 模式生成的命令示例:
-```
-ffmpeg -i input.mp4 -c:v av1_nvenc -c:a aac -vf subtitles='Q\:/path/to/sub.ass' -y output.mp4
-```
+## v2.2.4 变更详情（未发布）
 
-### 4. burn 模式 + copy 编码器冲突校验 (SAFETY)
+### 1. 修复 loadFromTaskConfig 状态残留与模式覆盖 (HIGH)
 
-**文件**: `core/command_builder.py`
+**文件**: `frontend/src/composables/useGlobalConfig.ts`
 
-- `validate_config` 新增校验: burn 模式 + `video_codec == "copy"` → 警告提示
-- 命令构建时自动移除 `-c:v copy`，确保视频被正确重新编码
+- 加载预设或编辑任务时，先重置 clip/merge/avsmix/customCommand 到默认值，再按优先级决定 activeMode
+- 优先级: custom > merge(多文件拼接) > avsmix > clip > merge(仅片头片尾) > transcode
+- 修复了加载同时包含 clip 和 avsmix 的预设时，activeMode 被最后一个匹配项覆盖的问题
 
-### 5. 新增字幕模式选择 UI (FEATURE)
+### 2. 新增 createBaseTaskConfig 公共基础配置函数 (LOW)
 
-**文件**: `frontend/src/pages/AudioSubtitlePage.vue`
+**文件**: `frontend/src/composables/useGlobalConfig.ts`
 
-- 字幕文件选择后显示模式单选按钮:
-  - "嵌入（软字幕）" — 将字幕作为独立轨道嵌入，播放时可开关
-  - "压制（内嵌字幕）" — 将特效字幕烧录到画面中，需要重新编码
-- burn 模式下自动隐藏语言代码字段（不适用）
+- 导出 `createBaseTaskConfig()` 函数，返回包含 transcode + filters + output_dir 的基础 TaskConfigDTO
+- MergePage 使用此函数替代手写基础配置，确保所有页面的公共参数源自同一来源
 
-### 6. 国际化文本 (FEATURE)
+### 3. MergePage 使用公共基础配置 (LOW)
 
-**文件**: `frontend/src/i18n/locales/zh-CN.ts`, `frontend/src/i18n/locales/en.ts`
+**文件**: `frontend/src/pages/MergePage.vue`
 
-新增翻译键:
-- `avMix.subtitle.mode`: 字幕模式 / Subtitle Mode
-- `avMix.subtitle.modeEmbed`: 嵌入（软字幕） / Embed (Soft Subtitle)
-- `avMix.subtitle.modeEmbedHint`: 将字幕作为独立轨道嵌入容器，可开关显示
-- `avMix.subtitle.modeBurn`: 压制（内嵌字幕） / Burn (Hardcode)
-- `avMix.subtitle.modeBurnHint`: 将特效字幕烧录到画面中，需要重新编码视频
+- `handleAddToQueue` 中使用 `createBaseTaskConfig()` 替代手动展开 transcode/filters
 
-### 7. 简化 build_avsmix_command (REFACTOR)
+### 4. 新增 merge + avsmix 共存校验 (HIGH)
 
 **文件**: `core/command_builder.py`
 
-- `build_avsmix_command()` 原实现与 `build_command()` 存在重复逻辑且从未被外部调用
-- 简化为直接委托 `build_command()`，该函数已原生处理 avsmix 的所有模式
+- `validate_config` 新增跨配置校验:
+  - 多文件拼接 (file_list >= 2) + avsmix 共存 -> error（阻断级）
+  - 片头片尾 (intro/outro) + avsmix 共存 -> warning（提示级）
+- 修复了 merge 和 avsmix 同时存在时 avsmix 被静默忽略、用户无任何提示的问题
 
-### 8. 字段文档更新
+### 5. 修复 task_runner 合并优先级策略 (MEDIUM)
 
-**文件**: `docs/fields/AudioSubtitleConfig.csv`
+**文件**: `core/task_runner.py`
 
-- 新增 `subtitle_mode` 字段定义
+- 原逻辑 `current.merge or incoming.merge` 会导致全局片头片尾覆盖任务本地配置
+- 新逻辑采用三层判定:
+  1. 多文件拼接任务 (file_list >= 2) -> 保留任务本地配置
+  2. 任务自带片头片尾 -> 保留任务本地配置（本地优先）
+  3. 无本地 merge 配置 -> 继承全局片头片尾
+
+### 6. 配置页标签重命名 + 使用提示 (LOW)
+
+**文件**: `frontend/src/components/config/MergeSettingsForm.vue`, `frontend/src/i18n/locales/en.ts`, `frontend/src/i18n/locales/zh-CN.ts`
+
+- 配置页标签从 "Merge"/"合并" 更名为 "Intro / Outro"/"片头片尾"
+- MergeSettingsForm 顶部新增信息提示横幅，说明全局片头片尾作用范围及与 avsmix 的管线冲突
 
 ---
 
 ## 变更文件清单
 
+### v2.2.5
+
 | 文件 | 变更类型 |
 |------|----------|
 | `core/models.py` | 新增字段 |
 | `core/command_builder.py` | 修复 + 新增 + 重构 |
-| `frontend/src/types/config.ts` | 新增字段 |
-| `frontend/src/composables/useGlobalConfig.ts` | 新增默认值 |
 | `frontend/src/pages/AudioSubtitlePage.vue` | UI 新增 |
+| `frontend/src/types/config.ts` | 类型新增 |
 | `frontend/src/i18n/locales/zh-CN.ts` | 文案新增 |
 | `frontend/src/i18n/locales/en.ts` | 文案新增 |
 | `docs/fields/AudioSubtitleConfig.csv` | 文档更新 |
 
+### v2.2.4（未发布）
+
+| 文件 | 变更类型 |
+|------|----------|
+| `frontend/src/composables/useGlobalConfig.ts` | 修复 + 新增 |
+| `frontend/src/pages/MergePage.vue` | 重构 |
+| `core/command_builder.py` | 新增校验 |
+| `core/task_runner.py` | 修复 |
+| `frontend/src/components/config/MergeSettingsForm.vue` | UI 更新 |
+| `frontend/src/i18n/locales/en.ts` | 文案更新 |
+| `frontend/src/i18n/locales/zh-CN.ts` | 文案更新 |
+
 ---
 
 ## Commit Message
+
+### v2.2.5
 
 ```
 fix: 修复字幕 map 索引错误，新增字幕压制模式
@@ -141,21 +136,34 @@ fix: 修复字幕 map 索引错误，新增字幕压制模式
 - 简化 build_avsmix_command 委托给 build_command 避免重复逻辑
 ```
 
+### v2.2.4
+
+```
+fix: 修复音视频混流与配置页组合冲突逻辑
+
+- 修复 loadFromTaskConfig 状态残留，采用 reset + 优先级链决定 activeMode
+- 新增 merge+avsmix 共存校验（concat 为 error，intro/outro 为 warning）
+- 修复 task_runner 合并优先级，三层判定防止全局配置覆盖任务本地配置
+- 配置页 Merge 标签重命名为 Intro/Outro，新增使用引导提示
+- 导出 createBaseTaskConfig 公共函数统一基础配置来源
+```
+
 ---
 
-## 验证结果
+## Release Notes (v2.2.4 + v2.2.5 合并发布)
 
-### 命令构建测试
+### 修复
 
-| 场景 | 生成的关键参数 | 状态 |
-|------|----------------|------|
-| burn 模式 | `-vf subtitles='Q\:/test.ass'` | 正确 |
-| embed 模式（无音频） | `-map 1:s -c:s mov_text` | 正确（原为 2:s） |
-| embed 模式 + 外挂音频 | `-map 0:v -map 1:a -map 2:s` | 正确 |
-| burn + copy 编码器 | `-c:v copy` 已移除，仅保留 `-vf` | 正确 |
-| burn + 音频 + copy | `-vf subtitles=... -map 0:v -map 1:a` | 正确 |
+- **字幕 map 索引错误**: 修复音视频混流页软字幕模式下，字幕流索引硬编码为 2:s 导致 FFmpeg 报错的问题，改为根据实际输入文件动态计算
+- **配置加载状态残留**: 加载预设或编辑任务时，残留的旧模式状态不再干扰当前页面高亮
+- **混流静默丢失**: 同时设置片头片尾和音频/字幕混流时，命令预览现在会显示明确的警告提示，而非静默忽略混流设置
+- **全局配置覆盖任务配置**: 全局片头片尾不再覆盖队列中已有独立片头片尾的任务配置
 
-### 构建验证
+### 新功能
 
-- 前端 `bun run build`: 通过
-- 后端 `from core.command_builder import *`: 导入成功
+- **字幕压制模式**: 音视频混流页新增字幕压制（burn）模式，可将 ASS/SRT 等特效字幕直接烧录到画面中，支持与裁剪/水印等滤镜链组合使用
+
+### 改进
+
+- **配置页标签**: "合并" 标签更名为 "片头片尾"，更准确反映其功能定位
+- **使用引导**: 片头片尾设置区域新增信息提示，说明与音频/字幕混流的冲突关系及多视频合并的正确入口
