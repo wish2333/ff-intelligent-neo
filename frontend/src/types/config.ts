@@ -55,6 +55,7 @@ export interface AudioSubtitleConfigDTO {
   external_audio_path: string
   subtitle_path: string
   subtitle_language: string
+  subtitle_mode: string // "embed" (soft subtitle) or "burn" (hardcode into video)
   replace_audio: boolean
 }
 

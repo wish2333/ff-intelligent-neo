@@ -389,6 +389,11 @@ export default {
       languagePlaceholder: "e.g. eng, chi, jpn",
       languageHint: "ISO 639-2 language code for metadata (optional)",
       dropHint: "Drop subtitle file here or click to select",
+      mode: "Subtitle Mode",
+      modeEmbed: "Embed (Soft Subtitle)",
+      modeEmbedHint: "Add subtitle as a separate track, toggleable during playback",
+      modeBurn: "Burn (Hardcode)",
+      modeBurnHint: "Burn subtitle effects into video, requires re-encoding",
     },
   },
 

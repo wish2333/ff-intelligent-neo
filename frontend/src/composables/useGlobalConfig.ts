@@ -70,6 +70,7 @@ const DEFAULT_AVSMIX: AudioSubtitleConfigDTO = {
   external_audio_path: "",
   subtitle_path: "",
   subtitle_language: "",
+  subtitle_mode: "embed",
   replace_audio: true,
 }
 

@@ -145,8 +145,40 @@ onMounted(() => {
                 <button class="btn btn-xs btn-ghost text-error" @click.stop="avsmix.subtitle_path = ''">{{ t("common.clear") }}</button>
               </div>
             </div>
-            <!-- Subtitle Language -->
-            <div v-if="avsmix.subtitle_path" class="form-control mt-2">
+            <!-- Subtitle Mode -->
+            <div v-if="avsmix.subtitle_path" class="form-control mt-3">
+              <label class="label py-1">
+                <span class="label-text text-xs">{{ t("avMix.subtitle.mode") }}</span>
+              </label>
+              <div class="flex flex-col gap-2">
+                <label class="label cursor-pointer justify-start gap-2 py-1">
+                  <input
+                    v-model="avsmix.subtitle_mode"
+                    type="radio"
+                    value="embed"
+                    class="radio radio-xs radio-primary"
+                  />
+                  <div>
+                    <span class="label-text text-xs">{{ t("avMix.subtitle.modeEmbed") }}</span>
+                    <p class="text-xs text-base-content/50 mt-0.5">{{ t("avMix.subtitle.modeEmbedHint") }}</p>
+                  </div>
+                </label>
+                <label class="label cursor-pointer justify-start gap-2 py-1">
+                  <input
+                    v-model="avsmix.subtitle_mode"
+                    type="radio"
+                    value="burn"
+                    class="radio radio-xs radio-primary"
+                  />
+                  <div>
+                    <span class="label-text text-xs">{{ t("avMix.subtitle.modeBurn") }}</span>
+                    <p class="text-xs text-base-content/50 mt-0.5">{{ t("avMix.subtitle.modeBurnHint") }}</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+            <!-- Subtitle Language (embed mode only) -->
+            <div v-if="avsmix.subtitle_path && avsmix.subtitle_mode !== 'burn'" class="form-control mt-2">
               <label class="label py-1">
                 <span class="label-text text-xs">{{ t("avMix.subtitle.languageCode") }}</span>
               </label>

@@ -32,6 +32,73 @@ def _subprocess_quote(path: str) -> str:
     return path
 
 
+def _ffmpeg_filter_escape_path(path: str) -> str:
+    """Escape a file path for use inside an FFmpeg filter value (e.g. subtitles=...).
+
+    FFmpeg filter syntax uses ``:`` as a key-value separator and ``,`` as
+    a filter separator, so colons must be escaped with ``\\:``.
+    Backslashes are converted to forward slashes for cross-platform safety.
+    Single quotes inside the path are escaped for the surrounding quote wrapper.
+    """
+    p = path.replace("\\", "/")
+    p = p.replace("'", "'\\''")  # escape single quotes for the wrapper
+    p = p.replace(":", "\\:")
+    return f"'{p}'"
+
+
+def _inject_subtitle_burn_filter(filter_args: list[str], burn_filter: str) -> None:
+    """Inject subtitle burn filter into existing filter_args list (in-place).
+
+    Subtitles are appended to the video filter chain (after crop/rotate/scale,
+    before watermark overlay if present).
+
+    Handles three cases:
+    1. Has ``-vf``: append to existing video filter chain
+    2. Has ``-filter_complex`` (watermark): insert into video chain before overlay
+    3. No video filters: add new ``-vf``
+    """
+    for i in range(len(filter_args)):
+        if filter_args[i] == "-vf" and i + 1 < len(filter_args):
+            # Case 1: Append to existing -vf chain
+            filter_args[i + 1] = filter_args[i + 1] + "," + burn_filter
+            return
+        if filter_args[i] == "-filter_complex" and i + 1 < len(filter_args):
+            fc = filter_args[i + 1]
+            if "[tmp]" in fc:
+                # Pattern: [0:v]{chain}[tmp];[tmp][1:v]{overlay}
+                # Insert burn filter before [tmp] in the video chain
+                parts = fc.split("[tmp]", 1)
+                filter_args[i + 1] = parts[0] + "," + burn_filter + "[tmp]" + parts[1]
+            else:
+                # Pattern: [0:v][1:v]{overlay} (no intermediate chain)
+                # Add burn filter as a new step before overlay
+                filter_args[i + 1] = fc.replace(
+                    "[0:v]", f"[0:v]{burn_filter}[vsub];[vsub]", 1
+                )
+            return
+    # Case 3: No existing video filters -- add new -vf
+    filter_args.extend(["-vf", burn_filter])
+
+
+def _remove_copy_codec_pair(args: list[str], codec_flag: str) -> list[str]:
+    """Remove a ``-c:v copy`` (or similar) pair from an argument list.
+
+    Returns a new list with the flag and its ``copy`` value removed.
+    Used when subtitle burn mode forces video re-encoding.
+    """
+    result: list[str] = []
+    skip_next = False
+    for i, arg in enumerate(args):
+        if skip_next:
+            skip_next = False
+            continue
+        if arg == codec_flag and i + 1 < len(args) and args[i + 1] == "copy":
+            skip_next = True  # skip the "copy" value on next iteration
+            continue
+        result.append(arg)
+    return result
+
+
 def _preview_quote(path: str) -> str:
     """Quote a path for display in the command preview string.
 
@@ -804,49 +871,16 @@ def build_avsmix_command(
 ) -> list[str]:
     """Build FFmpeg command with external audio and subtitle mixing.
 
+    Delegates to :func:`build_command` which handles avsmix natively,
+    including subtitle burn mode (``subtitles`` filter) and embed mode
+    (soft subtitle stream with correct ``-map`` index).
+
     Args:
         config: Task configuration (uses avsmix sub-config + transcode/filters).
         input_path: Source video file.
         output_path: Destination file.
     """
-    avsmix = config.avsmix
-    if not avsmix:
-        return build_command(config, input_path, output_path)
-
-    # Build base transcode + filter command
-    base = build_command(config, input_path, output_path)
-
-    # Insert extra inputs before output, add map directives
-    extra_inputs: list[str] = []
-    map_directives: list[str] = []
-
-    if avsmix.external_audio_path:
-        extra_inputs.extend(["-i", avsmix.external_audio_path])
-        if avsmix.replace_audio:
-            map_directives.extend(["-map", "0:v", "-map", "1:a"])
-
-    if avsmix.subtitle_path:
-        extra_inputs.extend(["-i", avsmix.subtitle_path])
-        map_directives.extend(["-map", "2:s", "-c:s", "mov_text"])
-        if avsmix.subtitle_language:
-            map_directives.extend(["-metadata:s:s:0", f"language={avsmix.subtitle_language}"])
-
-    # Insert before "-y output_path" at the end
-    if not extra_inputs:
-        return base
-
-    # Rebuild: args up to transcode, add extra inputs, add filters, add maps, add output
-    # The base command structure is: [global_opts, -i input, extra_inputs, transcode, filters, -y output]
-    result = list(base)
-    # Find the "-y" before output and insert extra_inputs + maps there
-    # Simple approach: remove last 2 items (-y, output), insert, then re-add
-    result = result[:-2]
-
-    result.extend(extra_inputs)
-    result.extend(map_directives)
-    result.extend(["-y", output_path])
-
-    return result
+    return build_command(config, input_path, output_path)
 
 
 def build_merge_intro_outro_command(
@@ -1099,10 +1133,26 @@ def build_command(
                 map_directives.extend(["-map", "0:v", "-map", "1:a"])
 
         if avsmix.subtitle_path:
-            avsmix_inputs.extend(["-i", _subprocess_quote(avsmix.subtitle_path)])
-            map_directives.extend(["-map", "2:s", "-c:s", "mov_text"])
-            if avsmix.subtitle_language:
-                map_directives.extend(["-metadata:s:s:0", f"language={avsmix.subtitle_language}"])
+            if avsmix.subtitle_mode == "burn":
+                # Burn mode: hardcode subtitles into video via subtitles filter.
+                # The filter must be the LAST video processing step (after
+                # crop/rotate/scale, but before watermark overlay).
+                escaped = _ffmpeg_filter_escape_path(avsmix.subtitle_path)
+                burn_filter = f"subtitles={escaped}"
+                _inject_subtitle_burn_filter(filter_args, burn_filter)
+                # Burn mode forces video re-encode: remove -c:v copy pair
+                transcode_args = _remove_copy_codec_pair(transcode_args, "-c:v")
+            else:
+                # Embed mode: soft subtitle as a separate stream
+                avsmix_inputs.extend(["-i", _subprocess_quote(avsmix.subtitle_path)])
+                # Calculate subtitle input index dynamically
+                sub_idx = 1  # input #0 is video
+                if avsmix.external_audio_path:
+                    sub_idx = 2  # input #1 is external audio
+                map_directives.extend(["-map", f"{sub_idx}:s", "-c:s", "mov_text"])
+                if avsmix.subtitle_language:
+                    map_directives.extend(["-metadata:s:s:0",
+                                           f"language={avsmix.subtitle_language}"])
 
         args = list(clip_time_args)
         args.extend(["-i", _subprocess_quote(input_path)])
@@ -1281,12 +1331,20 @@ def validate_config(
     # Validate avsmix config
     if config.avsmix:
         avsmix = config.avsmix
-        if avsmix.subtitle_path and not avsmix.subtitle_language:
+        if avsmix.subtitle_path and avsmix.subtitle_mode == "embed" and not avsmix.subtitle_language:
             issues.append({
                 "level": "warning",
                 "param": "subtitle_language",
                 "message": "Subtitle language code is recommended for proper playback.",
             })
+        if avsmix.subtitle_path and avsmix.subtitle_mode == "burn":
+            if tc.video_codec == "copy":
+                issues.append({
+                    "level": "warning",
+                    "param": "video_codec",
+                    "message": "Video codec is 'copy' but subtitle burn mode requires "
+                               "re-encoding. The copy flag will be overridden.",
+                })
 
     # Cross-check: merge + avsmix coexistence
     if config.avsmix and config.merge:
