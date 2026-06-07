@@ -30,6 +30,7 @@ export default {
     noVersionsFound: "No FFmpeg versions found. Click \"Auto Detect\" or \"Select...\" to set up FFmpeg.",
     confirmDownload: "Confirm Download",
     confirmDownloadDesc: "This will download FFmpeg and overwrite the current version. Continue?",
+    orInstallViaHomebrew: "Or install via Homebrew",
   },
 
   settings: {
@@ -73,6 +74,9 @@ export default {
       selectBinaryTitle: "Select auto-editor binary",
       currentPath: "Current path:",
       downloadAutoEditor: "Download Auto-Editor",
+      confirmDownload: "Confirm Download",
+      confirmDownloadDesc: "This will download Auto-Editor to the application directory. Continue?",
+      confirmRedownloadDesc: "Auto-Editor is already installed (v{version}). This will re-download and overwrite it. Continue?",
     },
   },
 
@@ -306,6 +310,8 @@ export default {
       clickOrDragOutro: "Click or drag outro video here",
       activeNotice: "Intro/outro is active. All tasks added to the queue will be wrapped with intro/outro.",
       inactiveNotice: "No intro/outro set. All tasks will process files normally.",
+      avsmixWarning: "Note: If a task also has Audio/Subtitle Mix enabled, the intro/outro pipeline will ignore audio/subtitle settings.",
+      mergePageHint: "To concatenate multiple videos, use the dedicated Video Merge page in the left navigation.",
     },
 
     encoder: {
@@ -353,7 +359,7 @@ export default {
       transcode: "Transcode",
       filters: "Filters",
       clip: "Clip",
-      merge: "Merge",
+      merge: "Intro / Outro",
     },
 
     resetAll: "Reset All",

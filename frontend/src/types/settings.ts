@@ -10,9 +10,3 @@ export interface AppSettingsDTO {
   language: string
 }
 
-export interface FfmpegInstallInfo {
-  method: string
-  command: string
-  url?: string
-}
-

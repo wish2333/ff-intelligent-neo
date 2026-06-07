@@ -329,7 +329,7 @@ def discover_ffmpeg_versions() -> list[dict]:
       2. Local ``./ffmpeg/`` directory
       3. Platform-known paths (macOS/Linux only, ``is_file`` check)
       4. System PATH (``shutil.which``)
-      5. ``static_ffmpeg`` package directory (Windows only)
+      5. ``static_ffmpeg`` package directory (all desktop platforms)
       6. Bundled binary (PyInstaller frozen only)
 
     Returns a list of dicts:
@@ -380,8 +380,8 @@ def discover_ffmpeg_versions() -> list[dict]:
     if path_ff:
         _add(path_ff, "PATH")
 
-    # 5. static_ffmpeg (Windows only)
-    if sys.platform == "win32":
+    # 5. static_ffmpeg (all desktop platforms)
+    if sys.platform in ("win32", "darwin", "linux"):
         static_ff = _find_static_ffmpeg_bin("ffmpeg")
         if static_ff:
             _add(static_ff, "Static FFmpeg")
