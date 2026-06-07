@@ -389,6 +389,11 @@ export default {
       languagePlaceholder: "例如 eng, chi, jpn",
       languageHint: "ISO 639-2 语言代码用于元数据（可选）",
       dropHint: "拖放字幕文件到此处或点击选择",
+      mode: "字幕模式",
+      modeEmbed: "嵌入（软字幕）",
+      modeEmbedHint: "将字幕作为独立轨道嵌入容器，可开关显示",
+      modeBurn: "压制（内嵌字幕）",
+      modeBurnHint: "将特效字幕烧录到画面中，需要重新编码视频",
     },
   },
 

@@ -229,6 +229,7 @@ class AudioSubtitleConfig:
     external_audio_path: str = ""
     subtitle_path: str = ""
     subtitle_language: str = ""
+    subtitle_mode: str = "embed"  # "embed" (soft subtitle) or "burn" (hardcode into video)
     replace_audio: bool = True
 
     def to_dict(self) -> dict:
@@ -236,6 +237,7 @@ class AudioSubtitleConfig:
             "external_audio_path": self.external_audio_path,
             "subtitle_path": self.subtitle_path,
             "subtitle_language": self.subtitle_language,
+            "subtitle_mode": self.subtitle_mode,
             "replace_audio": self.replace_audio,
         }
 
@@ -245,6 +247,7 @@ class AudioSubtitleConfig:
             external_audio_path=data.get("external_audio_path", ""),
             subtitle_path=data.get("subtitle_path", ""),
             subtitle_language=data.get("subtitle_language", ""),
+            subtitle_mode=data.get("subtitle_mode", "embed"),
             replace_audio=data.get("replace_audio", True),
         )
 
