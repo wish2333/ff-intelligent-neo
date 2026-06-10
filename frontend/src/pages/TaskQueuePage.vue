@@ -5,7 +5,7 @@
  * Full task queue UI with file add/remove, task control,
  * real-time progress, drag-and-drop, and log viewing.
  */
-import { onMounted, ref, computed } from "vue"
+import { onMounted, ref, computed, nextTick } from "vue"
 import { useI18n } from "vue-i18n"
 import { call, waitForPyWebView } from "../bridge"
 import { logError } from "../utils/logger"
@@ -32,6 +32,7 @@ const fileDrop = useFileDrop()
 const globalConfig = useGlobalConfig()
 
 const activeLogTaskId = ref<string | null>(null)
+const taskListRef = ref<InstanceType<typeof TaskList> | null>(null)
 const isReady = ref(false)
 
 const logContents = computed(() => {
@@ -47,6 +48,8 @@ onMounted(async () => {
     logError("TaskQueuePage", "mount failed", err)
   } finally {
     isReady.value = true
+    await nextTick()
+    void taskListRef.value?.scrollToBottom()
   }
 })
 
@@ -61,6 +64,7 @@ async function handleAddFiles(): Promise<void> {
     }
     if (!res.data || res.data.length === 0) return
     await queue.addTasks(res.data, globalConfig.toTaskConfig())
+    void taskListRef.value?.scrollToBottom()
   } catch (err) {
     logError("TaskQueuePage", "handleAddFiles error", err)
   }
@@ -71,6 +75,7 @@ async function handleDrop(): Promise<void> {
     const paths = await fileDrop.onDrop()
     if (paths.length > 0) {
       await queue.addTasks(paths, globalConfig.toTaskConfig())
+      void taskListRef.value?.scrollToBottom()
     }
   } catch (err) {
     logError("TaskQueuePage", "handleDrop error", err)
@@ -125,7 +130,7 @@ async function handleMoveDown(taskId: string): Promise<void> {
 
 <template>
   <div
-    class="page-scroll flex min-h-0 flex-1 flex-col gap-3 p-4 overflow-y-auto"
+    class="page-scroll flex min-h-0 flex-1 flex-col gap-3 p-4"
     @dragenter="fileDrop.onDragEnter"
     @dragover="fileDrop.onDragOver"
     @dragleave="fileDrop.onDragLeave"
@@ -183,6 +188,7 @@ async function handleMoveDown(taskId: string): Promise<void> {
 
     <!-- Task list -->
     <TaskList
+      ref="taskListRef"
       :tasks="queue.tasks.value"
       :selected-ids="queue.selectedIds.value"
       :progress-map="progress.progressMap.value"

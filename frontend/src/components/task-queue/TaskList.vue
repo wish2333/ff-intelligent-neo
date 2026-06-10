@@ -2,11 +2,25 @@
 /**
  * Scrollable task list table container.
  */
+import { ref, nextTick } from "vue"
 import { useI18n } from "vue-i18n"
 import TaskRow from "./TaskRow.vue"
 import type { TaskDTO, TaskProgressDTO } from "../../types/task"
 
 const { t } = useI18n()
+
+const scrollContainer = ref<HTMLElement | null>(null)
+
+/** Scroll the task list to the bottom (newest tasks). */
+async function scrollToBottom(): Promise<void> {
+  await nextTick()
+  const el = scrollContainer.value
+  if (el) {
+    el.scrollTop = el.scrollHeight
+  }
+}
+
+defineExpose({ scrollToBottom })
 
 defineProps<{
   tasks: TaskDTO[]
@@ -30,9 +44,9 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="flex-1 overflow-hidden rounded-lg border border-base-300">
+  <div ref="scrollContainer" class="flex-1 overflow-y-auto rounded-lg border border-base-300">
     <table class="table table-sm w-full">
-      <thead>
+      <thead class="sticky top-0 z-10 bg-base-200 shadow-sm">
         <tr>
           <th class="w-10 shrink-0">
             <input type="checkbox" class="checkbox checkbox-sm checkbox-primary" disabled />

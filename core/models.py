@@ -368,6 +368,7 @@ class Task:
     state: TaskState = "pending"
     progress: TaskProgress = field(default_factory=TaskProgress)
     output_path: str = ""
+    output_file_size_bytes: int = 0
     error: str = ""
     log_lines: list[str] = field(default_factory=list)
     created_at: str = field(
@@ -431,6 +432,7 @@ class Task:
             "state": self.state,
             "progress": self.progress.to_dict(),
             "output_path": self.output_path,
+            "output_file_size_bytes": self.output_file_size_bytes,
             "error": self.error,
             "log_lines": log_snapshot,
             "created_at": self.created_at,
@@ -462,6 +464,7 @@ class Task:
                 estimated_remaining=pr.get("estimated_remaining", ""),
             ),
             output_path=data.get("output_path", ""),
+            output_file_size_bytes=data.get("output_file_size_bytes", 0),
             error=data.get("error", ""),
             log_lines=data.get("log_lines", []),
             created_at=data.get("created_at", ""),
