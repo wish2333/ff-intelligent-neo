@@ -20,7 +20,7 @@ from core.process_control import kill_process_tree
 logger = get_logger()
 
 _TIME_RE = re.compile(r"time=(\d+):(\d+):(\d+)\.(\d+)")
-_SPEED_RE = re.compile(r"speed=\s*(\S+)")
+_SPEED_RE = re.compile(r"speed=\s*([\d.]+)")
 _FPS_RE = re.compile(r"fps=\s*(\S+)")
 
 

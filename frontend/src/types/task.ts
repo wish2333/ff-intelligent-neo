@@ -29,6 +29,7 @@ export interface TaskDTO {
   state: TaskState
   progress: TaskProgressDTO
   output_path: string
+  output_file_size_bytes: number
   error: string
   log_lines: string[]
   created_at: string

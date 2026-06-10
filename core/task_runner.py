@@ -356,6 +356,7 @@ class TaskRunner:
             task.error = ""
             task.progress = TaskProgress()
             task.output_path = ""
+            task.output_file_size_bytes = 0
             task.started_at = ""
             task.completed_at = ""
 
@@ -385,6 +386,7 @@ class TaskRunner:
             task.error = ""
             task.progress = TaskProgress()
             task.output_path = ""
+            task.output_file_size_bytes = 0
             task.log_lines = []
             task.started_at = ""
             task.completed_at = ""
@@ -624,6 +626,11 @@ class TaskRunner:
             logger.info("auto-editor completed (task {})", task_id)
             new_state: TaskState = "completed"
             task.error = ""
+            if task.output_path:
+                try:
+                    task.output_file_size_bytes = os.path.getsize(task.output_path)
+                except OSError:
+                    task.output_file_size_bytes = 0
         else:
             logger.error("auto-editor exited with code {} (task {})", returncode, task_id)
             new_state = "failed"
@@ -718,6 +725,11 @@ class TaskRunner:
         if success:
             new_state: TaskState = "completed"
             task.error = ""
+            if task.output_path:
+                try:
+                    task.output_file_size_bytes = os.path.getsize(task.output_path)
+                except OSError:
+                    task.output_file_size_bytes = 0
         else:
             new_state = "failed"
             task.error = error

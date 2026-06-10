@@ -109,8 +109,14 @@ async function openFolder(path: string): Promise<void> {
     </td>
 
     <!-- Progress -->
-    <td class="w-44 shrink-0 min-w-0">
-      <TaskProgressBar :progress="progress" />
+    <td class="w-60 shrink-0 min-w-0">
+      <TaskProgressBar
+        :progress="progress"
+        :task-state="task.state"
+        :input-file-size="task.file_size_bytes"
+        :output-file-size="task.output_file_size_bytes"
+        :task-progress="task.progress"
+      />
     </td>
 
     <!-- Actions -->
